@@ -60,7 +60,7 @@ export default function Hero() {
           </p>
 
           <p className="font-host-grotesk text-md mb-8 text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 to-teal-500  max-w-lg leading-tight">
-           powered by Solana and x402
+           powered by Base and x402
           </p>
 
           {/* CTA Buttons */}

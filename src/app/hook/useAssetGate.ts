@@ -28,8 +28,8 @@ export function useGetAssetGate(playbackId: string) {
         if (supabaseVideo) {
           // Convert Supabase video to Video interface
           const videoData: Video = {
-            playbackId: supabaseVideo.playback_id,
-            viewMode: supabaseVideo.view_mode,
+            playbackId: supabaseVideo.playbackId,
+            viewMode: supabaseVideo.viewMode,
             amount: supabaseVideo.amount || 0,
             assetName: supabaseVideo.assetName,
             creatorId: supabaseVideo.creatorId,

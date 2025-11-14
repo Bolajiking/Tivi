@@ -101,19 +101,35 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
         const supabaseUser = await getUserProfile(creatorId);
         
         if (supabaseUser) {
-          // Convert socialLinks array to object format
+          // Convert socialLinks from array of JSON strings to object format
+          // Input format: ["{\"twitter\":\"https://...\"}", "{\"instagram\":\"https://...\"}"]
+          // Output format: {twitter: "https://...", instagram: "https://..."}
           const socialLinksObj: CreatorProfileData['socialLinks'] = {};
-          supabaseUser.socialLinks?.forEach((link) => {
-            if (link.includes('twitter.com') || link.includes('x.com')) {
-              socialLinksObj.twitter = link;
-            } else if (link.includes('instagram.com')) {
-              socialLinksObj.instagram = link;
-            } else if (link.includes('youtube.com')) {
-              socialLinksObj.youtube = link;
-            } else {
-              socialLinksObj.website = link;
-            }
-          });
+          if (Array.isArray(supabaseUser.socialLinks)) {
+            supabaseUser.socialLinks.forEach((jsonString: string) => {
+              if (typeof jsonString === 'string') {
+                try {
+                  const parsed = JSON.parse(jsonString);
+                  // Each parsed object has one key-value pair like {"twitter": "https://..."}
+                  Object.keys(parsed).forEach((key) => {
+                    const value = parsed[key];
+                    if (key === 'twitter' && value) {
+                      socialLinksObj.twitter = value;
+                    } else if (key === 'instagram' && value) {
+                      socialLinksObj.instagram = value;
+                    } else if (key === 'youtube' && value) {
+                      socialLinksObj.youtube = value;
+                    } else if (key === 'website' && value) {
+                      socialLinksObj.website = value;
+                    }
+                  });
+                } catch (e) {
+                  // If parsing fails, skip this entry
+                  console.warn('Failed to parse social link JSON:', jsonString);
+                }
+              }
+            });
+          }
 
           // Convert Supabase format to CreatorProfileData
           const profileData: CreatorProfileData = {

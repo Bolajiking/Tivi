@@ -42,9 +42,9 @@ export function useStreamGate(playbackId: string) {
         if (supabaseStream) {
           // Convert Supabase stream to Stream interface
           const streamData: Stream = {
-            playbackId: supabaseStream.playback_id,
+            playbackId: supabaseStream.playbackId,
             creatorId: supabaseStream.creatorId,
-            viewMode: supabaseStream.view_mode,
+            viewMode: supabaseStream.viewMode,
             amount: supabaseStream.amount || 0,
             Users: supabaseStream.Users || [],
             description: supabaseStream.description || '',
@@ -54,7 +54,7 @@ export function useStreamGate(playbackId: string) {
             bgcolor: supabaseStream.bgcolor || '',
             color: supabaseStream.color || '',
             fontSize: supabaseStream.fontSize?.toString() || '',
-            fontFamily: supabaseStream.font_family || '',
+            fontFamily: supabaseStream.fontFamily || '',
             donation: supabaseStream.donations || [],
           };
           setStream(streamData);
@@ -63,12 +63,20 @@ export function useStreamGate(playbackId: string) {
             setHasAccess(true);
           }
         } else {
-          setError('Stream not found');
+          // Stream doesn't exist in Supabase yet - this is normal for newly created streams
+          // Don't set an error, just leave stream as null
+          setStream(null);
         }
       })
       .catch((err) => {
-        setError(err.message || 'Failed to fetch stream');
-        console.error('Error fetching stream:', err);
+        // Only set error for actual failures, not for missing streams
+        if (err.message && !err.message.includes('not found') && !err.message.includes('406')) {
+          setError(err.message || 'Failed to fetch stream');
+          console.error('Error fetching stream:', err);
+        } else {
+          // Stream not found - this is okay, might not be saved to Supabase yet
+          setStream(null);
+        }
       })
       .finally(() => setLoading(false));
   }, [playbackId]);
@@ -196,9 +204,9 @@ export function useGetStreamDetails(playbackId: string) {
         if (supabaseStream) {
           // Convert Supabase stream to Stream interface
           const streamData: Stream = {
-            playbackId: supabaseStream.playback_id,
+            playbackId: supabaseStream.playbackId,
             creatorId: supabaseStream.creatorId,
-            viewMode: supabaseStream.view_mode,
+            viewMode: supabaseStream.viewMode,
             amount: supabaseStream.amount || 0,
             Users: supabaseStream.Users || [],
             description: supabaseStream.description || '',
@@ -208,17 +216,24 @@ export function useGetStreamDetails(playbackId: string) {
             bgcolor: supabaseStream.bgcolor || '',
             color: supabaseStream.color || '',
             fontSize: supabaseStream.fontSize?.toString() || '',
-            fontFamily: supabaseStream.font_family || '',
+            fontFamily: supabaseStream.fontFamily || '',
             donation: supabaseStream.donations || [],
           };
           setStream(streamData);
         } else {
-          setError('Stream not found');
+          // Stream doesn't exist in Supabase yet - this is normal for newly created streams
+          setStream(null);
         }
       })
       .catch((err) => {
-        setError(err.message || 'Failed to fetch stream');
-        console.error('Error fetching stream:', err);
+        // Only set error for actual failures, not for missing streams
+        if (err.message && !err.message.includes('not found') && !err.message.includes('406')) {
+          setError(err.message || 'Failed to fetch stream');
+          console.error('Error fetching stream:', err);
+        } else {
+          // Stream not found - this is okay, might not be saved to Supabase yet
+          setStream(null);
+        }
       })
       .finally(() => setLoading(false));
   }, [playbackId]);

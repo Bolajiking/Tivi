@@ -107,8 +107,8 @@ export default function UploadVideoAsset({ onClose }: { onClose: () => void }) {
 
       try {
         await createVideo({
-          playback_id: playbackId,
-          view_mode: viewMode || 'free',
+          playbackId: playbackId,
+          viewMode: viewMode || 'free',
           amount: amount || null,
           assetName: name || title,
           creatorId: creatorId,

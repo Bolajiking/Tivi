@@ -64,9 +64,9 @@ export const createLivestream = createAsyncThunk(
 
       // Step 2: Save stream metadata to Supabase
       try {
-        await createStream({
-          playback_id: playbackId,
-          view_mode: viewMode || 'free',
+        const streamData = {
+          playbackId: playbackId,
+          viewMode: viewMode || 'free',
           description: description || null,
           amount: amount || null,
           streamName: name || streamName,
@@ -76,14 +76,27 @@ export const createLivestream = createAsyncThunk(
           bgcolor: bgcolor || null,
           color: color || null,
           fontSize: fontSize ? parseInt(fontSize) : null,
-          font_family: null,
+          fontFamily: null,
           Users: [],
           donations: donation || [],
-        });
+        };
+        
+        console.log('Attempting to save stream to Supabase:', streamData);
+        const supabaseResult = await createStream(streamData);
+        // console.log('Successfully saved stream to Supabase:', supabaseResult);
       } catch (supabaseError: any) {
-        console.error('Failed to save stream to Supabase:', supabaseError);
-        // Continue anyway - stream is created in Livepeer
-        // In production, you might want to handle this differently
+        // Log the full error for debugging
+        console.error('Failed to save stream to Supabase:', {
+          error: supabaseError,
+          message: supabaseError?.message,
+          details: supabaseError?.details,
+          hint: supabaseError?.hint,
+          code: supabaseError?.code,
+        });
+        
+        // Re-throw the error so the caller knows Supabase insertion failed
+        // The stream is created in Livepeer, but metadata wasn't saved
+        throw new Error(`Stream created in Livepeer but failed to save metadata to Supabase: ${supabaseError?.message || supabaseError}`);
       }
 
       return response.data;
@@ -99,44 +112,52 @@ export const getAllStreams = createAsyncThunk('streams/getAllStreams', async () 
   const response = await api.get('/stream');
   const streams = response.data;
 
-  // Step 2: Enrich each stream with metadata from Supabase
-  const enrichedStreams = await Promise.all(
-    streams.map(async (stream: any) => {
-      if (!stream.playbackId) {
-        return { ...stream, logo: '' };
+  // Step 2: Get all streams from Supabase in one query (much more efficient)
+  let supabaseStreamsMap: Map<string, any> = new Map();
+  try {
+    const supabaseStreams = await getAllStreamsFromSupabase();
+    // Create a map for O(1) lookup by playbackId
+    supabaseStreams.forEach((supabaseStream) => {
+      if (supabaseStream.playbackId) {
+        supabaseStreamsMap.set(supabaseStream.playbackId, supabaseStream);
       }
+    });
+  } catch (error) {
+    // If Supabase fetch fails, log but continue - streams will just have no metadata
+    console.warn('Failed to fetch streams from Supabase:', error);
+  }
 
-      try {
-        // Fetch stream details from Supabase
-        const supabaseStream = await getStreamByPlaybackId(stream.playbackId);
-        
-        if (supabaseStream) {
-          // Merge Supabase metadata into the stream
-          return {
-            ...stream,
-            logo: supabaseStream.logo || stream.logo || '',
-            title: supabaseStream.title || supabaseStream.streamName || stream.name || stream.title || '',
-            description: supabaseStream.description || stream.description || '',
-            viewMode: supabaseStream.view_mode || stream.viewMode || 'free',
-            amount: supabaseStream.amount || stream.amount || 0,
-            bgcolor: supabaseStream.bgcolor || stream.bgcolor || '',
-            color: supabaseStream.color || stream.color || '',
-            fontSize: supabaseStream.fontSize?.toString() || stream.fontSize || '',
-            fontFamily: supabaseStream.font_family || stream.fontFamily || '',
-            donation: supabaseStream.donations || stream.donation || [],
-            Users: supabaseStream.Users || stream.Users || [],
-          };
-        }
-        
-        // If no Supabase data, return stream as-is
-        return { ...stream, logo: stream.logo || '' };
-      } catch (error) {
-        // If Supabase fetch fails, return stream without metadata
-        console.warn(`Failed to fetch metadata for stream ${stream.playbackId}:`, error);
-        return { ...stream, logo: stream.logo || '' };
-      }
-    })
-  );
+  // Step 3: Enrich each Livepeer stream with metadata from Supabase
+  const enrichedStreams = streams.map((stream: any) => {
+    if (!stream.playbackId) {
+      return { ...stream, logo: '' };
+    }
+
+    // Look up Supabase metadata from the map
+    const supabaseStream = supabaseStreamsMap.get(stream.playbackId);
+    
+    if (supabaseStream) {
+      // Merge Supabase metadata into the stream
+      return {
+        ...stream,
+        logo: supabaseStream.logo || stream.logo || '',
+        title: supabaseStream.title || supabaseStream.streamName || stream.name || stream.title || '',
+        description: supabaseStream.description || stream.description || '',
+        viewMode: supabaseStream.viewMode || stream.viewMode || 'free',
+        amount: supabaseStream.amount || stream.amount || 0,
+        bgcolor: supabaseStream.bgcolor || stream.bgcolor || '',
+        color: supabaseStream.color || stream.color || '',
+        fontSize: supabaseStream.fontSize?.toString() || stream.fontSize || '',
+        fontFamily: supabaseStream.fontFamily || stream.fontFamily || '',
+        donation: supabaseStream.donations || stream.donation || [],
+        Users: supabaseStream.Users || stream.Users || [],
+      };
+    }
+    
+    // If no Supabase data (stream not saved yet), return stream as-is
+    // This is normal for newly created streams
+    return { ...stream, logo: stream.logo || '' };
+  });
 
   return enrichedStreams;
 });

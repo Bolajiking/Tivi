@@ -8,6 +8,7 @@ import { Copy, ExternalLink } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, AppDispatch } from '@/store/store';
 import { fetchProfile, updateProfile, createProfile, ProfileData } from '@/features/profileAPI';
+import { clearProfile } from '@/features/profileSlice';
 import { uploadImage } from '@/lib/supabase-service';
 
 export function ProfileCustomization() {
@@ -178,9 +179,17 @@ export function ProfileCustomization() {
       // Use Redux actions instead of direct axios calls
       if (isExistingProfile) {
         await dispatch(updateProfile({ creatorAddress, profileData })).unwrap();
+        // Force refetch profile to ensure we have the latest data from Supabase
+        // Clear the lastFetchedAddress to force a fresh fetch
+        dispatch(clearProfile());
+        await dispatch(fetchProfile(creatorAddress));
         toast.success('Profile updated successfully!');
       } else {
         await dispatch(createProfile({ creatorAddress, profileData })).unwrap();
+        // Force refetch profile to ensure we have the latest data from Supabase
+        // Clear the lastFetchedAddress to force a fresh fetch
+        dispatch(clearProfile());
+        await dispatch(fetchProfile(creatorAddress));
         setIsExistingProfile(true);
         toast.success('Profile saved successfully!');
       }

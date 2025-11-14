@@ -66,6 +66,20 @@ export async function uploadImage(img: File, bucketName: string = 'images'): Pro
  * Create a new stream in Supabase
  */
 export async function createStream(streamData: StreamInsert): Promise<SupabaseStream> {
+  // Validate required fields
+  if (!streamData.playbackId) {
+    throw new Error('playbackId is required');
+  }
+  if (!streamData.creatorId) {
+    throw new Error('creatorId is required');
+  }
+  if (!streamData.streamName) {
+    throw new Error('streamName is required');
+  }
+
+  // Log what we're trying to insert
+  console.log('Inserting stream to Supabase:', streamData);
+
   const { data, error } = await supabase
     .from('streams')
     .insert(streamData)
@@ -73,9 +87,28 @@ export async function createStream(streamData: StreamInsert): Promise<SupabaseSt
     .single();
 
   if (error) {
-    throw new Error(`Failed to create stream: ${error.message}`);
+    // Log full error details for debugging
+    console.error('Supabase insert error:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+      data: streamData,
+    });
+    
+    // Provide more helpful error message
+    let errorMessage = `Failed to create stream: ${error.message}`;
+    if (error.details) {
+      errorMessage += ` (Details: ${error.details})`;
+    }
+    if (error.hint) {
+      errorMessage += ` (Hint: ${error.hint})`;
+    }
+    
+    throw new Error(errorMessage);
   }
 
+  console.log('Successfully inserted stream to Supabase:', data);
   return data;
 }
 
@@ -83,17 +116,35 @@ export async function createStream(streamData: StreamInsert): Promise<SupabaseSt
  * Get stream by playback ID
  */
 export async function getStreamByPlaybackId(playbackId: string): Promise<SupabaseStream | null> {
+  if (!playbackId) {
+    return null;
+  }
+
   const { data, error } = await supabase
     .from('streams')
     .select('*')
-    .eq('playback_id', playbackId)
-    .single();
+    .eq('playbackId', playbackId)
+    .maybeSingle();
 
   if (error) {
+    // PGRST116 means no rows found - this is normal for streams that haven't been saved to Supabase yet
     if (error.code === 'PGRST116') {
-      // No rows returned
       return null;
     }
+    
+    // 406 errors might indicate column name issues - log but don't throw for missing streams
+    if (error.code === 'PGRST301' || error.message?.includes('406') || error.message?.includes('does not exist')) {
+      console.warn(`Stream ${playbackId} not found in Supabase (may not be created yet):`, error.message);
+      return null;
+    }
+    
+    // Only log and throw for actual errors (not just missing streams)
+    console.error('Supabase query error:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code,
+    });
     throw new Error(`Failed to fetch stream: ${error.message}`);
   }
 
@@ -141,11 +192,8 @@ export async function updateStream(
 ): Promise<SupabaseStream> {
   const { data, error } = await supabase
     .from('streams')
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('playback_id', playbackId)
+    .update(updates)
+    .eq('playbackId', playbackId)
     .select()
     .single();
 
@@ -163,7 +211,7 @@ export async function deleteStream(playbackId: string): Promise<void> {
   const { error } = await supabase
     .from('streams')
     .delete()
-    .eq('playback_id', playbackId);
+    .eq('playbackId', playbackId);
 
   if (error) {
     throw new Error(`Failed to delete stream: ${error.message}`);
@@ -199,9 +247,8 @@ export async function addPayingUserToStream(
     .from('streams')
     .update({
       Users: updatedUsers,
-      updated_at: new Date().toISOString(),
     })
-    .eq('playback_id', playbackId)
+    .eq('playbackId', playbackId)
     .select()
     .single();
 
@@ -378,7 +425,7 @@ export async function getVideoByPlaybackId(playbackId: string): Promise<Supabase
   const { data, error } = await supabase
     .from('videos')
     .select('*')
-    .eq('playback_id', playbackId)
+    .eq('playbackId', playbackId)
     .single();
 
   if (error) {
@@ -417,11 +464,8 @@ export async function updateVideo(
 ): Promise<SupabaseVideo> {
   const { data, error } = await supabase
     .from('videos')
-    .update({
-      ...updates,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('playback_id', playbackId)
+    .update(updates)
+    .eq('playbackId', playbackId)
     .select()
     .single();
 
@@ -439,7 +483,7 @@ export async function deleteVideo(playbackId: string): Promise<void> {
   const { error } = await supabase
     .from('videos')
     .delete()
-    .eq('playback_id', playbackId);
+    .eq('playbackId', playbackId);
 
   if (error) {
     throw new Error(`Failed to delete video: ${error.message}`);
@@ -475,9 +519,8 @@ export async function addPayingUserToVideo(
     .from('videos')
     .update({
       Users: updatedUsers,
-      updated_at: new Date().toISOString(),
     })
-    .eq('playback_id', playbackId)
+    .eq('playbackId', playbackId)
     .select()
     .single();
 

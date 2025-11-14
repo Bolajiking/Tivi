@@ -57,6 +57,8 @@ const profileSlice = createSlice({
         state.loading = false;
         state.profile = action.payload;
         state.error = null;
+        // Update lastFetchedAddress to match the updated profile
+        state.lastFetchedAddress = action.meta.arg.creatorAddress;
       })
       .addCase(updateProfile.rejected, (state, action) => {
         state.loading = false;
