@@ -234,7 +234,7 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
   if (detailsLoading) {
     return (
       <div className="flex items-center justify-center flex-col h-full">
-        <Bars width={25} height={25} color="#3351FF" />
+        <Bars width={25} height={25} color="#facc15" />
         <p className="pt-3">Loading settings…</p>
       </div>
     );

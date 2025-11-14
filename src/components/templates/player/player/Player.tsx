@@ -222,7 +222,7 @@ export function PlayerWithControls({
   if (loading) {
     return (
       <div className="flex items-center justify-center flex-col h-screen">
-        <Bars width={40} height={40} color="#3351FF" />
+        <Bars width={40} height={40} color="#facc15" />
         <p>Loading stream…</p>
       </div>
     );

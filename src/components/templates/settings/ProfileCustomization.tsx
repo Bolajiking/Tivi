@@ -216,7 +216,7 @@ export function ProfileCustomization() {
   if (loading) {
     return (
       <div className="flex justify-center py-8">
-        <Bars width={40} height={40} color="#A855F7" />
+        <Bars width={40} height={40} color="#facc15" />
       </div>
     );
   }

@@ -55,7 +55,7 @@ const HorizontalNavbar = ({ className }: HorizontalNavbarProps) => {
                 'flex flex-col items-center justify-center py-2 px-3 rounded-lg transition-all duration-200 min-w-[60px]',
                 isActive
                   ? 'text-yellow-400 bg-gradient-to-r from-yellow-500/20 to-teal-500/20'
-                  : 'text-gray-300 hover:text-blue-600 hover:bg-white/10'
+                  : 'text-gray-300 hover:text-yellow-400 hover:bg-white/10'
               )}
             >
               <Icon className={clsx(

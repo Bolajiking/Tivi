@@ -469,7 +469,7 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
           <SectionCard title="Live Streams">
             {streamsLoading ? (
               <div className="col-span-full flex justify-center py-8">
-                <Bars width={40} height={40} color="#8b5cf6" />
+                <Bars width={40} height={40} color="#facc15" />
               </div>
             ) : creatorStreams.length > 0 ? (
               creatorStreams.map((stream) => (
@@ -501,7 +501,7 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
           <SectionCard title="Videos">
             {assetsLoading ? (
               <div className="col-span-full flex justify-center py-8">
-                <Bars width={40} height={40} color="#8b5cf6" />
+                <Bars width={40} height={40} color="#facc15" />
               </div>
             ) : creatorAssets.length > 0 ? (
               creatorAssets.map((asset) => (
@@ -538,7 +538,7 @@ export function CreatorProfileLoading() {
   return (
     <div className="flex items-center justify-center h-screen">
       <div className="text-center">
-        <Bars width={40} height={40} color="#3351FF" />
+        <Bars width={40} height={40} color="#facc15" />
         <p className="mt-4">Loading creator profile...</p>
       </div>
     </div>

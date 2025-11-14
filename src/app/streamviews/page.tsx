@@ -19,7 +19,7 @@ export default function StreamViews() {
   }, [dispatch]);
 
   return (
-    <div className="min-h-screen relative bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 flex flex-col pb-20">
+    <div className="min-h-screen relative bg-gradient-to-br from-black via-gray-950 to-black flex flex-col pb-20">
      <div className = "absolute top-4 left-4  ">
         <Logo size="lg" />
       </div>

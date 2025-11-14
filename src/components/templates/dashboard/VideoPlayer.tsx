@@ -37,7 +37,7 @@ export const VideoPlayer: React.FC<VideoPlayerDialogProps> = ({ playbackId }) =>
               ariaLabel="color-ring-loading"
               wrapperStyle={{}}
               wrapperClass="color-ring-wrapper"
-              colors={['#3351FF', '#3351FF', '#3351FF', '#3351FF', '#3351FF']}
+              colors={['#facc15', '#14b8a6', '#facc15', '#14b8a6', '#facc15']}
             />
           </span>
         </div>
