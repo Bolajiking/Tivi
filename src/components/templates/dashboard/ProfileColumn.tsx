@@ -46,7 +46,7 @@ export function ProfileColumn() {
           {/* Profile Image */}
           <div className="flex justify-center">
             {profileData.avatar ? (
-              <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-purple-400">
+              <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-yellow-400">
                 <Image
                   src={profileData.avatar}
                   alt={profileData.displayName || 'Profile'}
@@ -55,8 +55,8 @@ export function ProfileColumn() {
                 />
               </div>
             ) : (
-              <div className="w-24 h-24 rounded-full bg-purple-500/30 flex items-center justify-center border-2 border-purple-400">
-                <User className="w-12 h-12 text-purple-400" />
+              <div className="w-24 h-24 rounded-full bg-gradient-to-r from-yellow-500/30 to-teal-500/30 flex items-center justify-center border-2 border-yellow-400">
+                <User className="w-12 h-12 text-yellow-400" />
               </div>
             )}
           </div>
@@ -91,7 +91,7 @@ export function ProfileColumn() {
           <div className='w-full flex justify-center text-center'>
           <Link
             href='/dashboard/settings'
-            className="w-full py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium"
+            className="w-full py-2 px-4 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors text-sm font-medium"
           >
             Edit Profile
           </Link>
@@ -125,7 +125,7 @@ export function ProfileColumn() {
           )}
           <Link
             href='/dashboard/settings'
-            className="w-[50%] mx-auto py-2 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm  font-medium"
+            className="w-[50%] mx-auto py-2 px-4 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors text-sm  font-medium"
           >
             Set Up Profile
           </Link>

@@ -234,7 +234,7 @@ export function ProfileCustomization() {
             />
             <button
               onClick={handleCopyUrl}
-              className="p-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded transition-colors"
+              className="p-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded transition-colors"
               title="Copy URL"
             >
               <Copy className="w-4 h-4" />
@@ -303,7 +303,7 @@ export function ProfileCustomization() {
               type="file"
               accept="image/*"
               onChange={handleAvatarUpload}
-              className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-purple-600 file:to-pink-600 hover:file:from-purple-700 hover:file:to-pink-700 file:text-white"
+              className="block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-yellow-500 file:to-teal-500 hover:file:from-yellow-600 hover:file:to-teal-600 file:text-black"
             />
           </div>
         </div>
@@ -365,7 +365,7 @@ export function ProfileCustomization() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? (
             <div className="flex items-center space-x-2">

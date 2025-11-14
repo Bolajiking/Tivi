@@ -64,7 +64,7 @@ export const PublicStreamCard: React.FC<PublicStreamCardProps> = ({
   return (
     <div className="w-full max-w-none flex bg-transparent items-center space-y-4 justify-between p-4 rounded-lg">
       {/* Round Stream Image */}
-      <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-purple-400/50">
+      <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-yellow-400/50">
         {loading ? (
           <div className="flex items-center justify-center w-full h-full bg-white/10">
             <p className="text-white text-sm">Loading</p>
@@ -112,7 +112,7 @@ export const PublicStreamCard: React.FC<PublicStreamCardProps> = ({
       <div className="flex flex-col items-center justify-center gap-3">
         <Link
           href={`/view/${playbackId}?streamName=${encodeURIComponent(title)}&id=${creatorId}`}
-          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-all duration-200 font-semibold"
+          className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-all duration-200 font-semibold"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
             <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />

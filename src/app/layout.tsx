@@ -30,8 +30,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>402tv</title>
-        <meta name="description" content="x402 powered livestreaming on Solana" />
+        <title>ChainfrenTV</title>
+        <meta name="description" content="ChainfrenTV - Live Streaming on Solana" />
         <link rel="icon" href="/assets/images/icinn.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -44,9 +44,9 @@ export default function RootLayout({
       config={{
         appearance: {
           landingHeader: '',
-          loginMessage: 'Welcome to 402tv',
+          loginMessage: 'Welcome to ChainfrenTV',
           theme: 'light',
-          accentColor: '#3351FF',
+          accentColor: '#facc15', // Yellow to match ChainfrenTV branding
           logo: '',
           // showWalletLoginFirst: false,
           walletChainType:'ethereum-and-solana',

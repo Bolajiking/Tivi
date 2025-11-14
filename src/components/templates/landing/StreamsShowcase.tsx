@@ -93,7 +93,7 @@ export default function StreamsShowcase({ streams, loading }: StreamsShowcasePro
                 <div className="p-4">
                   <h3 className="text-lg font-semibold text-white mb-1 truncate">{stream.name}</h3>
                   {stream.creatorId?.value && (
-                    <div className="text-xs text-purple-300">by {stream.creatorId.value.slice(0, 5) + '...' + stream.creatorId.value.slice(-5)}</div>
+                    <div className="text-xs text-yellow-300">by {stream.creatorId.value.slice(0, 5) + '...' + stream.creatorId.value.slice(-5)}</div>
                   )}
                   {/* <div className="text-xs text-purple-300">{stream.description}</div> */}
                 </div>
@@ -135,7 +135,7 @@ export default function StreamsShowcase({ streams, loading }: StreamsShowcasePro
                 <div className="p-4">
                   <h3 className="text-lg font-semibold text-white mb-1 truncate">{asset.name}</h3>
                   {asset.creatorId?.value && (
-                    <div className="text-xs text-purple-300">by {asset.creatorId.value.slice(0, 5) + '...' + asset.creatorId.value.slice(-5)}</div>
+                    <div className="text-xs text-yellow-300">by {asset.creatorId.value.slice(0, 5) + '...' + asset.creatorId.value.slice(-5)}</div>
                   )}
                 </div>
               </Link>

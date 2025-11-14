@@ -69,7 +69,7 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
     <>
     <div className="w-full max-w-none flex bg-transparent  items-center space-y-4 justify-between p-4 rounded-lg">
       {/* Round Stream Image */}
-      <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-purple-400/50">
+      <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-yellow-400/50">
         {loading ? (
           <div className="flex items-center justify-center w-full h-full bg-white/10">
             <p className="text-white text-sm">Loading</p>
@@ -98,7 +98,7 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
       {/* Bold Stream Name */}
       <div className="text-center flex">
         <h2 className="text-white font-bold text-2xl">{title}</h2>
-        <h2 className="text-purple-300 text-sm ">TV</h2>
+        <h2 className="text-yellow-300 text-sm ">TV</h2>
         {/* Live Status Badge */}
         {status && (
           <div className="absolute bottom-0 right-0 bg-green-500 text-white text-xs px-2 py-1 rounded-tl-lg rounded-br-lg font-semibold">
@@ -158,14 +158,14 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                 title="Website"
               >
-                <FaLink className="text-xl text-purple-400" />
+                <FaLink className="text-xl text-yellow-400" />
               </a>
             )}
           </>
         ) : (
           <Link
             href="/dashboard/settings"
-            className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors text-sm font-medium"
           >
             <FaLink className="text-sm" />
             Add Links
@@ -180,7 +180,7 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
         {goLive && (
           <button
             onClick={goLive}
-            className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200"
+            className="flex-1 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black font-semibold py-2 px-4 rounded-lg transition-all duration-200"
           >
             Go Live
           </button>

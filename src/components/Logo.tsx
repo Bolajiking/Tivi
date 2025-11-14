@@ -21,33 +21,33 @@ export default function Logo({ className = '', href = '/', size = 'md' }: LogoPr
   const LogoContent = () => (
     <div className="relative inline-block group cursor-pointer">
       {/* Glow effect on hover */}
-      <div className="absolute -inset-2 bg-gradient-to-r from-purple-500/30 via-pink-500/30 to-purple-500/30 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      <div className="absolute -inset-2 bg-gradient-to-r from-yellow-500/30 via-teal-500/30 to-yellow-500/30 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
       
       {/* Background glow (subtle) */}
-      <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-purple-500/10 blur-md rounded-full opacity-50" />
+      <div className="absolute -inset-1 bg-gradient-to-r from-yellow-500/10 via-teal-500/10 to-yellow-500/10 blur-md rounded-full opacity-50" />
       
       {/* Main logo */}
       <div className="relative flex items-center gap-1 px-1">
         {/* Gradient text with animation */}
         <span 
-          className={`font-funnel-display font-bold bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 bg-clip-text text-transparent ${sizeClasses[size]} tracking-tight relative z-10`}
+          className={`font-funnel-display font-bold bg-gradient-to-r from-yellow-400 via-teal-400 to-yellow-400 bg-clip-text text-transparent ${sizeClasses[size]} tracking-tight relative z-10`}
           style={{
-            backgroundImage: 'linear-gradient(90deg, #a855f7, #ec4899, #a855f7)',
+            backgroundImage: 'linear-gradient(90deg, #facc15, #14b8a6, #facc15)',
             backgroundSize: '200% auto',
             animation: 'gradient-x 3s ease infinite',
           }}
         >
-          402
+          Chainfren
         </span>
         
         {/* TV accent with subtle glow */}
-        <span className={`font-funnel-display font-bold text-white ${sizeClasses[size]} tracking-tight relative z-10 drop-shadow-[0_0_8px_rgba(168,85,247,0.4)]`}>
-          tv
+        <span className={`font-funnel-display font-bold text-white ${sizeClasses[size]} tracking-tight relative z-10 drop-shadow-[0_0_8px_rgba(250,204,21,0.4)]`}>
+          TV
         </span>
       </div>
       
       {/* Decorative accent dot */}
-      <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg shadow-purple-500/50" />
+      <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-gradient-to-r from-yellow-400 to-teal-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg shadow-yellow-500/50" />
     </div>
   );
 

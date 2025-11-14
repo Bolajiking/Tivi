@@ -78,7 +78,7 @@ const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen
             <div className=" rounded-md ">
               {/* <Image src={Chainfren_Logo} alt={'header_Logo'} />
                */}
-               <h1 className="text-md sm:text-lg  font-bold text-white">x402 powered livestreaming on Solana</h1>
+               <h1 className="text-md sm:text-lg  font-bold text-white">ChainfrenTV - Live Streaming onChain</h1>
             </div>
           </div>
           {/* Avatar */}
@@ -88,7 +88,7 @@ const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen
               <DropdownMenu.Trigger asChild>
                 <button className="flex items-center justify-center p-2 hover:bg-white/10 rounded-full transition-colors">
                   {ready && (user?.wallet?.chainType === 'solana' || solanaWallet) ? (
-                    <FaRegUserCircle className="text-2xl text-purple-400" />
+                    <FaRegUserCircle className="text-2xl text-yellow-400" />
                   ) : (
                     <FaRegUserCircle className="text-2xl text-gray-400" />
                   )}
@@ -135,7 +135,7 @@ const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen
                       {/* Solana Wallet Only */}
                       <div className="col-span-2 lg:col-span-3">
                         <div className="flex justify-between items-center">
-                          <span className="text-purple-400 text-base">Solana Wallet Address:</span>
+                          <span className="text-yellow-400 text-base">Solana Wallet Address:</span>
                           <button
                             onClick={() => setShowWallets((prev) => !prev)}
                             className="px-3 py-1 border border-white/20 bg-white/10 backdrop-blur-sm rounded text-sm text-white hover:bg-white/20 transition-colors"
@@ -146,7 +146,7 @@ const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen
                         {showWallets && (
                           <div className="mt-4 space-y-4">
                             <div className="flex flex-col">
-                              <span className="text-purple-400 text-base">Solana Wallet Address:</span>
+                              <span className="text-yellow-400 text-base">Solana Wallet Address:</span>
                               <div className="flex items-center gap-2 mt-1">
                                 <input
                                   type="text"
@@ -159,7 +159,7 @@ const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen
                                     navigator.clipboard.writeText(solanaWallet || '');
                                     toast.success('Copied to clipboard');
                                   }}
-                                  className="px-2 py-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-colors"
+                                  className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors"
                                 >
                                   Copy
                                 </button>
@@ -169,15 +169,15 @@ const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen
                         )}
                       </div>
                       {/* User ID Card */}
-                      <div className="p-4 rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm hover:border-purple-400 transition-shadow">
+                      <div className="p-4 rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm hover:border-yellow-400 transition-shadow">
                         <div className="flex items-center gap-3 mb-2">
-                          <FaRegUserCircle className="text-2xl text-purple-400" />
+                          <FaRegUserCircle className="text-2xl text-yellow-400" />
                           <span className="font-medium text-white">User ID</span>
                         </div>
                         <p className="text-sm text-gray-300 break-words">{user?.id}</p>
                       </div>
                       {/* Wallet Card */}
-                      <div className="p-4 rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm hover:border-purple-400 transition-shadow">
+                      <div className="p-4 rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm hover:border-yellow-400 transition-shadow">
                         <div className="flex items-center gap-3 mb-2">
                           <FaWallet className="text-2xl text-purple-400" />
                           <span className="font-medium text-white">Wallet Address</span>
@@ -185,7 +185,7 @@ const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen
                         <p className="text-sm text-gray-300 break-words">{solanaWallet || 'Not connected'}</p>
                       </div>
                       {/* Email Card */}
-                      <div className="p-4 rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm hover:border-purple-400 transition-shadow">
+                      <div className="p-4 rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm hover:border-yellow-400 transition-shadow">
                         <div className="flex items-center gap-3 mb-2">
                           <MdEmail className="text-2xl text-purple-400" />
                           <span className="font-medium text-white">Email</span>
@@ -193,7 +193,7 @@ const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen
                         <p className="text-sm text-gray-300 break-words">{user?.email?.address || 'Not connected'}</p>
                       </div>
                       {/* Google Card */}
-                      <div className="p-4 rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm hover:border-purple-400 transition-shadow">
+                      <div className="p-4 rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm hover:border-yellow-400 transition-shadow">
                         <div className="flex items-center gap-3 mb-2">
                           <FaGoogle className="text-2xl text-purple-400" />
                           <span className="font-medium text-white">Google</span>

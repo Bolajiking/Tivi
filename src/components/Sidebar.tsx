@@ -91,7 +91,7 @@ const Sidebar = ({ sidebarCollapsed }: SidebarProps) => {
 
   return (
     <>
-      <nav className="w-full mt-2 backdrop-blur-sm border border-white/20 rounded-lg p-2">
+      {/* <nav className="w-full mt-2 backdrop-blur-sm border border-white/20 rounded-lg p-2">
         <div className="flex flex-col gap-2">
           {links.map((link) => {
             const IconComponent = link.icon;
@@ -102,7 +102,7 @@ const Sidebar = ({ sidebarCollapsed }: SidebarProps) => {
                   className={clsx(
                     'flex items-center rounded-md py-3 gap-3 px-4 transition-all duration-200',
                     isActive
-                      ? 'bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg'
+                      ? 'bg-gradient-to-r from-yellow-500 to-teal-500 text-black shadow-lg'
                       : 'text-gray-500 hover:text-gray-300 hover:bg-white/20',
                     sidebarCollapsed && 'justify-center',
                   )}
@@ -115,7 +115,7 @@ const Sidebar = ({ sidebarCollapsed }: SidebarProps) => {
             );
           })}
         </div>
-      </nav>
+      </nav> */}
 
       {/* Subscribed Channels Section */}
       {!sidebarCollapsed && (
@@ -144,7 +144,7 @@ const Sidebar = ({ sidebarCollapsed }: SidebarProps) => {
                       className="w-8 h-8 rounded-full object-cover"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-bold">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold">
                       {(channel.displayName || channel.creatorId.slice(0, 2)).toUpperCase()}
                     </div>
                   )}
@@ -157,7 +157,7 @@ const Sidebar = ({ sidebarCollapsed }: SidebarProps) => {
           </div>
           <button
             onClick={handleAddChannel}
-            className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-md transition-all duration-200 text-sm font-semibold"
+            className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-md transition-all duration-200 text-sm font-semibold"
           >
             <HiPlus className="w-4 h-4" />
             Add Channel
@@ -170,13 +170,14 @@ const Sidebar = ({ sidebarCollapsed }: SidebarProps) => {
         <div className="w-full mt-4">
           <button
             onClick={handleAddChannel}
-            className="w-full flex items-center justify-center p-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-md transition-all duration-200"
+            className="w-full flex items-center justify-center p-3 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-md transition-all duration-200"
             title="Add Channel"
           >
             <HiPlus className="w-5 h-5" />
           </button>
         </div>
       )}
+
 
       {/* Signup Modal */}
       <AlertDialog open={showSignupModal} onOpenChange={setShowSignupModal}>
@@ -191,7 +192,7 @@ const Sidebar = ({ sidebarCollapsed }: SidebarProps) => {
             <AlertDialogCancel onClick={() => setShowSignupModal(false)}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleSignup}
-              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              className="bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black"
             >
               Sign Up
             </AlertDialogAction>

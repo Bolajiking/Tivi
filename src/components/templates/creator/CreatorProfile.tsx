@@ -10,9 +10,7 @@ import image1 from '@/assets/image1.png';
 import { Bars } from 'react-loader-spinner';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import { getUserProfile, subscribeToCreator, getSubscribedChannels } from '@/lib/supabase-service';
-import { SupabaseUser } from '@/lib/supabase-types';
-import { HiPlus } from 'react-icons/hi';
+import { getUserProfile, subscribeToCreator } from '@/lib/supabase-service';
 import SectionCard from '@/components/Card/SectionCard';
 import { Menu, X } from 'lucide-react';
 import clsx from 'clsx';
@@ -20,6 +18,10 @@ import { PublicStreamCard } from './PublicStreamCard';
 import Logo from '@/components/Logo';
 import { usePrivy } from '@privy-io/react-auth';
 import { useRouter } from 'next/navigation';
+import Sidebar from '@/components/Sidebar';
+import SidebarBottomLinks from '@/components/SidebarBottomLinks';
+import BottomNav from '@/components/BottomNav';
+import { LuArrowLeftFromLine, LuArrowRightFromLine } from 'react-icons/lu';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,9 +73,8 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
-  const [subscribedChannels, setSubscribedChannels] = useState<SupabaseUser[]>([]);
-  const [loadingChannels, setLoadingChannels] = useState(false);
-  const [showAddChannelModal, setShowAddChannelModal] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Get current user's wallet address
   const currentUserAddress = useMemo(() => {
@@ -91,41 +92,6 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
 
   // Check if user is logged in
   const isLoggedIn = authenticated && ready && !!currentUserAddress;
-
-  // Fetch subscribed channels
-  useEffect(() => {
-    const fetchSubscribedChannels = async () => {
-      if (!isLoggedIn || !currentUserAddress) {
-        setSubscribedChannels([]);
-        return;
-      }
-
-      setLoadingChannels(true);
-      try {
-        const channels = await getSubscribedChannels(currentUserAddress);
-        setSubscribedChannels(channels);
-      } catch (error) {
-        console.error('Failed to fetch subscribed channels:', error);
-      } finally {
-        setLoadingChannels(false);
-      }
-    };
-
-    fetchSubscribedChannels();
-  }, [isLoggedIn, currentUserAddress]);
-
-  const handleAddChannel = () => {
-    if (!isLoggedIn) {
-      setShowAddChannelModal(true);
-      return;
-    }
-    router.push('/streamviews');
-  };
-
-  const handleAddChannelSignup = () => {
-    setShowAddChannelModal(false);
-    router.push('/dashboard');
-  };
 
   // Fetch creator profile data
   useEffect(() => {
@@ -225,86 +191,24 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
   //   console.log('creatorProfile', creatorProfile);
   // }, [creatorProfile]);
 
-  // Creator Profile Sidebar Component
-  const CreatorProfileSidebar = () => {
-    return (
-      <>
-        <nav className="w-full mt-2 backdrop-blur-sm border border-white/20 rounded-lg p-2">
-          <div className="flex flex-col gap-2">
-            <Link href={`/creator/${creatorId}`}>
-              <div className="flex items-center rounded-md py-3 gap-3 px-4 transition-all duration-200 bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-lg">
-                <svg className="inline-block h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
-                </svg>
-                <p className="font-bold">Profile</p>
-              </div>
-            </Link>
-            <Link href={`/creator/${creatorId}#streams`}>
-              <div className="flex items-center rounded-md py-3 gap-3 px-4 transition-all duration-200 text-gray-500 hover:text-gray-300 hover:bg-white/20">
-                <svg className="inline-block h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                </svg>
-                <p className="font-bold">Streams</p>
-              </div>
-            </Link>
-            <Link href={`/creator/${creatorId}#videos`}>
-              <div className="flex items-center rounded-md py-3 gap-3 px-4 transition-all duration-200 text-gray-500 hover:text-gray-300 hover:bg-white/20">
-                <svg className="inline-block h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z" />
-                </svg>
-                <p className="font-bold">Videos</p>
-              </div>
-            </Link>
-          </div>
-        </nav>
+  // Check if we're on mobile screen
+  useEffect(() => {
+    const checkIfMobile = () => {
+      const isMobileView = window.innerWidth < 768;
+      setIsMobile(isMobileView);
+      if (isMobileView) {
+        setSidebarCollapsed(true);
+      }
+    };
+    checkIfMobile();
+    window.addEventListener('resize', checkIfMobile);
+    return () => window.removeEventListener('resize', checkIfMobile);
+  }, []);
 
-        {/* Subscribed Channels Section */}
-        <div className="w-full mt-4 backdrop-blur-sm border border-white/20 rounded-lg p-2">
-          <div className="flex items-center justify-between mb-2 px-2">
-            <h3 className="text-white font-bold text-sm">Subscribed Channels</h3>
-          </div>
-          <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
-            {loadingChannels ? (
-              <div className="text-gray-400 text-sm px-2 py-2">Loading...</div>
-            ) : !isLoggedIn ? (
-              <div className="text-gray-400 text-sm px-2 py-2">Sign in to see channels</div>
-            ) : subscribedChannels.length === 0 ? (
-              <div className="text-gray-400 text-sm px-2 py-2">No subscribed channels</div>
-            ) : (
-              subscribedChannels.map((channel) => (
-                <Link
-                  key={channel.creatorId}
-                  href={`/creator/${channel.creatorId}`}
-                  className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/10 transition-colors"
-                >
-                  {channel.avatar ? (
-                    <img
-                      src={channel.avatar}
-                      alt={channel.displayName || 'Channel'}
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-xs font-bold">
-                      {(channel.displayName || channel.creatorId.slice(0, 2)).toUpperCase()}
-                    </div>
-                  )}
-                  <span className="text-gray-300 text-sm truncate flex-1">
-                    {channel.displayName || channel.creatorId.slice(0, 8) + '...'}
-                  </span>
-                </Link>
-              ))
-            )}
-          </div>
-          <button
-            onClick={handleAddChannel}
-            className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-md transition-all duration-200 text-sm font-semibold"
-          >
-            <HiPlus className="w-4 h-4" />
-            Add Channel
-          </button>
-        </div>
-      </>
-    );
+  const toggleSidebar = () => {
+    if (!isMobile) {
+      setSidebarCollapsed((prev) => !prev);
+    }
   };
 
   if (loading) {
@@ -314,7 +218,7 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
   if (error || !creatorProfile) {
     console.log('error', error);
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-black via-gray-950 to-black">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4 text-white">Creator Not Found</h2>
           <p className="text-gray-300">This creator profile does not exist or is private.</p>
@@ -356,42 +260,52 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
-      {/* Mobile Sidebar */}
-      {mobileMenuOpen && (
-        <div className="fixed inset-0 z-20 transition-opacity bg-black bg-opacity-50" onClick={toggleMobileMenu} />
-      )}
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-black via-gray-950 to-black">
+      {/* Sidebar */}
       <aside
         className={clsx(
-          'fixed px-4 inset-y-0 left-0 z-30 w-72 bg-gray-900/95 backdrop-blur-sm border-r border-white/20 shadow-md transform transition-transform duration-500 ease-in-out',
-          mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
-          'md:hidden',
+          'md:relative z-20 h-full md:block px-4 gap-y-4 transition-all duration-300 ease-in-out border-r border-white/20 flex flex-col bg-white/10 backdrop-blur-sm',
+          {
+            'w-[100px]': sidebarCollapsed && !isMobile,
+            'w-72 p-4': !sidebarCollapsed && !isMobile,
+            hidden: isMobile && !mobileMenuOpen,
+            block: isMobile && mobileMenuOpen,
+          },
         )}
       >
-        <div className="pl-4 flex justify-between items-center">
-          <div className="py-6 font-bold uppercase text-white">
-            <h1>Creator Profile</h1>
-          </div>
-          <button onClick={toggleMobileMenu} className="md:hidden">
-            <X className="h-6 w-6 text-white" />
+        <div className="flex items-center justify-between py-4 border-b border-white/20">
+          {!sidebarCollapsed && (
+            <div>
+              <Logo size="lg" />
+            </div>
+          )}
+          <button onClick={toggleSidebar} className="ml-auto text-gray-300 hover:text-white transition-colors">
+            {sidebarCollapsed ? (
+              <LuArrowRightFromLine className="h-5 w-5" />
+            ) : (
+              <LuArrowLeftFromLine className="h-5 w-5" />
+            )}
           </button>
         </div>
-        <CreatorProfileSidebar />
-      </aside>
-
-      {/* Desktop Sidebar */}
-      <aside className="hidden md:block w-72 px-4 shadow-md">
-        <div className="pl-4 flex justify-between items-center">
-          <div className="py-6 font-bold uppercase text-white">
-            <h1>Creator Profile</h1>
-          </div>
+        <Sidebar sidebarCollapsed={sidebarCollapsed} />
+        
+        {/* Bottom Links Section - Fixed at bottom of screen */}
+        <div className={clsx(
+          'fixed bottom-0 left-0 z-30 backdrop-blur-lg border-t border-white/20 transition-all duration-300',
+          {
+            'w-[100px]': sidebarCollapsed && !isMobile,
+            'w-72': !sidebarCollapsed && !isMobile,
+            'hidden': isMobile,
+          }
+        )}>
+          <SidebarBottomLinks sidebarCollapsed={sidebarCollapsed} />
         </div>
-        <CreatorProfileSidebar />
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex gap-4 h-screen overflow-auto">
-        <div className="flex-1 my-2 ml-2 pb-8">
+      <div className="flex-1 flex flex-col gap-4 h-screen overflow-hidden">
+        <div className="flex-1 flex gap-4 overflow-auto pb-20">
+          <div className="flex-1 my-2 ml-2 pb-8">
           {/* Header */}
           <header className="flex-1 w-full z-10 top-0 right-0 transition-all shadow-md duration-300 ease-in-out">
             <div className="flex justify-between items-center p-2 sm:p-5 bg-white/10 backdrop-blur-sm border-b border-white/20 sticky top-0 z-10">
@@ -399,9 +313,10 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                 <button onClick={toggleMobileMenu} className="md:hidden">
                   {mobileMenuOpen ? <X className="h-7 w-7 text-white" /> : <Menu className="h-7 w-7 text-white" />}
                 </button>
-                <div className="rounded-md">
+                <div className="rounded-md text-white">
                   {/* <h1 className="text-md sm:text-lg font-bold text-white">{creatorProfile?.displayName || 'Creator Profile'}</h1> */}
-                  <Logo size="lg" />
+                  {/* <Logo size="lg" /> */}
+                  <h1 className="text-md sm:text-lg font-bold text-white">ChainfrenTV - Live Streaming onChain</h1>
                 </div>
               </div>
               {/* Subscribe Button - Only show if viewer is not the creator */}
@@ -410,7 +325,7 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                   <button
                     onClick={handleSubscribe}
                     disabled={isSubscribing}
-                    className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-lg transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm sm:text-base"
+                    className="px-3 sm:px-4 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm sm:text-base"
                   >
                     {isSubscribing ? (
                       <>
@@ -444,30 +359,13 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => setShowSignupModal(false)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleSignup} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+                <AlertDialogAction onClick={handleSignup} className="bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black">
                   Sign Up
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
 
-          {/* Signup Modal for Add Channel */}
-          <AlertDialog open={showAddChannelModal} onOpenChange={setShowAddChannelModal}>
-            <AlertDialogContent className="bg-white">
-              <AlertDialogHeader>
-                <AlertDialogTitle>Sign Up Required</AlertDialogTitle>
-                <AlertDialogDescription>
-                  You need to sign up and connect your wallet to add channels. Would you like to sign up now?
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setShowAddChannelModal(false)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleAddChannelSignup} className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
-                  Sign Up
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
 
           {/* Creator Info Card */}
           <SectionCard title="">
@@ -478,7 +376,7 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                     src={creatorProfile?.avatar || '/assets/images/default-avatar.png'}
                     alt={creatorProfile?.displayName}
                     className="w-20 h-20 rounded-full object-cover border-4"
-                    style={{ borderColor: creatorProfile?.theme?.accentColor || '#8b5cf6' }}
+                    style={{ borderColor:  '#C28B0A' }}
                   />
                   {creatorProfile?.isVerified && (
                     <div className="absolute -top-1 -right-1 bg-blue-500 text-white rounded-full p-1">
@@ -608,6 +506,12 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
             )}
           </SectionCard>
           </div>
+          </div>
+        </div>
+        
+        {/* Bottom Navigation - Contained within Creator Profile content */}
+        <div className="w-full">
+          <BottomNav />
         </div>
       </div>
     </div>

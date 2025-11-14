@@ -44,7 +44,7 @@ const Analytics = () => {
               key={filter}
               className={clsx(
                 'text-sm pl-2 py-1 text-gray-300 cursor-pointer font-semibold hover:text-white transition-colors',
-                activeFilter === filter && 'border-l-4 text-white border-purple-400',
+                activeFilter === filter && 'border-l-4 text-white border-yellow-400',
               )}
               onClick={() => handleFilterChange(filter as 'all' | 'month' | 'year')}
             >

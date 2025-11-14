@@ -4,6 +4,7 @@ import { usePrivy } from '@privy-io/react-auth';
 import Header from '@/components/Header';
 import MobileSidebar from '@/components/MobileSidebar';
 import { ProfileCustomization } from './ProfileCustomization';
+import BottomNav from '@/components/BottomNav';
 
 const Settings: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -20,14 +21,14 @@ const Settings: React.FC = () => {
 
   if (!ready || !authenticated) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-black via-gray-950 to-black">
         <div className="text-white">Loading...</div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-black via-gray-950 to-black">
       {/* Mobile Sidebar */}
       {mobileMenuOpen && (
         <MobileSidebar
@@ -39,13 +40,20 @@ const Settings: React.FC = () => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col h-screen overflow-auto">
-        <Header toggleMenu={toggleMobileMenu} mobileOpen={mobileMenuOpen} />
-        <div className="m-4 p-6">
-          <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-6">
-            <h1 className="text-2xl font-bold text-white mb-6">Creator Profile</h1>
-            <ProfileCustomization />
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        <div className="flex-1 overflow-auto pb-20">
+          <Header toggleMenu={toggleMobileMenu} mobileOpen={mobileMenuOpen} />
+          <div className="m-4 p-6">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-6">
+              <h1 className="text-2xl font-bold text-white mb-6">Creator Profile</h1>
+              <ProfileCustomization />
+            </div>
           </div>
+        </div>
+        
+        {/* Bottom Navigation - Contained within Settings content */}
+        <div className="w-full">
+          <BottomNav />
         </div>
       </div>
     </div>

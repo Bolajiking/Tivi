@@ -411,7 +411,7 @@ export function PlayerWithControls({
                 <h1 className="  mb-2 sm:mb-0">Donate</h1>{' '}
                 <div className="flex space-x-4">
                   {stream?.donation?.map((amt, i) => {
-                    const colors = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-yellow-500'];
+                    const colors = ['bg-green-500', 'bg-blue-500', 'bg-teal-500', 'bg-yellow-500'];
                     return (
                       <button
                         key={i}

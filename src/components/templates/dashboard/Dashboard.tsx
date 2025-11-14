@@ -23,6 +23,7 @@ import UploadVideoAsset from '@/components/UploadVideoAsset';
 import type { Asset, Stream } from '@/interfaces';
 import MobileSidebar from '@/components/MobileSidebar';
 import { ProfileColumn } from './ProfileColumn';
+import BottomNav from '@/components/BottomNav';
 
 const Dashboard = () => {
   const { user, ready, authenticated } = usePrivy();
@@ -38,6 +39,18 @@ const Dashboard = () => {
   const [isDialogOpen2, setIsDialogOpen2] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Expose modal trigger function for SidebarBottomLinks
+  useEffect(() => {
+    const handleOpenCreateChannel = () => {
+      setIsDialogOpen(true);
+    };
+    
+    window.addEventListener('openCreateChannelModal', handleOpenCreateChannel);
+    return () => {
+      window.removeEventListener('openCreateChannelModal', handleOpenCreateChannel);
+    };
+  }, []);
   // const [filteredStreams, setFilteredStreams] = useState<Stream[]>([]);
 
   useEffect(() => {
@@ -99,7 +112,7 @@ const filteredStreams = useMemo(() => {
 
   if (!ready || !authenticated) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-black via-gray-950 to-black">
         <Spinner />
       </div>
     );
@@ -110,7 +123,7 @@ const filteredStreams = useMemo(() => {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900">
+    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-black via-gray-950 to-black">
       {/* Mobile Sidebar */}
       {mobileMenuOpen && (
         <MobileSidebar
@@ -122,8 +135,9 @@ const filteredStreams = useMemo(() => {
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex gap-4 h-screen overflow-auto">
-        <div className="flex-1 my-2 ml-2 pb-8">
+      <div className="flex-1 flex flex-col gap-4 h-screen overflow-hidden">
+        <div className="flex-1 flex gap-4 overflow-auto">
+          <div className="flex-1 my-2 ml-2 pb-8">
           {/* <Analytics /> */}
           <Header toggleMenu={toggleMobileMenu} mobileOpen={mobileMenuOpen} />
           <SectionCard title="Your Channel">
@@ -142,8 +156,8 @@ const filteredStreams = useMemo(() => {
               <>
                 <div className="w-full col-span-full max-w-none flex bg-transparent items-center justify-between p-4 rounded-lg">
                   {/* Round Icon */}
-                  <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-dashed border-purple-400/50 bg-white/10 flex items-center justify-center">
-                    <RiVideoAddLine className="text-purple-400 w-16 h-16" onClick={() => setIsDialogOpen(true)} />
+                  <div className="relative w-32 h-32 rounded-full overflow-hidden border-4 border-dashed border-yellow-400/50 bg-white/10 flex items-center justify-center">
+                    <RiVideoAddLine className="text-yellow-400 w-16 h-16" onClick={() => setIsDialogOpen(true)} />
                   </div>
 
                   {/* Title */}
@@ -157,7 +171,7 @@ const filteredStreams = useMemo(() => {
                       <Dialog.Trigger asChild>
                         <button
                           onClick={() => setIsDialogOpen(true)}
-                          className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2"
+                          className="bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black font-semibold py-2 px-4 rounded-lg transition-all duration-200 flex items-center gap-2"
                         >
                           <RiVideoAddLine className="w-5 h-5" />
                           Create Channel
@@ -174,7 +188,7 @@ const filteredStreams = useMemo(() => {
 
                           <Dialog.Close asChild>
                             <button
-                              className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-white hover:bg-white/10 focus:shadow-[0_0_0_2px] focus:shadow-purple-500 focus:outline-none transition-colors"
+                              className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-white hover:bg-white/10 focus:shadow-[0_0_0_2px] focus:shadow-yellow-500 focus:outline-none transition-colors"
                               aria-label="Close"
                             >
                               <IoMdClose className="text-white font-medium text-4xl" />
@@ -247,7 +261,7 @@ const filteredStreams = useMemo(() => {
               <Dialog.Trigger asChild>
                 <div className="flex w-full flex-col" onClick={() => setIsDialogOpen2(true)}>
                   <div className="w-full justify-center flex items-center h-[180px] rounded-lg cursor-pointer bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
-                    <RiVideoAddLine className="text-purple-400 w-24 h-24" />
+                    <RiVideoAddLine className="text-yellow-400 w-24 h-24" />
                   </div>
                   <div className="text-white text-xl font-bold pt-2">Upload Asset</div>
                 </div>
@@ -256,12 +270,12 @@ const filteredStreams = useMemo(() => {
                 <Dialog.Overlay className="fixed inset-0 bg-black/70 backdrop-blur-sm" />
                 <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[85vh] w-[90vw] flex mt-4 flex-col justify-center items-center max-w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-gray-900/95 backdrop-blur-sm border border-white/20 px-10 max-sm:px-6 py-6 shadow-2xl">
                   <Dialog.Title className="text-white text-center flex items-center gap-2 my-4 text-xl font-bold">
-                    <RiVideoAddLine className="text-purple-400 text-sm" /> Upload Video Asset
+                    <RiVideoAddLine className="text-yellow-400 text-sm" /> Upload Video Asset
                   </Dialog.Title>
                   <UploadVideoAsset onClose={() => setIsDialogOpen2(false)} />
                   <Dialog.Close asChild>
                     <button
-                      className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-white hover:bg-white/10 focus:shadow-[0_0_0_2px] focus:shadow-purple-500 focus:outline-none transition-colors"
+                      className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-white hover:bg-white/10 focus:shadow-[0_0_0_2px] focus:shadow-yellow-500 focus:outline-none transition-colors"
                       aria-label="Close"
                     >
                       <IoMdClose className="text-white font-medium text-4xl" />
@@ -271,11 +285,17 @@ const filteredStreams = useMemo(() => {
               </Dialog.Portal>
             </Dialog.Root>
           </SectionCard>
+          </div>
+        
+          {/* Third Column - Profile Column */}
+          <div className="hidden lg:block flex-shrink-0 pt-2 pr-2">
+            <ProfileColumn />
+          </div>
         </div>
         
-        {/* Third Column - Profile Column */}
-        <div className="hidden lg:block flex-shrink-0 pt-2 pr-2">
-          <ProfileColumn />
+        {/* Bottom Navigation - Contained within Dashboard content */}
+        <div className="w-full">
+          <BottomNav />
         </div>
       </div>
     </div>

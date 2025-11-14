@@ -1,5 +1,6 @@
 'use client';
 import Sidebar from '@/components/Sidebar';
+import SidebarBottomLinks from '@/components/SidebarBottomLinks';
 import AuthGuard from '@/components/AuthGuard';
 import React, { useEffect, useState } from 'react';
 import { FaTimes } from 'react-icons/fa';
@@ -53,7 +54,7 @@ const DashboardLayout = ({
 
   return (
     <AuthGuard>
-      <div className="text-white flex h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 font-sans">
+      <div className="text-white flex h-screen bg-gradient-to-br from-black via-gray-950 to-black font-sans">
         {/* Sidebar for desktop */}
 
         <aside
@@ -82,6 +83,18 @@ const DashboardLayout = ({
             </button>
           </div>
           <Sidebar sidebarCollapsed={sidebarCollapsed} />
+          
+          {/* Bottom Links Section - Fixed at bottom of screen */}
+          <div className={clsx(
+            'fixed bottom-0 left-0 z-30  backdrop-blur-lg border-t border-white/20 transition-all duration-300',
+            {
+              'w-[100px]': sidebarCollapsed && !isMobile,
+              'w-72': !sidebarCollapsed && !isMobile,
+              'hidden': isMobile,
+            }
+          )}>
+            <SidebarBottomLinks sidebarCollapsed={sidebarCollapsed} onCreateChannel={() => {}} />
+          </div>
         </aside>
         {/* Mobile menu overlay */}
 
