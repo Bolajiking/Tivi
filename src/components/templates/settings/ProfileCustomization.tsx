@@ -6,6 +6,7 @@ import { Bars } from 'react-loader-spinner';
 import InputField from '@/components/ui/InputField';
 import { Copy, ExternalLink } from 'lucide-react';
 import { useDispatch } from 'react-redux';
+import { useRouter } from 'next/navigation';
 import { AppDispatch } from '@/store/store';
 import { uploadImage, getStreamsByCreator, updateStream } from '@/lib/supabase-service';
 import { createLivestream } from '@/features/streamAPI';
@@ -14,6 +15,7 @@ import { clsx } from 'clsx';
 export function ProfileCustomization() {
   const { user } = usePrivy();
   const dispatch = useDispatch<AppDispatch>();
+  const router = useRouter();
   const [profileData, setProfileData] = useState({
     displayName: '',
     bio: '',
@@ -327,9 +329,12 @@ export function ProfileCustomization() {
         // Fetch the created stream to update existingStream state
         const streams = await getStreamsByCreator(creatorAddress);
         if (streams && streams.length > 0) {
-          setExistingStream(streams[0]);
+          const newStream = streams[0];
+          setExistingStream(newStream);
         }
         
+        // Route to dashboard without channelId - content stays hidden until channel is selected
+        router.push('/dashboard');
         toast.success('Channel created successfully!');
       }
     } catch (error: any) {
@@ -355,7 +360,7 @@ export function ProfileCustomization() {
 
   if (loading) {
     return (
-      <div className="flex justify-center py-8 bg-black rounded-lg">
+      <div className="flex justify-center py-8 bg-black! rounded-lg">
         <Bars width={40} height={40} color="#facc15" />
       </div>
     );
@@ -512,13 +517,7 @@ export function ProfileCustomization() {
             />
           </div>
         </div>
-      </div>
 
-      {/* Stream Customization */}
-      <div className="space-y-4">
-        <h4 className="font-semibold text-white">Stream Settings</h4>
-        
-        {/* View Mode */}
         <div>
           <label className="block text-sm font-medium mb-2 text-white">View Mode</label>
           <div className="flex gap-2 flex-wrap">
@@ -540,6 +539,14 @@ export function ProfileCustomization() {
           </div>
         </div>
 
+      </div>
+
+      {/* Stream Customization */}
+      <div className="space-y-4">
+        <h4 className="font-semibold text-white">Stream Settings</h4>
+        
+        {/* View Mode */}
+      
         {/* Amount */}
         {streamData.viewMode !== 'free' && (
           <div>

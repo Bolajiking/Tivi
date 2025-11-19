@@ -338,6 +338,34 @@ export async function upsertUserProfile(userData: UserInsert): Promise<SupabaseU
 }
 
 /**
+ * Check if displayName is unique (not taken by another user)
+ */
+export async function isDisplayNameUnique(displayName: string, excludeCreatorId?: string): Promise<boolean> {
+  if (!displayName || !displayName.trim()) {
+    return false;
+  }
+
+  let query = supabase
+    .from('users')
+    .select('creatorId')
+    .eq('displayName', displayName.trim());
+
+  // Exclude current user if updating
+  if (excludeCreatorId) {
+    query = query.neq('creatorId', excludeCreatorId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to check display name uniqueness: ${error.message}`);
+  }
+
+  // If no results, the name is unique
+  return !data || data.length === 0;
+}
+
+/**
  * Subscribe to a creator (add creatorId to user's Channels array)
  */
 export async function subscribeToCreator(userWalletAddress: string, creatorId: string): Promise<SupabaseUser> {

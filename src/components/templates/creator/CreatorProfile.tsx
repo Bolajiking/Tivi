@@ -28,6 +28,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import Header from '@/components/Header';
 import { ProfileColumn } from '@/components/templates/dashboard/ProfileColumn';
+import { PlayerWithControls } from '@/components/templates/player/player/Player';
+import { usePlaybackInfo } from '@/app/hook/usePlaybckInfo';
+import { PlayerLoading } from '@/components/templates/player/player/Player';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,6 +68,65 @@ interface CreatorProfileProps {
   creatorId: string;
 }
 
+// Stream Player Component for inline viewing
+function StreamPlayerView({
+  playbackId,
+  title,
+  creatorId,
+  onClose,
+}: {
+  playbackId: string;
+  title: string;
+  creatorId: string;
+  onClose: () => void;
+}) {
+  const { src, loading, error } = usePlaybackInfo(playbackId);
+
+  if (loading) {
+    return (
+      <div className="w-full h-[600px] flex items-center justify-center bg-black rounded-lg">
+        <PlayerLoading>
+          <div className="flex flex-col items-center gap-2">
+            <Bars width={40} height={40} color="#facc15" />
+            <span className="text-white text-sm">Loading stream...</span>
+          </div>
+        </PlayerLoading>
+      </div>
+    );
+  }
+
+  if (error || !src) {
+    return (
+      <div className="w-full h-[600px] flex flex-col items-center justify-center bg-black rounded-lg border border-white/20">
+        <p className="text-red-400 mb-4">Failed to load stream: {error || 'Stream not available'}</p>
+        <button
+          onClick={onClose}
+          className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors"
+        >
+          Go Back
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-white font-bold text-lg">{title}</h3>
+        <button
+          onClick={onClose}
+          className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors text-sm font-semibold"
+        >
+          Close Player
+        </button>
+      </div>
+      <div className="w-full border border-white/20 rounded-lg overflow-hidden bg-black" style={{ minHeight: '600px', height: 'calc(100vh - 400px)' }}>
+        <PlayerWithControls src={src} title={title} playbackId={playbackId} id={creatorId} />
+      </div>
+    </div>
+  );
+}
+
 export function CreatorProfile({ creatorId }: CreatorProfileProps) {
   const dispatch = useDispatch<AppDispatch>();
   const { streams, loading: streamsLoading, error: streamsError } = useSelector((state: RootState) => state.streams);
@@ -83,6 +145,10 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [creatorStreamData, setCreatorStreamData] = useState<any>(null);
+  const [selectedStreamForViewing, setSelectedStreamForViewing] = useState<{
+    playbackId: string;
+    title: string;
+  } | null>(null);
 
   // Get current user's wallet address
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
@@ -603,7 +669,14 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
 
               {/* Livestreams Tab */}
               <TabsContent value="livestreams" className="mt-4">
-                {streamsLoading ? (
+                {selectedStreamForViewing ? (
+                  <StreamPlayerView
+                    playbackId={selectedStreamForViewing.playbackId}
+                    title={selectedStreamForViewing.title}
+                    creatorId={creatorId}
+                    onClose={() => setSelectedStreamForViewing(null)}
+                  />
+                ) : streamsLoading ? (
                   Array.from({ length: 1 }, (_, index) => (
                     <div key={index} className="flex flex-col space-y-3">
                       <Skeleton className="h-[180px] w-[318px] rounded-xl bg-black" />
@@ -612,8 +685,8 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                         <Skeleton className="h-7 w-[44px] rounded-md bg-black" />
                       </div>
                     </div>
-              ))
-            ) : (
+                  ))
+                ) : (
                   <>
                     {creatorStreams.length === 0 ? (
                       <div className="flex justify-center items-center h-60">
@@ -637,22 +710,29 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                             />
                             {/* View Stream Button */}
                             <div className="mt-4">
-                              <Link
-                                href={`/view/${stream.playbackId}?streamName=${encodeURIComponent(stream.title || stream.name || '')}&id=${encodeURIComponent(creatorId)}`}
+                              <button
+                                onClick={() => {
+                                  if (stream.playbackId) {
+                                    setSelectedStreamForViewing({
+                                      playbackId: stream.playbackId,
+                                      title: stream.title || stream.name || 'Live Stream',
+                                    });
+                                  }
+                                }}
                                 className="w-full bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
                               >
                                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                                   <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
                                 </svg>
                                 View Stream
-                              </Link>
+                              </button>
                             </div>
-              </div>
+                          </div>
                         ))}
                       </>
                     )}
                   </>
-            )}
+                )}
               </TabsContent>
             </Tabs>
           </SectionCard>

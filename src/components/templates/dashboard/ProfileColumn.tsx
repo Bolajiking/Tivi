@@ -56,6 +56,16 @@ export function ProfileColumn() {
     };
 
     fetchUserProfile();
+
+    // Listen for profile updates
+    const handleProfileUpdate = () => {
+      fetchUserProfile();
+    };
+
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
   }, [creatorAddress]);
 
   const handleCopyAddress = async () => {
@@ -86,9 +96,9 @@ export function ProfileColumn() {
   }
 
   return (
-    <div className="w-[400px] p-4 px-10 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg space-y-4">
+    <div className="w-fit p-4 px-6 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg space-y-4">
       {/* Profile Image */}
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center gap-2">
         {userProfile?.avatar ? (
           <div className="relative w-24 h-24 rounded-full overflow-hidden border-2 border-yellow-400">
             <Image
@@ -103,6 +113,10 @@ export function ProfileColumn() {
           <div className="w-24 h-24 rounded-full bg-gradient-to-r from-yellow-500/30 to-teal-500/30 flex items-center justify-center border-2 border-yellow-400">
             <User className="w-12 h-12 text-yellow-400" />
           </div>
+        )}
+        {/* Display Name */}
+        {userProfile?.displayName && (
+          <h3 className="text-white font-bold text-lg">{userProfile.displayName}</h3>
         )}
       </div>
 

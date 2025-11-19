@@ -8,6 +8,7 @@ import { LuArrowLeftFromLine, LuArrowRightFromLine } from 'react-icons/lu';
 import clsx from 'clsx';
 import { X } from 'lucide-react';
 import Logo from '@/components/Logo';
+import { ChannelProvider } from '@/context/ChannelContext';
 
 const DashboardLayout = ({
   children,
@@ -54,7 +55,8 @@ const DashboardLayout = ({
 
   return (
     <AuthGuard>
-      <div className="text-white flex h-screen bg-gradient-to-br from-black via-gray-950 to-black font-sans">
+      <ChannelProvider>
+        <div className="text-white flex h-screen bg-gradient-to-br from-black via-gray-950 to-black font-sans">
         {/* Sidebar for desktop */}
 
         <aside
@@ -106,6 +108,7 @@ const DashboardLayout = ({
           </main>
         </div>
       </div>
+      </ChannelProvider>
     </AuthGuard>
   );
 };
