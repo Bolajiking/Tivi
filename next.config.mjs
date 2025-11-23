@@ -1,4 +1,11 @@
 /** @type {import('next').NextConfig} */
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Extract Supabase hostname from environment variable
 const getSupabaseHostname = () => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -43,8 +50,6 @@ const nextConfig = {
     // Since we're using Ethereum-only wallets (walletChainType: 'ethereum-only'), 
     // we don't need Solana functionality
     // Replace problematic Solana imports with an empty module to prevent build errors
-    
-    const path = require('path');
     
     // Replace @solana/kit imports with our empty module
     // This works for both direct imports and imports from compute-budget
