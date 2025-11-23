@@ -1,15 +1,8 @@
 'use client';
 
-import { useWallet } from '@solana/wallet-adapter-react';
-import dynamic from 'next/dynamic';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { toast } from 'sonner';
-import { useSolPrice } from '@/app/hook/useSolPrice';
 import { formatNumber } from '@/lib/utils';
-
-const WalletMultiButton = dynamic(
-  async () => (await import('@solana/wallet-adapter-react-ui')).WalletMultiButton,
-  { ssr: false }
-);
 
 interface StreamPaymentProps {
   playbackId: string;
@@ -30,9 +23,9 @@ export function StreamPayment({
   processingPayment,
   walletReady,
 }: StreamPaymentProps) {
-  const { connected } = useWallet();
-  const { solPrice, loading: priceLoading, usdToSol } = useSolPrice();
-  const solAmount = usdToSol(usdAmount);
+  const { authenticated, ready } = usePrivy();
+  const { wallets } = useWallets();
+  const connected = authenticated && ready && wallets && wallets.length > 0;
 
   const handlePay = async () => {
     if (!connected) {
@@ -45,13 +38,9 @@ export function StreamPayment({
       return;
     }
 
-    if (!solAmount) {
-      toast.error('Unable to calculate SOL amount. Please try again.');
-      return;
-    }
-
     try {
-      await processPayment(solAmount, recipientAddress);
+      // processPayment now expects USD amount, not SOL
+      await processPayment(usdAmount, recipientAddress);
       onPaymentSuccess();
       toast.success('Payment successful! Access granted.');
     } catch (err: any) {
@@ -69,45 +58,28 @@ export function StreamPayment({
         <div className="flex justify-between items-center">
           <span className="text-gray-600 dark:text-gray-400">Price:</span>
           <span className="text-lg font-semibold text-gray-900 dark:text-white">
-            ${formatNumber(usdAmount, 2)}
+            ${formatNumber(usdAmount, 2)} USDC
           </span>
         </div>
         
-        {solAmount && (
-          <div className="flex justify-between items-center">
-            <span className="text-gray-600 dark:text-gray-400">Amount in SOL:</span>
-            <span className="text-lg font-semibold text-gray-900 dark:text-white">
-              {formatNumber(solAmount, 4)} SOL
-            </span>
-          </div>
-        )}
-
-        {solPrice && (
-          <div className="flex justify-between items-center text-sm">
-            <span className="text-gray-500 dark:text-gray-500">SOL/USD Rate:</span>
-            <span className="text-gray-700 dark:text-gray-300">
-              ${formatNumber(solPrice, 2)}
-            </span>
-          </div>
-        )}
-
-        {priceLoading && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
-            Loading exchange rate...
-          </p>
-        )}
+        <div className="flex justify-between items-center text-sm">
+          <span className="text-gray-500 dark:text-gray-500">Payment Method:</span>
+          <span className="text-gray-700 dark:text-gray-300">
+            Ethereum (USDC)
+          </span>
+        </div>
       </div>
 
       {!connected ? (
         <div className="flex flex-col items-center space-y-4">
           <p className="text-sm text-gray-500 dark:text-gray-400">Connect your wallet to proceed</p>
-          <WalletMultiButton />
+          <p className="text-xs text-gray-400">Please connect your wallet using the Privy authentication</p>
         </div>
       ) : (
         <div className="flex flex-col items-center space-y-4 w-full max-w-md">
           <button
             onClick={handlePay}
-            disabled={processingPayment || !walletReady || !solAmount || priceLoading}
+            disabled={processingPayment || !walletReady}
             className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             {processingPayment ? 'Processing Payment...' : 'Pay & Access Stream'}

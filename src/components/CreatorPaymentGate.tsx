@@ -1,17 +1,20 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { useWallets } from '@privy-io/react-auth';
+import { useWallets, useSendTransaction } from '@privy-io/react-auth';
 import { toast } from 'sonner';
 import { Bars } from 'react-loader-spinner';
 import { usePrivy } from '@privy-io/react-auth';
 import { parseUnits, encodeFunctionData, erc20Abi } from 'viem';
+import { addCreatorSubscriptionAndNotification } from '@/lib/supabase-service';
+import type { Subscription, Notification } from '@/lib/supabase-types';
 
 interface CreatorPaymentGateProps {
   creatorId: string;
   viewMode: 'free' | 'one-time' | 'monthly';
   amount: number; // Amount in USD
   streamName?: string;
+  title?: string;
   onPaymentSuccess: () => void;
   children: React.ReactNode;
 }
@@ -26,21 +29,33 @@ export function CreatorPaymentGate({
   viewMode,
   amount,
   streamName,
+  title,
   onPaymentSuccess,
   children,
 }: CreatorPaymentGateProps) {
-  const { authenticated, ready, user, sendTransaction } = usePrivy();
+  const { authenticated, ready, user } = usePrivy();
   const { wallets } = useWallets();
+  const { sendTransaction } = useSendTransaction();
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
 
-  // Get wallet address - check both wallets array and user's linked accounts
+  // Get wallet address - prioritize external wallets, but get the actual wallet object too
   const walletAddress = useMemo(() => {
-    // First, try to get from wallets array (includes embedded wallets)
+    // First, try to get external wallet (non-embedded) - these should work with sendTransaction
     if (wallets && wallets.length > 0) {
-      // Prefer embedded wallet (privy wallet) or first available wallet
+      // Prefer external wallet over embedded wallet
+      const externalWallet = wallets.find((w: any) => 
+        w.walletClientType !== 'privy' && 
+        w.clientType !== 'privy' &&
+        w.connectorType !== 'privy'
+      );
+      if (externalWallet?.address) {
+        return externalWallet.address;
+      }
+      
+      // Fallback to embedded wallet
       const embeddedWallet = wallets.find((w: any) => 
         w.walletClientType === 'privy' || 
         w.clientType === 'privy' ||
@@ -49,6 +64,7 @@ export function CreatorPaymentGate({
       if (embeddedWallet?.address) {
         return embeddedWallet.address;
       }
+      
       // Fallback to first wallet
       if (wallets[0]?.address) {
         return wallets[0].address;
@@ -108,11 +124,6 @@ export function CreatorPaymentGate({
       return;
     }
 
-    if (!sendTransaction) {
-      toast.error('Transaction functionality is not available. Please try again.');
-      return;
-    }
-
     setIsProcessing(true);
 
     try {
@@ -153,10 +164,58 @@ export function CreatorPaymentGate({
         data: data,
       };
 
-      // Send the transaction
-      // Privy's sendTransaction returns a promise that resolves when user confirms
-      const txHash = await sendTransaction(unsignedTx);
+      // Log wallet info for debugging
+      console.log('Wallet info:', {
+        walletAddress,
+        wallets: wallets?.map((w: any) => ({ address: w.address, type: w.walletClientType })),
+      });
+
+      // Use useSendTransaction with the address option to specify which wallet to use
+      // This is recommended for external wallets to ensure reliable functionality
+      const txResult = await sendTransaction(unsignedTx, {
+        address: walletAddress, // Specify the wallet to use for signing
+      });
+      
+      const txHash = txResult.hash;
       console.log('Transaction sent successfully:', txHash);
+      
+      // Continue with success flow...
+      // Calculate expiration date for monthly subscriptions
+      const expiresAt = viewMode === 'monthly' 
+        ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 days
+        : null; // one-time never expires
+
+      // Create subscription object
+      const subscription: Subscription = {
+        subscriberAddress: walletAddress,
+        viewMode,
+        amount,
+        txHash,
+        subscribedAt: new Date().toISOString(),
+        expiresAt: expiresAt,
+      };
+
+      // Create notification object
+      const notification: Notification = {
+        type: 'payment',
+        title: 'New Payment Received',
+        message: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} paid $${amount.toFixed(2)} USDC for ${viewMode} access`,
+        walletAddress: walletAddress,
+        txHash: txHash,
+        amount: amount,
+        createdAt: new Date().toISOString(),
+        read: false,
+      };
+
+      // Save subscription and notification to Supabase
+      try {
+        await addCreatorSubscriptionAndNotification(creatorId, subscription, notification);
+        console.log('Subscription and notification saved successfully');
+      } catch (error) {
+        console.error('Failed to save subscription/notification:', error);
+        // Don't fail the payment if Supabase save fails - payment was successful
+        toast.warning('Payment successful, but failed to save subscription details. Please contact support.');
+      }
 
       // Store payment record in localStorage
       const paymentKey = `creator_access_${creatorId}`;
@@ -225,7 +284,7 @@ export function CreatorPaymentGate({
           </div>
           <h2 className="text-2xl font-bold text-white mb-2">Premium Content</h2>
           <p className="text-gray-400 mb-4">
-            {streamName || 'This creator profile'} requires payment to access
+            {title || 'This creator profile'} requires payment to access
           </p>
         </div>
 
@@ -262,7 +321,7 @@ export function CreatorPaymentGate({
 
         <button
           onClick={handlePayment}
-          disabled={isProcessing || !authenticated || !ready || !walletAddress || !sendTransaction}
+          disabled={isProcessing || !authenticated || !ready || !walletAddress}
           className="w-full px-6 py-3 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {isProcessing ? (

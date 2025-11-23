@@ -558,19 +558,10 @@ export function ProfileCustomization() {
           </div>
         </div>
 
-      </div>
-
-      {/* Stream Customization */}
-      <div className="space-y-4">
-        <h4 className="font-semibold text-white">Stream Settings</h4>
-        
-        {/* View Mode */}
-      
-        {/* Amount */}
         {streamData.viewMode !== 'free' && (
           <div>
             <label className="block text-sm font-medium mb-1 text-white">
-              Amount (SOL) <span className="text-red-400">*</span>
+              Amount (USDC) <span className="text-red-400">*</span>
             </label>
             <InputField
               type="number"
@@ -590,6 +581,17 @@ export function ProfileCustomization() {
           </div>
         )}
 
+      </div>
+
+      {/* Stream Customization */}
+      <div className="space-y-4">
+        <h4 className="font-semibold text-white">Stream & Video Settings</h4>
+        
+        {/* View Mode */}
+      
+        {/* Amount */}
+      
+
         {/* Record Option */}
         {/* <div>
           <label className="block text-sm font-medium mb-1 text-white">Record Stream?</label>
@@ -605,7 +607,7 @@ export function ProfileCustomization() {
 
         {/* Donation Presets */}
         <div>
-          <label className="block text-sm font-medium mb-2 text-white">Donation Presets (SOL)</label>
+          <label className="block text-sm font-medium mb-2 text-white">Donation Presets (USDC)</label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {streamData.donations.map((value, i) => (
               <InputField

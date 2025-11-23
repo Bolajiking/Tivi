@@ -9,11 +9,9 @@ import './globals.css';
 // import '@coinbase/onchainkit/styles.css';
 // import { cookieToInitialState } from 'wagmi';
 // import getConfig from 'next/config';
-import { SolanaProvider } from '@/context/solProv';
 import { PrivyProvider } from '@privy-io/react-auth';
 import {Provider} from 'react-redux';
 import store from '../store/store';
-import { toSolanaWalletConnectors } from '@privy-io/react-auth/solana';
 
 // export const metadata: Metadata = {
 //   title: 'Switch TV',
@@ -31,14 +29,13 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <title>ChainfrenTV</title>
-        <meta name="description" content="ChainfrenTV - Live Streaming on Solana" />
+        <meta name="description" content="ChainfrenTV - Live Streaming on Ethereum" />
         <link rel="icon" href="/assets/images/icon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Funnel+Display:wght@400;500;600;700;800&family=Host+Grotesk:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body className="antialiased">
-      <SolanaProvider customRpcUrl="https://solana-devnet.g.alchemy.com/v2/8rgdAH9Vy_zuXQFA2hedqK_a_3GAxvuZ">
           <PrivyProvider
       appId={process.env.NEXT_PUBLIC_PRIVY_ENVIRONMENT_ID ?? ''}
       config={{
@@ -71,7 +68,6 @@ export default function RootLayout({
          
         </Provider>
         </PrivyProvider>
-        </SolanaProvider>
       </body>
     </html>
   );

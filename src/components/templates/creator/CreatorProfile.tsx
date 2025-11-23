@@ -33,6 +33,8 @@ import { usePlaybackInfo } from '@/app/hook/usePlaybckInfo';
 import { PlayerLoading } from '@/components/templates/player/player/Player';
 import { VideoPlayer } from '@/components/templates/dashboard/VideoPlayer';
 import { CreatorPaymentGate } from '@/components/CreatorPaymentGate';
+import { StreamPaymentGate } from '@/components/StreamPaymentGate';
+import { VideoPaymentGate } from '@/components/VideoPaymentGate';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -561,17 +563,19 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
       </aside>
 
       {/* Main Content */}
-      <CreatorPaymentGate
-        creatorId={actualCreatorId || creatorId}
-        viewMode={creatorStreamData?.viewMode || 'free'}
-        amount={creatorStreamData?.amount || 0}
-        streamName={creatorStreamData?.streamName || creatorStreamData?.title}
-        onPaymentSuccess={() => {
-          // Payment successful - component will automatically show content
-        }}
-      >
       <div className="flex-1 flex flex-col gap-4 h-screen overflow-hidden relative">
         <div className="flex-1 flex gap-4 overflow-hidden">
+          {/* Center Content Area - Gated */}
+          <CreatorPaymentGate
+            creatorId={actualCreatorId || creatorId}
+            viewMode={creatorStreamData?.viewMode || 'free'}
+            amount={creatorStreamData?.amount || 0}
+            streamName={creatorStreamData?.streamName || creatorStreamData?.title}
+            title={creatorStreamData?.title || creatorStreamData?.streamName || 'Channel'}
+            onPaymentSuccess={() => {
+              // Payment successful - component will automatically show content
+            }}
+          >
           <div className="flex-1 my-2 ml-2 flex flex-col relative">
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto pb-4">
@@ -730,26 +734,34 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {creatorAssets.map((asset) => (
-                          <div key={asset.id}>
-                            <VideoCard
-                              title={asset.name}
-                              assetData={asset}
-                              imageUrl={image1}
-                              playbackId={asset.playbackId}
-                              createdAt={new Date(asset.createdAt)}
-                              format={asset.videoSpec?.format}
-                              onPlayClick={() => {
-                                if (asset.playbackId) {
-                                  setSelectedVideoForViewing({
-                                    playbackId: asset.playbackId,
-                                    title: asset.name || 'Video',
-                                  });
-                                }
-                              }}
-                            />
-                          </div>
-                        ))}
+                        {creatorAssets.map((asset) => {
+                          const videoCreatorId = asset.creatorId?.value || actualCreatorId || '';
+                          return (
+                            <div key={asset.id}>
+                              <VideoPaymentGate
+                                playbackId={asset.playbackId}
+                                creatorId={videoCreatorId}
+                              >
+                                <VideoCard
+                                  title={asset.name}
+                                  assetData={asset}
+                                  imageUrl={image1}
+                                  playbackId={asset.playbackId}
+                                  createdAt={new Date(asset.createdAt)}
+                                  format={asset.videoSpec?.format}
+                                  onPlayClick={() => {
+                                    if (asset.playbackId) {
+                                      setSelectedVideoForViewing({
+                                        playbackId: asset.playbackId,
+                                        title: asset.name || 'Video',
+                                      });
+                                    }
+                                  }}
+                                />
+                              </VideoPaymentGate>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </>
@@ -783,41 +795,51 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                       </div>
                     ) : (
                       <>
-                        {creatorStreams.map((stream) => (
-                          <div key={stream.id} className="mb-4">
-                            <ChannelCardRedesign
-                              title={stream.title || stream.name}
-                              image={image1}
-                              logo={stream.logo}
-                              playbackId={stream.playbackId}
-                              playb={stream.playbackId}
-                              lastSeen={new Date(stream.lastSeen || 0)}
-                              status={stream.isActive}
-                              showName={false}
-                              showSocialLinks={false}
-                              useThumbnail={true}
-                            />
-                            {/* View Stream Button */}
-                            <div className="mt-4">
-                              <button
-                                onClick={() => {
-                                  if (stream.playbackId) {
-                                    setSelectedStreamForViewing({
-                                      playbackId: stream.playbackId,
-                                      title: stream.title || stream.name || 'Live Stream',
-                                    });
-                                  }
-                                }}
-                                className="w-full bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                        {creatorStreams.map((stream) => {
+                          const streamCreatorId = stream.creatorId?.value || actualCreatorId || '';
+                          return (
+                            <div key={stream.id} className="mb-4">
+                              <StreamPaymentGate
+                                playbackId={stream.playbackId}
+                                creatorId={streamCreatorId}
                               >
-                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
-                                </svg>
-                                View Stream
-                              </button>
+                                <div>
+                                  <ChannelCardRedesign
+                                    title={stream.title || stream.name}
+                                    image={image1}
+                                    logo={stream.logo}
+                                    playbackId={stream.playbackId}
+                                    playb={stream.playbackId}
+                                    lastSeen={new Date(stream.lastSeen || 0)}
+                                    status={stream.isActive}
+                                    showName={false}
+                                    showSocialLinks={false}
+                                    useThumbnail={true}
+                                  />
+                                  {/* View Stream Button */}
+                                  <div className="mt-4">
+                                    <button
+                                      onClick={() => {
+                                        if (stream.playbackId) {
+                                          setSelectedStreamForViewing({
+                                            playbackId: stream.playbackId,
+                                            title: stream.title || stream.name || 'Live Stream',
+                                          });
+                                        }
+                                      }}
+                                      className="w-full bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                                    >
+                                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
+                                      </svg>
+                                      View Stream
+                                    </button>
+                                  </div>
+                                </div>
+                              </StreamPaymentGate>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </>
                     )}
                   </>
@@ -831,9 +853,10 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
           <div className="flex-shrink-0 z-10">
             <BottomNav />
           </div>
-        </div>
+          </div>
+          </CreatorPaymentGate>
         
-          {/* Viewer Profile Column - Desktop View */}
+          {/* Viewer Profile Column - Desktop View - Always visible, outside gate */}
           <div className="hidden lg:block flex-shrink-0 pt-2 pr-2">
             {ready && authenticated ? (
               // Logged in: Show ProfileColumn component
@@ -880,7 +903,6 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
           </div>
         </div>
       </div>
-      </CreatorPaymentGate>
     </div>
   );
 }

@@ -6,8 +6,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { MdOutlineLogout } from 'react-icons/md';
 import { useRouter } from 'next/navigation';
 import * as Dialog from '@radix-ui/react-dialog';
-import { useLogout, usePrivy } from '@privy-io/react-auth';
-import { useWallets } from '@privy-io/react-auth/solana';
+import { useLogout, usePrivy, useWallets } from '@privy-io/react-auth';
 import { useEffect, useState } from 'react';
 import { FaRegUserCircle, FaWallet, FaGoogle, FaDiscord, FaTwitter } from 'react-icons/fa';
 import { MdEmail } from 'react-icons/md';
@@ -22,29 +21,29 @@ import { setSolanaWalletAddress } from '@/features/userSlice';
 const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mobileOpen: boolean; title?: string }) => {
   const navigate = useRouter();
   const { user, ready } = usePrivy();
-  const { wallets: solana } = useWallets();
-  const [solanaWallet, setSolanaWallet] = useState<string>('');
+  const { wallets } = useWallets();
+  const [walletAddress, setWalletAddress] = useState<string>('');
   const [showDialog, setShowDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const dispatch = useDispatch();
 
-  // Get existing Solana wallet on login/ready (no creation - Privy handles that automatically)
+  // Get existing Ethereum wallet on login/ready (no creation - Privy handles that automatically)
   useEffect(() => {
     if (!ready || !user) return;
     
-    // Find existing embedded wallet or any Solana wallet
-    const solanaWalletObj: any = solana.find((wallet: any) => 
+    // Find existing embedded wallet or any Ethereum wallet
+    const walletObj: any = wallets.find((wallet: any) => 
       wallet.walletClientType === 'privy' || wallet.clientType === 'privy'
-    ) || solana[0]; // Fallback to first wallet if no embedded wallet found
+    ) || wallets[0]; // Fallback to first wallet if no embedded wallet found
     
-    if (solanaWalletObj) {
-      const address = solanaWalletObj?.address ?? solanaWalletObj?.wallet?.address;
+    if (walletObj) {
+      const address = walletObj?.address ?? walletObj?.wallet?.address;
       if (address) {
-        setSolanaWallet(address);
-        dispatch(setSolanaWalletAddress(address));
+        setWalletAddress(address);
+        dispatch(setSolanaWalletAddress(address)); // Keep using same action for compatibility
       }
     }
-  }, [ready, solana, user, dispatch]);
+  }, [ready, wallets, user, dispatch]);
 
   const { logout: handleLogout } = useLogout({
     onSuccess: () => {
@@ -79,7 +78,7 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
                 <button className="flex items-center justify-center p-2 hover:bg-white/10 rounded-full transition-colors">
-                  {ready && (user?.wallet?.chainType === 'solana' || solanaWallet) ? (
+                  {ready && walletAddress ? (
                     <FaRegUserCircle className="text-2xl text-yellow-400" />
                   ) : (
                     <FaRegUserCircle className="text-2xl text-gray-400" />
@@ -124,10 +123,10 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
                     <Dialog.Title className="text-2xl font-semibold border-b border-white/20 pb-4 mb-4 text-white">Profile Details</Dialog.Title>
                     {/* Profile Details Content */}
                     <div className="grid fex flex-col grid-cols-2  lg:grid-cols-3 gap-4">
-                      {/* Solana Wallet Only */}
+                      {/* Ethereum Wallet Only */}
                       <div className="col-span-2 lg:col-span-3">
                         <div className="flex justify-between items-center">
-                          <span className="text-yellow-400 text-base">Solana Wallet Address:</span>
+                          <span className="text-yellow-400 text-base">Ethereum Wallet Address:</span>
                           <button
                             onClick={() => setShowWallets((prev) => !prev)}
                             className="px-3 py-1 border border-white/20 bg-white/10 backdrop-blur-sm rounded text-sm text-white hover:bg-white/20 transition-colors"
@@ -138,17 +137,17 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
                         {showWallets && (
                           <div className="mt-4 space-y-4">
                             <div className="flex flex-col">
-                              <span className="text-yellow-400 text-base">Solana Wallet Address:</span>
+                              <span className="text-yellow-400 text-base">Ethereum Wallet Address:</span>
                               <div className="flex items-center gap-2 mt-1">
                                 <input
                                   type="text"
                                   readOnly
-                                  value={solanaWallet || ''}
+                                  value={walletAddress || ''}
                                   className="border border-white/20 bg-white/10 backdrop-blur-sm rounded-lg px-4 py-2 w-full text-white"
                                 />
                                 <button
                                   onClick={() => {
-                                    navigator.clipboard.writeText(solanaWallet || '');
+                                    navigator.clipboard.writeText(walletAddress || '');
                                     toast.success('Copied to clipboard');
                                   }}
                                   className="px-2 py-1 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors"
@@ -174,7 +173,7 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
                           <FaWallet className="text-2xl text-purple-400" />
                           <span className="font-medium text-white">Wallet Address</span>
                         </div>
-                        <p className="text-sm text-gray-300 break-words">{solanaWallet || 'Not connected'}</p>
+                        <p className="text-sm text-gray-300 break-words">{walletAddress || 'Not connected'}</p>
                       </div>
                       {/* Email Card */}
                       <div className="p-4 rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm hover:border-yellow-400 transition-shadow">

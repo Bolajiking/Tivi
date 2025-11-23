@@ -37,16 +37,7 @@ import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 
 import { useRouter } from 'next/navigation';
-import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-// import { useConnection } from '@solana/wallet-adapter-react';
-import {   PublicKey, Transaction, SystemProgram} from '@solana/web3.js';
-// import { PublicKey } from '@solana/web3.js';
-
-const WalletMultiButtonDynamic = dynamic(
-  async () =>
-    (await import('@solana/wallet-adapter-react-ui')).WalletMultiButton,
-  { ssr: false }
-);
+import { useWallets, usePrivy } from '@privy-io/react-auth';
 
 interface Product {
   id: string;
@@ -69,8 +60,12 @@ export function PlayerWithControls({
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { viewerMetrics: totalViewers } = useViewMetrics({ playbackId });
-  const { publicKey, sendTransaction, connected, wallet , wallets } = useWallet();
-  const { connection } = useConnection();
+  const { authenticated, ready } = usePrivy();
+  const { wallets } = useWallets();
+  
+  // Get wallet address from Privy (Ethereum wallet)
+  const walletAddress = wallets && wallets.length > 0 ? wallets[0].address : null;
+  const connected = authenticated && ready && !!walletAddress;
   const [message, setMessage] = useState<string | null>(null);
   const { assets, error: assetsError } = useSelector((s: RootState) => s.assets);
   const { messages: chatMessages, loading: chatLoading, sending: isSendingChat, error: chatError } = useSelector((s: RootState) => s.chat);
@@ -138,42 +133,28 @@ export function PlayerWithControls({
   
   const handleSend = async (amount: number) => {
     setMessage(null);
-    if (!publicKey) {
+    if (!walletAddress || !connected) {
       setMessage('Error: Wallet not connected');
       return;
     }
   
-    try {
-      console.log("Trying to send transaction");
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: new PublicKey(id),
-          lamports: amount * 1e9, // Convert SOL to lamports
-        })
-      );
-      const signature = await sendTransaction(transaction, connection);
-      console.log("Transaction sent successfully, signature:", signature);
-      setMessage(`https://solscan.io/tx/${signature}`);
-    } catch (error: any) {
-      setMessage(`Error: ${error?.message || error}`);
-    } finally {
-      // setLoading(false);
-    }
+    // Donation functionality should be handled via Ethereum/Privy
+    // This is a placeholder - implement Ethereum-based donation if needed
+    setMessage('Donation functionality is being migrated to Ethereum. Please use the payment gate for payments.');
   };
 
   // Chat functionality
   const handleSendChat = useCallback(async () => {
-    if (!chatInput.trim() || !connected || !publicKey) {
+    if (!chatInput.trim() || !connected || !walletAddress) {
       toast.error('Please connect your wallet to send messages');
       return;
     }
 
-    const sender = publicKey.toString().slice(0, 5) + '...';
+    const sender = walletAddress.slice(0, 5) + '...';
     const messageData = {
       message: chatInput.trim(),
       streamId: playbackId,
-      walletAddress: publicKey.toString(),
+      walletAddress: walletAddress,
       sender,
     };
 
@@ -185,7 +166,7 @@ export function PlayerWithControls({
       toast.error('Failed to send message');
       console.error('Chat error:', error);
     }
-  }, [chatInput, connected, publicKey, playbackId, dispatch]);
+  }, [chatInput, connected, walletAddress, playbackId, dispatch]);
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -504,9 +485,7 @@ export function PlayerWithControls({
                   )}
                 </div>
               )}
-            <div className="mt-6">
-              <WalletMultiButtonDynamic />
-            </div>
+            {/* Wallet connection is now handled by Privy in the header/navigation */}
           </div>
 
           {/* Chat Section */}
@@ -599,8 +578,8 @@ export function PlayerWithControls({
             recipientAddress={stream.creatorId}
             onPaymentSuccess={() => {
               setHasAccess(true);
-              if (publicKey) {
-                markPaid(publicKey.toBase58());
+              if (walletAddress) {
+                markPaid(walletAddress);
               }
             }}
             processPayment={processPayment}

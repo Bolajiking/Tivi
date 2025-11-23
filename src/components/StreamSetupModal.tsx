@@ -170,7 +170,7 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
             {streamMode !== 'free' && (
               <div>
                 <label className="block text-sm font-medium mb-1 text-white">
-                  Amount (SOL) <span className="text-red-400">*</span>
+                  Amount (USDC) <span className="text-red-400">*</span>
                 </label>
                 <InputField
                   type="number"
@@ -184,7 +184,7 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
                       setErrors(prev => ({ ...prev, streamAmount: undefined }));
                     }
                   }}
-                  placeholder="Enter amount in SOL"
+                  placeholder="Enter amount in USDC"
                   className={`w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400 ${errors.streamAmount ? 'border-red-400' : ''}`}
                 />
                 {errors.streamAmount && (

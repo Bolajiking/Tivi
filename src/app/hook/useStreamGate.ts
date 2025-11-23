@@ -1,7 +1,5 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { PublicKey, SystemProgram, Transaction } from '@solana/web3.js';
 import { getStreamByPlaybackId, addPayingUserToStream } from '@/lib/supabase-service';
 import type { SupabaseStream } from '@/lib/supabase-types';
 
@@ -28,8 +26,6 @@ export function useStreamGate(playbackId: string) {
   const [error, setError] = useState<string | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
-  const { publicKey, connected, sendTransaction } = useWallet();
-  const { connection } = useConnection();
 
   // 1️⃣ Fetch stream metadata from Supabase
   useEffect(() => {
@@ -82,91 +78,41 @@ export function useStreamGate(playbackId: string) {
   }, [playbackId]);
 
   // 2️⃣ Check if viewer's wallet address is in the Users array or if viewer is the creator
+  // Note: This now relies on localStorage or external payment verification
+  // Wallet address should be provided via props or context if needed
   useEffect(() => {
-    if (!stream || !publicKey || stream.viewMode === 'free') return;
-
-    const walletAddress = publicKey.toBase58();
-    
-    // Check if viewer is the creator (owner of the stream)
-    const isCreator = stream.creatorId?.toLowerCase() === walletAddress.toLowerCase();
-    
-    // Check if viewer has paid (is in Users array)
-    const hasPaid = stream.Users?.some((userAddress) => 
-      userAddress.toLowerCase() === walletAddress.toLowerCase()
-    );
-
-    // Grant access if viewer is the creator or has paid
-    if (isCreator || hasPaid) {
-      setHasAccess(true);
-    }
-  }, [stream, publicKey]);
-
-  // 3️⃣ Process payment when wallet is connected and stream is paid
-  const processPayment = async (solAmount: number, recipientAddress: string) => {
-    if (!stream || stream.viewMode === 'free' || hasAccess) return;
-    if (!connected || !publicKey || !sendTransaction) {
-      throw new Error('Wallet not connected or transaction not supported');
-    }
-
-    // Validate recipient address
-    let recipientPubkey: PublicKey;
-    try {
-      recipientPubkey = new PublicKey(recipientAddress);
-    } catch (err) {
-      throw new Error('Invalid recipient wallet address');
-    }
-
-    setProcessingPayment(true);
-    try {
-      console.log('Trying to send transaction', { solAmount, recipientAddress, playbackId });
-
-      // Convert SOL to lamports, ensuring it's an integer
-      // Use Math.floor to avoid decimal values that cause BigInt conversion errors
-      const lamports = Math.floor(solAmount * 1e9);
-      
-      if (lamports <= 0) {
-        throw new Error('Payment amount must be greater than 0');
+    if (!stream || stream.viewMode === 'free') {
+      if (stream?.viewMode === 'free') {
+        setHasAccess(true);
       }
+      return;
+    }
 
-      // Create and send transaction (simplified like Player.tsx)
-      const transaction = new Transaction().add(
-        SystemProgram.transfer({
-          fromPubkey: publicKey,
-          toPubkey: recipientPubkey,
-          lamports,
-        })
-      );
-
-      const signature = await sendTransaction(transaction, connection);
-      console.log('Transaction sent successfully, signature:', signature);
-
-      // Add paying user to Supabase (non-blocking)
-      const walletAddress = publicKey.toBase58();
+    // Check localStorage for payment record (for Ethereum-based payments)
+    const paymentKey = `creator_access_${stream.creatorId}`;
+    const paymentRecord = localStorage.getItem(paymentKey);
+    
+    if (paymentRecord) {
       try {
-        await addPayingUserToStream(playbackId, walletAddress);
-        // Update local stream state
-        if (stream) {
-          setStream({
-            ...stream,
-            Users: [...(stream.Users || []), walletAddress],
-          });
+        const record = JSON.parse(paymentRecord);
+        // Check if payment is still valid (for monthly, check expiration)
+        if (stream.viewMode === 'one-time' || (stream.viewMode === 'monthly' && record.expiresAt > Date.now())) {
+          setHasAccess(true);
         }
-      } catch (supabaseError: any) {
-        console.error('Failed to add paying user to Supabase:', supabaseError);
-        // Don't fail the payment if Supabase call fails
+      } catch (e) {
+        console.warn('Failed to parse payment record:', e);
       }
-
-      // Grant access
-      setHasAccess(true);
-      markPaid(walletAddress);
-
-      return { success: true, signature };
-    } catch (err: any) {
-      console.error('Payment processing failed:', err);
-      throw new Error(err?.message || 'Payment failed');
-    } finally {
-      setProcessingPayment(false);
     }
+  }, [stream]);
+
+  // 3️⃣ Process payment - now handled externally via Ethereum/Privy
+  // This function is kept for compatibility but should be handled by CreatorPaymentGate
+  const processPayment = async (usdAmount: number, recipientAddress: string) => {
+    if (!stream || stream.viewMode === 'free' || hasAccess) return;
+    
+    // Payment processing is now handled by CreatorPaymentGate component
+    // which uses Privy for Ethereum transactions
+    throw new Error('Payment processing should be handled by CreatorPaymentGate component');
   };
 
   // 4️⃣ Helper function to check if user has paid (for after payment confirmation)
@@ -185,7 +131,7 @@ export function useStreamGate(playbackId: string) {
     markPaid, 
     processPayment, 
     processingPayment,
-    walletReady: connected && !!publicKey,
+    walletReady: false, // No longer using Solana wallet adapter
   };
 }
 

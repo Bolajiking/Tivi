@@ -24,7 +24,31 @@ export interface SupabaseStream {
   socialLinks?: string[] | null; // Array of JSON strings like ["{\"twitter\":\"https://...\"}", "{\"instagram\":\"https://...\"}"]
   Users: string[]; // Array of paying user wallet addresses
   donations: number[]; // Array of donation preset amounts
+  subscriptions?: Subscription[] | null; // Array of subscription objects
+  notifications?: Notification[] | null; // Array of notification objects
   created_at?: string; // ISO timestamp
+}
+
+// Subscription object type
+export interface Subscription {
+  subscriberAddress: string; // Wallet address of the subscriber
+  viewMode: 'free' | 'one-time' | 'monthly'; // Type of subscription
+  amount: number; // Amount paid
+  txHash: string; // Transaction hash
+  subscribedAt: string; // ISO timestamp
+  expiresAt?: string | null; // ISO timestamp (null for one-time, set for monthly)
+}
+
+// Notification object type
+export interface Notification {
+  type: 'payment' | 'subscription' | 'donation' | 'other'; // Type of notification
+  title: string; // Notification title
+  message: string; // Notification message
+  walletAddress: string; // Wallet address related to the notification
+  txHash?: string | null; // Transaction hash if applicable
+  amount?: number | null; // Amount if applicable
+  createdAt: string; // ISO timestamp
+  read?: boolean; // Whether the notification has been read
 }
 
 // User/Profile table types
@@ -56,6 +80,8 @@ export interface SupabaseVideo {
   fontFamily?: string | null;
   Users: string[]; // Array of paying user wallet addresses
   donations: number[]; // Array of donation preset amounts
+  subscriptions?: Subscription[] | null; // Array of subscription objects
+  notifications?: Notification[] | null; // Array of notification objects
   disabled?: boolean;
   created_at?: string; // ISO timestamp
 }

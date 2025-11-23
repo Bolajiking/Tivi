@@ -7,7 +7,9 @@ export default function CreatorProfilePage({
 }: {
   params: { creatorId: string };
 }) {
-  const { creatorId } = params;
+  // Decode the creatorId parameter to handle URL encoding
+  // Next.js automatically lowercases URL params, but we'll use case-insensitive DB queries
+  const creatorId = decodeURIComponent(params.creatorId);
 
   return (
     <div className="w-full h-full">

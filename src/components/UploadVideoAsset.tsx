@@ -295,7 +295,7 @@ export default function UploadVideoAsset({ onClose }: { onClose: () => void }) {
           </div>
         )}
 
-        <div className="flex flex-col">
+        {/* <div className="flex flex-col">
           <label className="text-sm pb-1 font-medium text-black">Donation Presets</label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
             {presetValues.map((value, i) => (
@@ -310,7 +310,7 @@ export default function UploadVideoAsset({ onClose }: { onClose: () => void }) {
               />
             ))}
           </div>
-        </div>
+        </div> */}
 
         {error && <p className="text-red-500 text-sm">{error}</p>}
 

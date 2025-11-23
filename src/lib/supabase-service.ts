@@ -14,6 +14,8 @@ import type {
   VideoInsert,
   VideoUpdate,
   ChatInsert,
+  Subscription,
+  Notification,
 } from './supabase-types';
 
 // ==================== IMAGE UPLOAD OPERATIONS ====================
@@ -259,6 +261,133 @@ export async function addPayingUserToStream(
   return data;
 }
 
+/**
+ * Add subscription to a stream
+ */
+export async function addSubscriptionToStream(
+  playbackId: string,
+  subscription: Subscription
+): Promise<SupabaseStream> {
+  // First, get the current stream
+  const stream = await getStreamByPlaybackId(playbackId);
+  
+  if (!stream) {
+    throw new Error('Stream not found');
+  }
+
+  // Get current subscriptions array
+  const currentSubscriptions = stream.subscriptions || [];
+
+  // Check if subscription already exists (same subscriber and txHash)
+  const existingSubscription = currentSubscriptions.find(
+    (sub: Subscription) => 
+      sub.subscriberAddress.toLowerCase() === subscription.subscriberAddress.toLowerCase() &&
+      sub.txHash === subscription.txHash
+  );
+
+  if (existingSubscription) {
+    // Subscription already exists, return existing stream
+    return stream;
+  }
+
+  // Add new subscription to the array
+  const updatedSubscriptions = [...currentSubscriptions, subscription];
+
+  // Update the stream
+  const { data, error } = await supabase
+    .from('streams')
+    .update({
+      subscriptions: updatedSubscriptions,
+    })
+    .eq('playbackId', playbackId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to add subscription: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * Add notification to a stream
+ */
+export async function addNotificationToStream(
+  playbackId: string,
+  notification: Notification
+): Promise<SupabaseStream> {
+  // First, get the current stream
+  const stream = await getStreamByPlaybackId(playbackId);
+  
+  if (!stream) {
+    throw new Error('Stream not found');
+  }
+
+  // Get current notifications array
+  const currentNotifications = stream.notifications || [];
+
+  // Add new notification to the beginning of the array (most recent first)
+  const updatedNotifications = [notification, ...currentNotifications];
+
+  // Update the stream
+  const { data, error } = await supabase
+    .from('streams')
+    .update({
+      notifications: updatedNotifications,
+    })
+    .eq('playbackId', playbackId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to add notification: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * Add subscription and notification to creator's stream(s)
+ * This function finds the creator's stream(s) and adds the subscription/notification to all of them
+ */
+export async function addCreatorSubscriptionAndNotification(
+  creatorId: string,
+  subscription: Subscription,
+  notification: Notification
+): Promise<void> {
+  try {
+    // Get all streams for this creator
+    const streams = await getStreamsByCreator(creatorId);
+    
+    if (!streams || streams.length === 0) {
+      console.warn(`No streams found for creator ${creatorId}`);
+      return;
+    }
+
+    // Update all streams for this creator
+    await Promise.all(
+      streams.map(async (stream) => {
+        try {
+          await Promise.all([
+            addSubscriptionToStream(stream.playbackId, subscription),
+            addNotificationToStream(stream.playbackId, notification),
+          ]);
+          console.log(`Successfully added subscription and notification to stream ${stream.playbackId}`);
+        } catch (error) {
+          console.error(`Failed to update stream ${stream.playbackId}:`, error);
+          // Continue with other streams even if one fails
+        }
+      })
+    );
+    
+    console.log(`Successfully processed ${streams.length} stream(s) for creator ${creatorId}`);
+  } catch (error) {
+    console.error('Failed to add subscription and notification:', error);
+    throw error;
+  }
+}
+
 // ==================== USER/PROFILE OPERATIONS ====================
 
 /**
@@ -284,12 +413,13 @@ export async function getUserProfile(creatorId: string): Promise<SupabaseUser | 
 
 /**
  * Get user profile by username (displayName)
+ * Uses case-insensitive matching since Next.js converts URL params to lowercase
  */
 export async function getUserProfileByUsername(username: string): Promise<SupabaseUser | null> {
   const { data, error } = await supabase
     .from('users')
     .select('*')
-    .eq('displayName', username)
+    .ilike('displayName', username) // Case-insensitive match
     .single();
 
   if (error) {
@@ -369,7 +499,7 @@ export async function isDisplayNameUnique(displayName: string, excludeCreatorId?
   let query = supabase
     .from('users')
     .select('creatorId')
-    .eq('displayName', displayName.trim());
+    .ilike('displayName', displayName.trim()); // Case-insensitive match
 
   // Exclude current user if updating
   if (excludeCreatorId) {
@@ -604,6 +734,92 @@ export async function addPayingUserToVideo(
 
   if (error) {
     throw new Error(`Failed to add paying user: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * Add subscription to a video
+ */
+export async function addSubscriptionToVideo(
+  playbackId: string,
+  subscription: Subscription
+): Promise<SupabaseVideo> {
+  // First, get the current video
+  const video = await getVideoByPlaybackId(playbackId);
+  
+  if (!video) {
+    throw new Error('Video not found');
+  }
+
+  // Get current subscriptions array
+  const currentSubscriptions = video.subscriptions || [];
+
+  // Check if subscription already exists (same subscriber and txHash)
+  const existingSubscription = currentSubscriptions.find(
+    (sub: Subscription) => 
+      sub.subscriberAddress.toLowerCase() === subscription.subscriberAddress.toLowerCase() &&
+      sub.txHash === subscription.txHash
+  );
+
+  if (existingSubscription) {
+    // Subscription already exists, return existing video
+    return video;
+  }
+
+  // Add new subscription to the array
+  const updatedSubscriptions = [...currentSubscriptions, subscription];
+
+  // Update the video
+  const { data, error } = await supabase
+    .from('videos')
+    .update({
+      subscriptions: updatedSubscriptions,
+    })
+    .eq('playbackId', playbackId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to add subscription: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * Add notification to a video
+ */
+export async function addNotificationToVideo(
+  playbackId: string,
+  notification: Notification
+): Promise<SupabaseVideo> {
+  // First, get the current video
+  const video = await getVideoByPlaybackId(playbackId);
+  
+  if (!video) {
+    throw new Error('Video not found');
+  }
+
+  // Get current notifications array
+  const currentNotifications = video.notifications || [];
+
+  // Add new notification to the beginning of the array (most recent first)
+  const updatedNotifications = [notification, ...currentNotifications];
+
+  // Update the video
+  const { data, error } = await supabase
+    .from('videos')
+    .update({
+      notifications: updatedNotifications,
+    })
+    .eq('playbackId', playbackId)
+    .select()
+    .single();
+
+  if (error) {
+    throw new Error(`Failed to add notification: ${error.message}`);
   }
 
   return data;
