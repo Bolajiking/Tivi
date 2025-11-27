@@ -86,11 +86,23 @@ export function CreatorPaymentGate({
   }, [wallets, user?.linkedAccounts]);
 
   // Check if user already has access (from localStorage or previous payment)
+  // Also check if the user is the owner of the channel
   useEffect(() => {
     if (viewMode === 'free') {
       setHasAccess(true);
       setCheckingAccess(false);
       return;
+    }
+
+    // Check if the current user is the owner of the channel
+    // Compare wallet address with creatorId (both should be wallet addresses)
+    if (walletAddress && creatorId) {
+      const isOwner = walletAddress.toLowerCase() === creatorId.toLowerCase();
+      if (isOwner) {
+        setHasAccess(true);
+        setCheckingAccess(false);
+        return;
+      }
     }
 
     // Check localStorage for payment record
@@ -110,7 +122,7 @@ export function CreatorPaymentGate({
     }
     
     setCheckingAccess(false);
-  }, [creatorId, viewMode]);
+  }, [creatorId, viewMode, walletAddress]);
 
   const handlePayment = async () => {
     if (!authenticated || !ready) {

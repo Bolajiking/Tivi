@@ -36,10 +36,10 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
   const useRegularImg = typeof imageSrc === 'string' && isLivepeerCDN(imageSrc);
 
   return (
-    <div className="w-full flex flex-col lg:flex-row gap-8 items-start lg:items-center">
+    <div className="w-full flex flex-col lg:flex-row gap-4 items-start lg:items-center">
       {/* Left: Channel Logo and Name */}
       <div className="flex-shrink-0 flex flex-col items-center lg:items-start w-full lg:w-auto">
-        <div className="relative w-40 h-40 lg:w-48 lg:h-48 rounded-full overflow-hidden border-4 border-yellow-400/50 mb-4">
+        <div className="relative w-24 h-24 lg:w-28 lg:h-28 rounded-full overflow-hidden border-2 border-yellow-400/50 mb-2">
           {useRegularImg ? (
             <img
               src={imageSrc as string}
@@ -52,13 +52,13 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
               alt={title}
               fill
               className="object-cover"
-              sizes="(max-width: 1024px) 160px, 192px"
+              sizes="(max-width: 1024px) 96px, 112px"
             />
           )}
           {/* Live Status Badge */}
           {isActive && (
-            <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded font-semibold flex items-center gap-1">
-              <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+            <div className="absolute top-1 right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded font-semibold flex items-center gap-1">
+              <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
               LIVE
             </div>
           )}
@@ -70,14 +70,14 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
       {/* Middle: Bio */}
       {bio && (
         <div className="flex-1 w-full lg:max-w-2xl min-w-0 overflow-y-auto">
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-6 h-full">
-            <h3 className="text-white font-semibold text-lg mb-3 flex items-center gap-2">
-              <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-lg p-3 h-full">
+            <h3 className="text-white font-semibold text-sm mb-2 flex items-center gap-2">
+              <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               About
             </h3>
-            <p className="text-gray-300 leading-relaxed text-sm md:text-base">
+            <p className="text-gray-300 leading-relaxed text-xs md:text-sm line-clamp-3">
               {bio}
             </p>
           </div>
@@ -85,7 +85,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
       )}
 
       {/* Right: Social Links */}
-      <div className="flex-shrink-0 flex flex-row lg:flex-col items-center justify-center lg:items-start gap-4 lg:gap-3 w-full lg:w-auto">
+      <div className="flex-shrink-0 flex flex-row lg:flex-col items-center justify-center lg:items-start gap-2 lg:gap-2 w-full lg:w-auto">
         {Object.values(socialLinks).some((link) => link && link.trim() !== '') ? (
           <>
             {socialLinks.twitter && (
@@ -93,10 +93,10 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                 href={socialLinks.twitter}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                 title="Twitter"
               >
-                <FaTwitter className="text-xl text-blue-400" />
+                <FaTwitter className="text-lg text-blue-400" />
               </a>
             )}
             {socialLinks.instagram && (
@@ -104,10 +104,10 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                 href={socialLinks.instagram}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                 title="Instagram"
               >
-                <FaInstagram className="text-xl text-pink-500" />
+                <FaInstagram className="text-lg text-pink-500" />
               </a>
             )}
             {socialLinks.youtube && (
@@ -115,10 +115,10 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                 href={socialLinks.youtube}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                 title="YouTube"
               >
-                <FaYoutube className="text-xl text-red-500" />
+                <FaYoutube className="text-lg text-red-500" />
               </a>
             )}
             {socialLinks.website && (
@@ -126,15 +126,15 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                 href={socialLinks.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                 title="Website"
               >
-                <FaLink className="text-xl text-yellow-400" />
+                <FaLink className="text-lg text-yellow-400" />
               </a>
             )}
           </>
         ) : (
-          <div className="text-gray-400 text-sm text-center lg:text-left py-2">
+          <div className="text-gray-400 text-xs text-center lg:text-left py-1">
             No social links
           </div>
         )}

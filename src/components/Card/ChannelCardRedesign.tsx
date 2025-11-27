@@ -154,9 +154,9 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
   );
 
   return (
-    <div className={`w-full max-w-none flex bg-transparent items-center space-y-4 p-4 rounded-lg ${isSimpleLayout ? 'justify-center flex-col' : 'justify-between'}`}>
+    <div className={`w-full max-w-none flex bg-transparent items-center space-y-1 py-0.5 px-2 rounded-lg ${isSimpleLayout ? 'justify-center flex-col' : 'justify-between'}`}>
       {/* Stream Image - Different sizes based on layout */}
-      <div className={`relative overflow-hidden border-4 border-yellow-400/50 ${isSimpleLayout ? 'w-full max-w-md aspect-video rounded-lg' : 'w-32 h-32 rounded-full'}`}>
+      <div className={`relative overflow-hidden border-2 border-yellow-400/50 ${isSimpleLayout ? 'w-full max-w-md aspect-video rounded-lg' : 'w-24 h-24 rounded-full'}`}>
         {loading ? (
           <div className="flex items-center justify-center w-full h-full bg-black">
             <p className="text-white text-sm">Loading</p>
@@ -194,9 +194,9 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
 
       {/* Stream Status Display - Only show in simple layout (Gallery) */}
       {isSimpleLayout && (
-        <div className="w-full max-w-md flex items-center justify-center gap-2 px-4 py-2 bg-white/5 rounded-lg border border-white/10">
+        <div className="w-full max-w-md flex items-center justify-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10">
           <div className={`w-2 h-2 rounded-full ${status ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
-          <span className={`text-sm font-medium ${status ? 'text-green-400' : 'text-gray-400'}`}>
+          <span className={`text-xs font-medium ${status ? 'text-green-400' : 'text-gray-400'}`}>
             {status ? 'Live' : 'Offline'}
           </span>
         </div>
@@ -205,11 +205,11 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
       {/* Bold Stream Name - Only show if showName is true */}
       {showName && (
       <div className="text-center flex">
-          <h2 className="text-white font-bold text-2xl">{title || streamName}</h2>
-        <h2 className="text-yellow-300 text-sm ">TV</h2>
+          <h2 className="text-white font-bold text-lg">{title || streamName}</h2>
+        <h2 className="text-yellow-300 text-xs ">TV</h2>
           {/* Live Status Badge - Only show when name is visible */}
         {status && (
-          <div className="absolute bottom-0 right-0 bg-green-500 text-white text-xs px-2 py-1 rounded-tl-lg rounded-br-lg font-semibold">
+          <div className="absolute bottom-0 right-0 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-tl-lg rounded-br-lg font-semibold">
             LIVE
           </div>
         )}
@@ -218,18 +218,18 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
 
       {/* Social Media Links or Add Links Button - Only show if showSocialLinks is true */}
       {showSocialLinks && (
-      <div className="flex flex-col items-center justify-center gap-3">
+      <div className="flex items-center justify-center">
         {hasSocialLinks ? (
-          <>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {socialLinks.twitter && (
               <a
                 href={socialLinks.twitter}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
                 title="Twitter"
               >
-                <FaTwitter className="text-xl text-blue-400" />
+                <FaTwitter className="text-lg text-blue-400" />
               </a>
             )}
             {socialLinks.instagram && (
@@ -237,10 +237,10 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
                 href={socialLinks.instagram}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
                 title="Instagram"
               >
-                <FaInstagram className="text-xl text-pink-500" />
+                <FaInstagram className="text-lg text-pink-500" />
               </a>
             )}
             {socialLinks.youtube && (
@@ -248,10 +248,10 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
                 href={socialLinks.youtube}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
                 title="YouTube"
               >
-                <FaYoutube className="text-xl text-red-500" />
+                <FaYoutube className="text-lg text-red-500" />
               </a>
             )}
             {socialLinks.website && (
@@ -259,17 +259,17 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
                 href={socialLinks.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
                 title="Website"
               >
-                <FaLink className="text-xl text-yellow-400" />
+                <FaLink className="text-lg text-yellow-400" />
               </a>
             )}
-          </>
+          </div>
         ) : (
           <Link
             href="/dashboard/settings"
-            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors text-sm font-medium"
           >
             <FaLink className="text-sm" />
             Add Links

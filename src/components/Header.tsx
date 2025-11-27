@@ -67,7 +67,7 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
               {/* <Image src={Chainfren_Logo} alt={'header_Logo'} />
                */}
                <h1 className="text-md sm:text-lg font-bold text-white">
-                 {title ? title : 'ChainfrenTV - Live Streaming onChain'}
+                 {title ? title : ''}
                </h1>
                {title && <span className="text-yellow-300 text-sm  -translate-y-1">TV</span>}
             </div>

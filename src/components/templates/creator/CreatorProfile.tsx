@@ -606,11 +606,11 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
 
 
           {/* Channel Section - Similar to "Your Channel" in Dashboard */}
-          <SectionCard title="">
+          <div className="md:px-6 px-3 w-full py-2 pb-4 relative rounded-lg my-2 bg-white/10 backdrop-blur-sm border border-white/20">
             {streamsLoading ? (
               Array.from({ length: 1 }, (_, index) => (
                 <div key={index} className="flex flex-col space-y-3">
-                  <Skeleton className="h-[180px] w-[318px] rounded-xl bg-black" />
+                  <Skeleton className="h-[120px] w-[318px] rounded-xl bg-black" />
                   <div className="space-y-2">
                     <Skeleton className="h-4 md:w-[316px] rounded-md bg-black" />
                     <Skeleton className="h-7 w-[44px] rounded-md bg-black" />
@@ -618,7 +618,7 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                 </div>
               ))
             ) : creatorStreamData || creatorProfile ? (
-              <div className="col-span-full w-full space-y-4">
+              <div className="col-span-full w-full space-y-2">
                 <CreatorChannelCard
                   title={creatorStreamData?.title || creatorStreamData?.streamName || creatorProfile?.displayName || 'Channel'}
                   logo={creatorStreamData?.logo || creatorProfile?.avatar || null}
@@ -631,24 +631,24 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                 {!isCreator && (
                   <div className="flex justify-center">
                     {checkingSubscription ? (
-                      <div className="px-6 py-3 flex items-center gap-2">
-                        <Bars width={16} height={16} color="#facc15" />
-                        <span className="text-gray-400">Checking...</span>
+                      <div className="px-4 py-2 flex items-center gap-2">
+                        <Bars width={14} height={14} color="#facc15" />
+                        <span className="text-gray-400 text-sm">Checking...</span>
                       </div>
                     ) : isSubscribed ? (
                       <button
                         onClick={handleUnsubscribe}
                         disabled={isSubscribing}
-                        className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all duration-200 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         {isSubscribing ? (
                           <>
-                            <Bars width={16} height={16} color="#ffffff" />
+                            <Bars width={14} height={14} color="#ffffff" />
                             <span>Unsubscribing...</span>
                           </>
                         ) : (
                           <>
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
                             </svg>
                             <span>Unsubscribe</span>
@@ -659,16 +659,16 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                       <button
                         onClick={handleSubscribe}
                         disabled={isSubscribing}
-                        className="px-6 py-3 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-all duration-200 font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-all duration-200 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         {isSubscribing ? (
                           <>
-                            <Bars width={16} height={16} color="#000000" />
+                            <Bars width={14} height={14} color="#000000" />
                             <span>Subscribing...</span>
                           </>
                         ) : (
                           <>
-                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                               <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
                             </svg>
                             <span>Subscribe</span>
@@ -680,11 +680,11 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                 )}
               </div>
             ) : (
-              <div className="col-span-full text-center py-8 text-gray-300">
+              <div className="col-span-full text-center py-4 text-gray-300">
                 <p>No channel information available</p>
               </div>
             )}
-          </SectionCard>
+          </div>
 
           <hr className="border-white/20" />
 
@@ -741,6 +741,14 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                               <VideoPaymentGate
                                 playbackId={asset.playbackId}
                                 creatorId={videoCreatorId}
+                                onPlayClick={() => {
+                                  if (asset.playbackId) {
+                                    setSelectedVideoForViewing({
+                                      playbackId: asset.playbackId,
+                                      title: asset.name || 'Video',
+                                    });
+                                  }
+                                }}
                               >
                                 <VideoCard
                                   title={asset.name}
@@ -749,14 +757,6 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                                   playbackId={asset.playbackId}
                                   createdAt={new Date(asset.createdAt)}
                                   format={asset.videoSpec?.format}
-                                  onPlayClick={() => {
-                                    if (asset.playbackId) {
-                                      setSelectedVideoForViewing({
-                                        playbackId: asset.playbackId,
-                                        title: asset.name || 'Video',
-                                      });
-                                    }
-                                  }}
                                 />
                               </VideoPaymentGate>
                             </div>

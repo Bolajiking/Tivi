@@ -406,11 +406,14 @@ const filteredAssetsForChannel = useMemo(() => {
           <Header toggleMenu={toggleMobileMenu} mobileOpen={mobileMenuOpen} />
           {/* Only show "Your Channel" section when a channel is selected */}
           {selectedChannel && (
-            <SectionCard title="Your Channel">
+            <div className="md:px-6 px-3 w-full py-2 pb-4 relative rounded-lg my-2 bg-white/10 backdrop-blur-sm border border-white/20">
+              <div className="mb-2">
+                <p className="text-lg font-bold text-white">Your Channel</p>
+              </div>
               {streamsLoading ? (
                 Array.from({ length: 1 }, (_, index) => (
-                  <div key={index} className="flex flex-col space-y-3">
-                    <Skeleton className="h-[180px] w-[318px] rounded-xl bg-black" />
+                  <div key={index} className="flex flex-col space-y-2">
+                    <Skeleton className="h-[120px] w-[318px] rounded-xl bg-black" />
                     <div className="space-y-2">
                       <Skeleton className="h-4 md:w-[316px] rounded-md bg-black" />
                       <Skeleton className="h-7 w-[44px] rounded-md bg-black" />
@@ -432,7 +435,7 @@ const filteredAssetsForChannel = useMemo(() => {
                   />
                 </div>
               )}
-            </SectionCard>
+            </div>
           )}
           
           {/* Show empty state when no channel is selected and user has channels */}

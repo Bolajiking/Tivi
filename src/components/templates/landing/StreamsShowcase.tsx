@@ -1,214 +1,169 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { AppDispatch, RootState } from '@/store/store';
-import { getAssets } from '@/features/assetsAPI';
-import Spinner from '@/components/Spinner';
 import Link from 'next/link';
-import { Stream, Asset } from '@/interfaces';
-import image1 from '@/assets/image1.png';
-import { useFetchPlaybackId } from '@/app/hook/usePlaybckInfo';
 import Image from 'next/image';
-import { getUserProfile } from '@/lib/supabase-service';
-// import Logo from '@/components/Logo';
+import { getAllCreators, getStreamsByCreator } from '@/lib/supabase-service';
+import { SupabaseUser, SupabaseStream } from '@/lib/supabase-types';
+import Spinner from '@/components/Spinner';
+import { FaSearch } from 'react-icons/fa';
 
 interface StreamsShowcaseProps {
-  streams: Stream[];
+  streams: any[];
   loading: boolean;
 }
 
+interface CreatorWithChannel {
+  creator: SupabaseUser;
+  channel: SupabaseStream | null; // First/most recent stream for this creator
+}
+
 export default function StreamsShowcase({ streams, loading }: StreamsShowcaseProps) {
-  const dispatch = useDispatch<AppDispatch>();
-  const { assets, loading: assetsLoading } = useSelector((state: RootState) => state.assets);
-  const [activeTab, setActiveTab] = useState<'streams' | 'videos'>('streams');
-  const [creatorIdToUsername, setCreatorIdToUsername] = useState<Record<string, string>>({});
+  const [creatorsWithChannels, setCreatorsWithChannels] = useState<CreatorWithChannel[]>([]);
+  const [loadingCreators, setLoadingCreators] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
-  // Filter out streams without creatorId
-  const filteredStreams = streams.filter(stream => stream.creatorId && stream.creatorId.value);
-
-  // Get all unique creator IDs from streams and assets
-  const allCreatorIds = useMemo(() => {
-    const streamCreatorIds = filteredStreams.map(s => s.creatorId?.value).filter(Boolean) as string[];
-    const assetCreatorIds = assets.map(a => a.creatorId?.value).filter(Boolean) as string[];
-    return Array.from(new Set([...streamCreatorIds, ...assetCreatorIds]));
-  }, [filteredStreams, assets]);
-
-  // Fetch usernames for all unique creator IDs
+  // Fetch all creators and their channels from Supabase
   useEffect(() => {
-    const fetchUsernames = async () => {
-      if (allCreatorIds.length === 0) return;
-
-      const usernameMap: Record<string, string> = {};
-      
-      await Promise.all(
-        allCreatorIds.map(async (creatorId) => {
-          try {
-            const profile = await getUserProfile(creatorId);
-            if (profile?.displayName) {
-              usernameMap[creatorId] = profile.displayName;
+    const fetchCreatorsWithChannels = async () => {
+      setLoadingCreators(true);
+      try {
+        // Get all creators
+        const creators = await getAllCreators();
+        
+        // For each creator, get their streams and use the most recent one
+        const creatorsWithChannelData = await Promise.all(
+          creators.map(async (creator) => {
+            try {
+              const streams = await getStreamsByCreator(creator.creatorId);
+              // Sort streams by created_at descending to get the most recent one
+              const sortedStreams = streams.sort((a, b) => {
+                const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+                const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+                return dateB - dateA; // Most recent first
+              });
+              const channel = sortedStreams && sortedStreams.length > 0 ? sortedStreams[0] : null;
+              return {
+                creator,
+                channel,
+              };
+            } catch (error) {
+              console.error(`Failed to fetch streams for creator ${creator.creatorId}:`, error);
+              return {
+                creator,
+                channel: null,
+              };
             }
-          } catch (error) {
-            console.error(`Failed to fetch username for ${creatorId}:`, error);
-          }
-        })
-      );
-      
-      setCreatorIdToUsername(usernameMap);
+          })
+        );
+        
+        setCreatorsWithChannels(creatorsWithChannelData);
+      } catch (error) {
+        console.error('Failed to fetch creators:', error);
+      } finally {
+        setLoadingCreators(false);
+      }
     };
 
-    fetchUsernames();
-  }, [allCreatorIds]);
+    fetchCreatorsWithChannels();
+  }, []);
 
-  useEffect(() => {
-   console.log(filteredStreams);
-  }, [filteredStreams]);
-  
-  useEffect(() => {
-    // Load assets for the videos tab
-    dispatch(getAssets());
-  }, [dispatch]);
+  // Filter creators/channels based on search query
+  const filteredCreatorsWithChannels = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return creatorsWithChannels;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    return creatorsWithChannels.filter(({ creator, channel }) => {
+      // Get channel title
+      const channelTitle = (channel?.title || channel?.streamName || '').toLowerCase();
+      // Get creator name
+      const creatorName = (creator.displayName || '').toLowerCase();
+      
+      // Match against channel title or creator name
+      return channelTitle.includes(query) || creatorName.includes(query);
+    });
+  }, [creatorsWithChannels, searchQuery]);
 
   return (
-    <section id="streams-showcase" className="py-16 px-4 max-w-7xl mx-auto mt-16 relative">
-      
-      <h2 className="text-3xl font-bold text-white mb-8 text-center">Available Content</h2>
-      
-      {/* Tabs */}
-      <div className="flex justify-center mb-8">
-        <div className="bg-white/10 backdrop-blur-sm rounded-lg p-1 border border-white/20 flex">
-          <button
-            onClick={() => setActiveTab('streams')}
-            className={`flex-1 px-6 py-2 rounded-md transition-all duration-200 ${
-              activeTab === 'streams'
-                ? 'bg-white text-gray-900 font-semibold'
-                : 'text-white hover:bg-white/10'
-            }`}
-          >
-            Livestreams
-          </button>
-          <button
-            onClick={() => setActiveTab('videos')}
-            className={`flex-1 px-6 py-2 rounded-md transition-all duration-200 ${
-              activeTab === 'videos'
-                ? 'bg-white text-gray-900 font-semibold'
-                : 'text-white hover:bg-white/10'
-            }`}
-          >
-            Videos
-          </button>
+    <section id="streams-showcase" className="py-8 px-4 relative">
+      {/* Search Bar */}
+      <div className="mb-12 max-w-2xl mx-auto">
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <FaSearch className="text-gray-400 w-5 h-5" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search for your favorite channels"
+            className="w-full pl-12 pr-4 py-3 bg-white/10 backdrop-blur-[1px] border border-white/20 rounded-full text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all"
+          />
         </div>
       </div>
-
-      {/* Content */}
-      {activeTab === 'streams' ? (
-        // Streams Tab
-        loading ? (
-          <div className="flex justify-center items-center h-32">
-            <Spinner />
-          </div>
-        ) : filteredStreams && filteredStreams.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-            {filteredStreams.map((stream) => {
-              const creatorId = stream.creatorId?.value;
-              const username = creatorId ? creatorIdToUsername[creatorId] : null;
-              const profileIdentifier = username || creatorId || '';
-              const displayName = username || (creatorId ? `${creatorId.slice(0, 5)}...${creatorId.slice(-5)}` : 'Unknown');
-              
-              return (
-              <Link 
-                key={stream.id} 
-                href={`/creator/${encodeURIComponent(profileIdentifier)}`} 
+      
+      {/* Main Column - All Channels */}
+      {loadingCreators ? (
+        <div className="flex justify-center items-center h-32">
+          <Spinner />
+        </div>
+      ) : filteredCreatorsWithChannels && filteredCreatorsWithChannels.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {filteredCreatorsWithChannels.map(({ creator, channel }) => {
+            const profileIdentifier = creator.displayName || creator.creatorId;
+            // Use channel logo if available, otherwise fallback to creator avatar
+            const displayLogo = channel?.logo || creator.avatar;
+            // Use channel title/streamName if available
+            const channelTitle = channel?.title || channel?.streamName || 'Untitled Channel';
+            // Creator display name
+            const creatorName = creator.displayName || `${creator.creatorId.slice(0, 5)}...${creator.creatorId.slice(-5)}`;
+            
+            return (
+              <Link
+                key={creator.creatorId}
+                href={`/creator/${encodeURIComponent(profileIdentifier)}`}
                 className="block bg-white/10 rounded-lg overflow-hidden shadow-lg hover:scale-105 transition-transform"
               >
                 <div className="h-40 bg-gray-800 flex items-center justify-center relative">
-                  {stream.logo ? (
-                    <img src={stream.logo} alt={stream.name} className="object-cover w-full h-full" />
+                  {displayLogo ? (
+                    <Image
+                      src={displayLogo}
+                      alt={channelTitle}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                    />
                   ) : (
-                    <img src={image1.src} alt={stream.name} className="object-cover w-full h-full" />
-                  )}
-                  {stream.isActive && (
-                    <div className="absolute top-2 right-2 bg-red-500 text-white text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                      <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                      LIVE
+                    <div className="w-full h-full bg-gradient-to-br from-yellow-500/20 via-teal-500/20 to-yellow-500/20 flex items-center justify-center">
+                      <div className="w-16 h-16 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-2xl font-bold">
+                        {(channelTitle || creator.displayName || creator.creatorId?.slice(0, 2) || '??').toUpperCase().slice(0, 2)}
+                      </div>
                     </div>
                   )}
                 </div>
                 <div className="p-4">
-                  <h3 className="text-lg font-semibold text-white mb-1 truncate">{stream.name}</h3>
-                  {creatorId && (
-                    <div className="text-xs text-yellow-300">by {displayName}</div>
+                  <h3 className="text-lg font-semibold text-white mb-1 truncate">
+                    {channelTitle}
+                  </h3>
+                  <p className="text-xs text-yellow-300 mb-1">
+                    by {creatorName}
+                  </p>
+                  {creator.bio && (
+                    <p className="text-xs text-gray-400 line-clamp-2">{creator.bio}</p>
                   )}
-                  {/* <div className="text-xs text-purple-300">{stream.description}</div> */}
                 </div>
               </Link>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center text-gray-400">No streams available at the moment.</div>
-        )
+            );
+          })}
+        </div>
+      ) : searchQuery.trim() ? (
+        <div className="text-center text-gray-400 py-12">
+          No channels found matching "{searchQuery}"
+        </div>
       ) : (
-        // Videos Tab
-        assetsLoading ? (
-          <div className="flex justify-center items-center h-32">
-            <Spinner />
-          </div>
-        ) : assets && assets.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
-            {assets.map((asset) => (
-              <VideoThumbnailCard key={asset.id} asset={asset} creatorIdToUsername={creatorIdToUsername} />
-            ))}
-          </div>
-        ) : (
-          <div className="text-center text-gray-400">No videos available at the moment.</div>
-        )
+        <div className="text-center text-gray-400 py-12">No channels available at the moment.</div>
       )}
     </section>
   );
 }
-
-// Video Thumbnail Card Component
-function VideoThumbnailCard({ asset, creatorIdToUsername }: { asset: Asset; creatorIdToUsername: Record<string, string> }) {
-  const { thumbnailUrl, loading } = useFetchPlaybackId(asset.playbackId);
-  const creatorId = asset.creatorId?.value;
-  const username = creatorId ? creatorIdToUsername[creatorId] : null;
-  const profileIdentifier = username || creatorId || '';
-  const displayName = username || (creatorId ? `${creatorId.slice(0, 5)}...${creatorId.slice(-5)}` : 'Unknown');
-
-  return (
-    <Link 
-      href={`/creator/${encodeURIComponent(profileIdentifier)}`} 
-      className="block bg-white/10 rounded-lg overflow-hidden shadow-lg hover:scale-105 transition-transform"
-    >
-      <div className="h-40 bg-gray-800 flex items-center justify-center relative">
-        {loading ? (
-          <div className="flex items-center justify-center w-full h-full">
-            <Spinner />
-          </div>
-        ) : thumbnailUrl ? (
-          <Image
-            src={thumbnailUrl}
-            alt={asset.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-          />
-        ) : (
-          <span className="text-gray-400 text-center text-lg">No thumbnail</span>
-        )}
-        <div className="absolute bottom-2 right-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
-          {asset.videoSpec?.duration ? 
-            `${Math.floor(asset.videoSpec.duration / 60)}:${(asset.videoSpec.duration % 60).toString().padStart(2, '0')}` : 
-            '00:00'
-          }
-        </div>
-      </div>
-      <div className="p-4">
-        <h3 className="text-lg font-semibold text-white mb-1 truncate">{asset.name}</h3>
-        {creatorId && (
-          <div className="text-xs text-yellow-300">by {displayName}</div>
-        )}
-      </div>
-    </Link>
-  );
-} 

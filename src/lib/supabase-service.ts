@@ -489,6 +489,23 @@ export async function upsertUserProfile(userData: UserInsert): Promise<SupabaseU
 }
 
 /**
+ * Get all creators (users with displayName)
+ */
+export async function getAllCreators(): Promise<SupabaseUser[]> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .not('displayName', 'is', null)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch all creators: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
  * Check if displayName is unique (not taken by another user)
  */
 export async function isDisplayNameUnique(displayName: string, excludeCreatorId?: string): Promise<boolean> {
