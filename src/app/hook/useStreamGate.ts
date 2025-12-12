@@ -83,8 +83,8 @@ export function useStreamGate(playbackId: string) {
   useEffect(() => {
     if (!stream || stream.viewMode === 'free') {
       if (stream?.viewMode === 'free') {
-        setHasAccess(true);
-      }
+      setHasAccess(true);
+    }
       return;
     }
 

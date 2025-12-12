@@ -62,12 +62,12 @@ export function StreamPayment({
           </span>
         </div>
         
-        <div className="flex justify-between items-center text-sm">
+          <div className="flex justify-between items-center text-sm">
           <span className="text-gray-500 dark:text-gray-500">Payment Method:</span>
-          <span className="text-gray-700 dark:text-gray-300">
+            <span className="text-gray-700 dark:text-gray-300">
             Ethereum (USDC)
-          </span>
-        </div>
+            </span>
+          </div>
       </div>
 
       {!connected ? (

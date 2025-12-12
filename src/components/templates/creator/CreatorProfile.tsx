@@ -186,6 +186,8 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
     title: string;
   } | null>(null);
   const [actualCreatorId, setActualCreatorId] = useState<string | null>(null); // The wallet address from username lookup
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
 
   // Get current user's wallet address
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
@@ -436,6 +438,107 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
 
+  // Inject PWA manifest link, theme color, and register service worker
+  useEffect(() => {
+    if (!creatorId) return;
+
+    // Remove existing manifest link if any
+    const existingManifest = document.querySelector('link[rel="manifest"]');
+    if (existingManifest) {
+      existingManifest.remove();
+    }
+
+    // Create and inject new manifest link
+    const manifestLink = document.createElement('link');
+    manifestLink.rel = 'manifest';
+    manifestLink.href = `/api/manifest/${encodeURIComponent(creatorId)}`;
+    document.head.appendChild(manifestLink);
+
+    // Add/update theme color meta tag
+    let themeColorMeta = document.querySelector('meta[name="theme-color"]');
+    if (!themeColorMeta) {
+      themeColorMeta = document.createElement('meta');
+      themeColorMeta.setAttribute('name', 'theme-color');
+      document.head.appendChild(themeColorMeta);
+    }
+    themeColorMeta.setAttribute('content', '#facc15');
+
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/api/sw')
+        .then((registration) => {
+          console.log('Service Worker registered:', registration);
+        })
+        .catch((error) => {
+          console.log('Service Worker registration failed:', error);
+        });
+    }
+
+    return () => {
+      // Cleanup on unmount
+      const manifest = document.querySelector('link[rel="manifest"]');
+      if (manifest && manifest.getAttribute('href')?.includes(creatorId)) {
+        manifest.remove();
+      }
+    };
+  }, [creatorId]);
+
+  // Handle PWA install prompt
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      // Prevent the default browser install prompt
+      e.preventDefault();
+      // Store the event for later use
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    const handleAppInstalled = () => {
+      // Clear the deferredPrompt
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+      toast.success('App installed successfully!');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    // Check if app is already installed
+    if (window.matchMedia('(display-mode: standalone)').matches) {
+      setIsInstallable(false);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  // Handle install button click
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) {
+      toast.error('Install prompt not available');
+      return;
+    }
+
+    // Show the install prompt
+    deferredPrompt.prompt();
+
+    // Wait for the user to respond
+    const { outcome } = await deferredPrompt.userChoice;
+
+    if (outcome === 'accepted') {
+      toast.success('Installing app...');
+    } else {
+      toast.info('Installation cancelled');
+    }
+
+    // Clear the deferredPrompt
+    setDeferredPrompt(null);
+    setIsInstallable(false);
+  };
+
   const toggleSidebar = () => {
     if (!isMobile) {
       setSidebarCollapsed((prev) => !prev);
@@ -566,16 +669,16 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
       <div className="flex-1 flex flex-col gap-4 h-screen overflow-hidden relative">
         <div className="flex-1 flex gap-4 overflow-hidden">
           {/* Center Content Area - Gated */}
-          <CreatorPaymentGate
-            creatorId={actualCreatorId || creatorId}
-            viewMode={creatorStreamData?.viewMode || 'free'}
-            amount={creatorStreamData?.amount || 0}
-            streamName={creatorStreamData?.streamName || creatorStreamData?.title}
+      <CreatorPaymentGate
+        creatorId={actualCreatorId || creatorId}
+        viewMode={creatorStreamData?.viewMode || 'free'}
+        amount={creatorStreamData?.amount || 0}
+        streamName={creatorStreamData?.streamName || creatorStreamData?.title}
             title={creatorStreamData?.title || creatorStreamData?.streamName || 'Channel'}
-            onPaymentSuccess={() => {
-              // Payment successful - component will automatically show content
-            }}
-          >
+        onPaymentSuccess={() => {
+          // Payment successful - component will automatically show content
+        }}
+      >
           <div className="flex-1 my-2 ml-2 flex flex-col relative">
           {/* Scrollable Content Area */}
           <div className="flex-1 overflow-y-auto pb-4">
@@ -629,7 +732,7 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                 />
                 {/* Subscribe/Unsubscribe Button - Only show if viewer is not the creator */}
                 {!isCreator && (
-                  <div className="flex justify-center items-center gap-2">
+                  <div className="flex justify-center items-center gap-2 flex-wrap">
                     {checkingSubscription ? (
                       <div className="px-4 py-2 flex items-center gap-2">
                         <Bars width={14} height={14} color="#facc15" />
@@ -637,25 +740,25 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                       </div>
                     ) : isSubscribed ? (
                       <>
-                        <button
-                          onClick={handleUnsubscribe}
-                          disabled={isSubscribing}
+                      <button
+                        onClick={handleUnsubscribe}
+                        disabled={isSubscribing}
                           className="px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all duration-200 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {isSubscribing ? (
-                            <>
+                      >
+                        {isSubscribing ? (
+                          <>
                               <Bars width={14} height={14} color="#ffffff" />
-                              <span>Unsubscribing...</span>
-                            </>
-                          ) : (
-                            <>
+                            <span>Unsubscribing...</span>
+                          </>
+                        ) : (
+                          <>
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                              </svg>
-                              <span>Unsubscribe</span>
-                            </>
-                          )}
-                        </button>
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                            </svg>
+                            <span>Unsubscribe</span>
+                          </>
+                        )}
+                      </button>
                         <div className="relative group">
                           <button
                             onClick={handleShare}
@@ -674,25 +777,25 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                       </>
                     ) : (
                       <>
-                        <button
-                          onClick={handleSubscribe}
-                          disabled={isSubscribing}
+                      <button
+                        onClick={handleSubscribe}
+                        disabled={isSubscribing}
                           className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-all duration-200 font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          {isSubscribing ? (
-                            <>
+                      >
+                        {isSubscribing ? (
+                          <>
                               <Bars width={14} height={14} color="#000000" />
-                              <span>Subscribing...</span>
-                            </>
-                          ) : (
-                            <>
+                            <span>Subscribing...</span>
+                          </>
+                        ) : (
+                          <>
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                              </svg>
-                              <span>Subscribe</span>
-                            </>
-                          )}
-                        </button>
+                              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            <span>Subscribe</span>
+                          </>
+                        )}
+                      </button>
                         <div className="relative group">
                           <button
                             onClick={handleShare}
@@ -709,6 +812,19 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                           </div>
                         </div>
                       </>
+                    )}
+                    {/* PWA Install Button */}
+                    {isInstallable && (
+                      <button
+                        onClick={handleInstallClick}
+                        className="px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg transition-all duration-200 font-semibold text-sm flex items-center gap-2"
+                        title="Install as PWA"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                        </svg>
+                        <span>Install App</span>
+                      </button>
                     )}
                   </div>
                 )}
@@ -771,18 +887,18 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                         {creatorAssets.map((asset) => {
                           const videoCreatorId = asset.creatorId?.value || actualCreatorId || '';
                           return (
-                            <div key={asset.id}>
+                          <div key={asset.id}>
                               <VideoPaymentGate
-                                playbackId={asset.playbackId}
+                              playbackId={asset.playbackId}
                                 creatorId={videoCreatorId}
-                                onPlayClick={() => {
-                                  if (asset.playbackId) {
-                                    setSelectedVideoForViewing({
-                                      playbackId: asset.playbackId,
-                                      title: asset.name || 'Video',
-                                    });
-                                  }
-                                }}
+                              onPlayClick={() => {
+                                if (asset.playbackId) {
+                                  setSelectedVideoForViewing({
+                                    playbackId: asset.playbackId,
+                                    title: asset.name || 'Video',
+                                  });
+                                }
+                              }}
                               >
                                 <VideoCard
                                   title={asset.name}
@@ -791,9 +907,9 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                                   playbackId={asset.playbackId}
                                   createdAt={new Date(asset.createdAt)}
                                   format={asset.videoSpec?.format}
-                                />
+                            />
                               </VideoPaymentGate>
-                            </div>
+                          </div>
                           );
                         })}
                       </div>
@@ -832,44 +948,44 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                         {creatorStreams.map((stream) => {
                           const streamCreatorId = stream.creatorId?.value || actualCreatorId || '';
                           return (
-                            <div key={stream.id} className="mb-4">
+                          <div key={stream.id} className="mb-4">
                               <StreamPaymentGate
                                 playbackId={stream.playbackId}
                                 creatorId={streamCreatorId}
                               >
                                 <div>
-                                  <ChannelCardRedesign
-                                    title={stream.title || stream.name}
-                                    image={image1}
-                                    logo={stream.logo}
-                                    playbackId={stream.playbackId}
-                                    playb={stream.playbackId}
-                                    lastSeen={new Date(stream.lastSeen || 0)}
-                                    status={stream.isActive}
-                                    showName={false}
-                                    showSocialLinks={false}
-                                    useThumbnail={true}
-                                  />
-                                  {/* View Stream Button */}
-                                  <div className="mt-4">
-                                    <button
-                                      onClick={() => {
-                                        if (stream.playbackId) {
-                                          setSelectedStreamForViewing({
-                                            playbackId: stream.playbackId,
-                                            title: stream.title || stream.name || 'Live Stream',
-                                          });
-                                        }
-                                      }}
-                                      className="w-full bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-                                    >
-                                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                        <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
-                                      </svg>
-                                      View Stream
-                                    </button>
-                                  </div>
-                                </div>
+                            <ChannelCardRedesign
+                              title={stream.title || stream.name}
+                              image={image1}
+                              logo={stream.logo}
+                              playbackId={stream.playbackId}
+                              playb={stream.playbackId}
+                              lastSeen={new Date(stream.lastSeen || 0)}
+                              status={stream.isActive}
+                              showName={false}
+                              showSocialLinks={false}
+                              useThumbnail={true}
+                            />
+                            {/* View Stream Button */}
+                            <div className="mt-4">
+                              <button
+                                onClick={() => {
+                                  if (stream.playbackId) {
+                                    setSelectedStreamForViewing({
+                                      playbackId: stream.playbackId,
+                                      title: stream.title || stream.name || 'Live Stream',
+                                    });
+                                  }
+                                }}
+                                className="w-full bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
+                              >
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
+                                </svg>
+                                View Stream
+                              </button>
+                            </div>
+                          </div>
                               </StreamPaymentGate>
                             </div>
                           );
@@ -887,7 +1003,7 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
           <div className="flex-shrink-0 z-10">
             <BottomNav />
           </div>
-          </div>
+        </div>
           </CreatorPaymentGate>
         
           {/* Viewer Profile Column - Desktop View - Always visible, outside gate */}
