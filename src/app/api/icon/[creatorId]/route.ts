@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserProfile, getUserProfileByUsername } from '@/lib/supabase-service';
-import sharp from 'sharp';
+
+// Mark this route as dynamic to prevent build-time analysis
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 /**
  * Dynamic PWA Icon API Route
@@ -36,19 +39,32 @@ export async function GET(
     // Generate SVG icon
     const svgIcon = generateIconSVG(displayName, avatar, size);
     
-    // Convert SVG to PNG using Sharp
+    // Convert SVG to PNG using Sharp (dynamic import to avoid build-time issues)
     if (format === 'png') {
-      const pngBuffer = await sharp(Buffer.from(svgIcon))
-        .resize(size, size)
-        .png()
-        .toBuffer();
-      
-      return new NextResponse(pngBuffer as unknown as BodyInit, {
-        headers: {
-          'Content-Type': 'image/png',
-          'Cache-Control': 'public, max-age=86400, s-maxage=86400',
-        },
-      });
+      try {
+        // Dynamically import sharp only when needed (at runtime, not build time)
+        const sharp = (await import('sharp')).default;
+        const pngBuffer = await sharp(Buffer.from(svgIcon))
+          .resize(size, size)
+          .png()
+          .toBuffer();
+        
+        return new NextResponse(pngBuffer as unknown as BodyInit, {
+          headers: {
+            'Content-Type': 'image/png',
+            'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+          },
+        });
+      } catch (sharpError: any) {
+        // If sharp fails (e.g., not available in build environment), fall back to SVG
+        console.warn('Sharp not available, falling back to SVG:', sharpError.message);
+        return new NextResponse(svgIcon, {
+          headers: {
+            'Content-Type': 'image/svg+xml',
+            'Cache-Control': 'public, max-age=86400, s-maxage=86400',
+          },
+        });
+      }
     } else {
       // Return SVG directly
       return new NextResponse(svgIcon, {

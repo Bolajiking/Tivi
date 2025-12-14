@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getUserProfile, getUserProfileByUsername } from '@/lib/supabase-service';
 
+// Mark this route as dynamic to prevent build-time analysis
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * Dynamic PWA Manifest API Route
  * Generates a manifest.json file with creator-specific data
