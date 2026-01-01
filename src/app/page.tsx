@@ -9,8 +9,6 @@ import Hero from '@/components/templates/landing/Hero';
 import Spinner from '@/components/Spinner';
 import Image from 'next/image';
 import Link from 'next/link';
-import HorizontalNavbar from '@/components/HorizontalNavbar';
-import Logo from '@/components/Logo';
 
 export default function LandingPage() {
   const router = useRouter();
@@ -20,38 +18,47 @@ export default function LandingPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // if (!ready) return;
-
     // Load streams for the showcase (no authentication required)
     dispatch(getAllStreams());
     setIsLoading(false);
   }, [ready, dispatch]);
 
-  // // Show spinner while Privy is initializing
-  // if (!ready || isLoading) {
-  //   return <Spinner />;
-  // }
-
   return (
     <div className="min-h-screen relative bg-gradient-to-br from-black via-gray-950 to-black flex flex-col md:pb-2 pb-20">
       <Hero />
       {/* Footer */}
-     <footer className="border-t border-white/20 mt-12 pt-6 pb-2 px-4 w-full">
-  <div className="flex flex-col items-center justify-center max-w-5xl mx-auto gap-4">
-    {/* Twitter Link */}
-    <Link href="https://twitter.com/yourtwitter" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-      <Image src="/assets/xpn.svg" alt="Twitter" width={28} height={28} />
-    </Link>
-    {/* Reach Out Button */}
-    <button className="hover:from-yellow-500 hover:to-teal-500 bg-gradient-to-r from-transparent to-transparent text-white font-semibold px-6 py-2 rounded-md transition-colors">
-     <Link href="https://twitter.com/yourtwitter" target="_blank" rel="noopener noreferrer"> Reach Out ?</Link>
-    </button>
-    {/* Switchtv Text */}
-      {/* <div className="text-center text-white text-sm mt-1">x402tv</div> */}
-      <Logo size="lg" />
-  </div>
-  {/* <HorizontalNavbar /> */}
-</footer>
+      <footer className="border-t border-white/10 py-8 px-4 w-full">
+        <div className="flex flex-col md:flex-row items-center justify-between max-w-6xl mx-auto gap-6">
+          {/* Logo */}
+          <div className="flex items-center gap-2">
+            <Image
+              src="/assets/images/tvinbio-logo.svg"
+              alt="TVinBio"
+              width={100}
+              height={30}
+              className="h-6 w-auto opacity-70"
+            />
+          </div>
+
+          {/* Links */}
+          <div className="flex items-center gap-6 text-sm text-gray-500">
+            <Link href="/streamviews" className="hover:text-white transition-colors">
+              Explore
+            </Link>
+            <Link href="/dashboard" className="hover:text-white transition-colors">
+              Dashboard
+            </Link>
+            <Link href="https://twitter.com/tvinbio" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">
+              Twitter
+            </Link>
+          </div>
+
+          {/* Copyright */}
+          <p className="text-gray-600 text-xs">
+            © 2025 TVinBio. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

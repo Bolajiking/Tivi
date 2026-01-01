@@ -28,8 +28,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <title>ChainfrenTV</title>
-        <meta name="description" content="ChainfrenTV - Live Streaming on Ethereum" />
+        <title>TVinBio - Your Audience. Your Platform. Your Revenue.</title>
+        <meta name="description" content="TVinBio - The personalized streaming platform that lives in your social bio. Full control over your audience, monetization, and data." />
         <link rel="icon" href="/assets/images/icon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -46,9 +46,9 @@ export default function RootLayout({
         },
         appearance: {
           landingHeader: '',
-          loginMessage: 'Welcome to ChainfrenTV',
+          loginMessage: 'Welcome to TVinBio',
           theme: 'light',
-          accentColor: '#facc15', // Yellow to match ChainfrenTV branding
+          accentColor: '#facc15', // Yellow to match TVinBio branding
           logo: '',
           // showWalletLoginFirst: false,
           walletChainType:'ethereum-only',

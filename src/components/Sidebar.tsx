@@ -10,7 +10,7 @@ import { IoSettings } from 'react-icons/io5';
 import { RiEditFill } from 'react-icons/ri';
 import { TbHomeFilled } from 'react-icons/tb';
 import { usePrivy } from '@privy-io/react-auth';
-import { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { getSubscribedChannels, getStreamsByCreator, getUserProfile, getUserProfileByUsername, subscribeToCreator } from '@/lib/supabase-service';
 import { SupabaseStream, SupabaseUser } from '@/lib/supabase-types';
 import { useChannel } from '@/context/ChannelContext';
@@ -24,17 +24,26 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { HiPlus } from 'react-icons/hi';
+import { HiPlus, HiDotsVertical } from 'react-icons/hi';
 import { toast } from 'sonner';
 import { Bars } from 'react-loader-spinner';
+import dynamic from 'next/dynamic';
+
+// Dynamically import ChannelOptionsMenu to avoid SSR issues with Radix useContext
+const ChannelOptionsMenu = dynamic(() => import('./ChannelOptionsMenu'), {
+  ssr: false,
+  loading: () => <div className="w-4 h-4" />,
+});
 
 interface SidebarProps {
   sidebarCollapsed?: boolean;
   isInstallable?: boolean;
   onInstallClick?: () => void;
+  isMobileView?: boolean;
+  onChannelOptionsClick?: (channel: SupabaseStream) => void;
 }
 
-const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick }: SidebarProps) => {
+const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView = false, onChannelOptionsClick }: SidebarProps) => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, authenticated, ready } = usePrivy();
@@ -54,6 +63,89 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick }: SidebarPro
   const [foundChannel, setFoundChannel] = useState<SupabaseStream | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [selectedChannelForOptions, setSelectedChannelForOptions] = useState<SupabaseStream | null>(null);
+  const deferredPromptRef = useRef<any>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    deferredPromptRef.current = deferredPrompt;
+  }, [deferredPrompt]);
+
+  // Handle PWA install for a specific channel
+  const handleInstallPWA = async (channel: SupabaseStream) => {
+    const prompt = deferredPromptRef.current;
+    if (prompt) {
+      try {
+        prompt.prompt();
+        const { outcome } = await prompt.userChoice;
+        if (outcome === 'accepted') {
+          toast.success(`Installing ${channel.title || channel.streamName || 'channel'}...`);
+        }
+        setDeferredPrompt(null);
+        deferredPromptRef.current = null;
+      } catch (error) {
+        console.error('PWA install error:', error);
+        toast.error('Unable to install. Try adding to home screen from browser menu.');
+      }
+    } else {
+      // Fallback: show instructions for manual install
+      toast.info('To install: Open browser menu → "Add to Home Screen" or "Install App"');
+    }
+    setSelectedChannelForOptions(null);
+  };
+
+  // Listen for PWA install prompt
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      deferredPromptRef.current = e;
+    };
+
+    const handleInstallChannel = (e: Event) => {
+      const customEvent = e as CustomEvent<SupabaseStream>;
+      if (customEvent.detail) {
+        handleInstallPWA(customEvent.detail);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('installChannel', handleInstallChannel);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('installChannel', handleInstallChannel);
+    };
+  }, []);
+
+  // Handle share channel
+  const handleShareChannel = async (channel: SupabaseStream, profileIdentifier: string) => {
+    const channelUrl = `${window.location.origin}/creator/${encodeURIComponent(profileIdentifier)}`;
+    const channelName = channel.title || channel.streamName || 'Channel';
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: channelName,
+          text: `Check out ${channelName} on TVinBio!`,
+          url: channelUrl,
+        });
+      } catch (error) {
+        // User cancelled or error
+        if ((error as Error).name !== 'AbortError') {
+          navigator.clipboard.writeText(channelUrl);
+          toast.success('Link copied to clipboard!');
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(channelUrl);
+      toast.success('Link copied to clipboard!');
+    }
+    setSelectedChannelForOptions(null);
+  };
 
   // Get current user's wallet address
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
@@ -315,26 +407,46 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick }: SidebarPro
                 // Use username if available, otherwise fallback to creatorId (wallet address)
                 const profileIdentifier = creatorIdToUsername[channel.creatorId] || channel.creatorId;
                 return (
-                <Link
-                  key={channel.creatorId}
-                  href={`/creator/${encodeURIComponent(profileIdentifier)}`}
-                  className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/10 transition-colors"
-                >
-                  {channel.logo ? (
-                    <img
-                      src={channel.logo}
-                      alt={channel.title || channel.streamName || 'Channel'}
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
+                <div key={channel.creatorId} className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/10 transition-colors group">
+                  <Link
+                    href={`/creator/${encodeURIComponent(profileIdentifier)}`}
+                    className="flex items-center gap-2 flex-1 min-w-0"
+                  >
+                    {channel.logo ? (
+                      <img
+                        src={channel.logo}
+                        alt={channel.title || channel.streamName || 'Channel'}
+                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
+                        {((channel.title || channel.streamName || channel.creatorId)?.slice(0, 2) || '??').toUpperCase()}
+                      </div>
+                    )}
+                    <span className="text-gray-300 text-sm truncate flex-1">
+                      {channel.title || channel.streamName || (channel.creatorId?.slice(0, 8) + '...') || 'Untitled Channel'}
+                    </span>
+                  </Link>
+                  {/* Three-dot options menu - always visible on mobile, hover on desktop */}
+                  {isMobileView ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onChannelOptionsClick?.(channel);
+                      }}
+                      className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
+                    >
+                      <HiDotsVertical className="w-5 h-5 text-gray-300" />
+                    </button>
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold">
-                      {((channel.title || channel.streamName || channel.creatorId)?.slice(0, 2) || '??').toUpperCase()}
-                    </div>
+                    <ChannelOptionsMenu
+                      channel={channel}
+                      profileIdentifier={profileIdentifier}
+                      onInstall={handleInstallPWA}
+                      onShare={handleShareChannel}
+                    />
                   )}
-                  <span className="text-gray-300 text-sm truncate flex-1">
-                    {channel.title || channel.streamName || (channel.creatorId?.slice(0, 8) + '...') || 'Untitled Channel'}
-                  </span>
-                </Link>
+                </div>
                 );
               })
             )}
@@ -363,17 +475,130 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick }: SidebarPro
             ) : ownedChannels.length === 0 ? (
               <div className="text-gray-400 text-sm px-2 py-2">No owned channels</div>
             ) : (
-              ownedChannels.map((channel) => (
+              ownedChannels.map((channel) => {
+                const profileIdentifier = currentUserAddress;
+                return (
+                <div key={channel.playbackId} className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/10 transition-colors group">
+                  <button
+                    onClick={() => {
+                      if (channel.playbackId) {
+                        if (isInDashboard) {
+                          // If in dashboard, use context to update state
+                          setSelectedChannelId(channel.playbackId);
+                        } else {
+                          // If outside dashboard, navigate to dashboard with channelId
+                          router.push(`/dashboard?channelId=${channel.playbackId}`);
+                        }
+                      } else {
+                        if (isInDashboard) {
+                          setSelectedChannelId(null);
+                        } else {
+                          router.push('/dashboard');
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                  >
+                    {channel.logo ? (
+                      <img
+                        src={channel.logo}
+                        alt={channel.title || channel.streamName || 'Channel'}
+                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
+                        {(channel.title || channel.streamName || channel.creatorId?.slice(0, 2) || 'CH').toUpperCase().slice(0, 2)}
+                      </div>
+                    )}
+                    <span className="text-gray-300 text-sm truncate flex-1">
+                      {channel.title || channel.streamName || channel.creatorId?.slice(0, 8) + '...' || 'Untitled Channel'}
+                    </span>
+                  </button>
+                  {/* Three-dot options menu - always visible on mobile, hover on desktop */}
+                  {isMobileView ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onChannelOptionsClick?.(channel);
+                      }}
+                      className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
+                    >
+                      <HiDotsVertical className="w-5 h-5 text-gray-300" />
+                    </button>
+                  ) : (
+                    <ChannelOptionsMenu
+                      channel={channel}
+                      profileIdentifier={profileIdentifier}
+                      onInstall={handleInstallPWA}
+                      onShare={handleShareChannel}
+                    />
+                  )}
+                </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+
+      {/* Collapsed Channel Icons (PC and Mobile) */}
+      {sidebarCollapsed && (
+        <div className="w-full mt-4 flex flex-col items-center gap-3">
+          {/* Subscribed Channels Icons */}
+          {loadingChannels ? (
+            <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
+          ) : subscribedChannels.length > 0 && (
+            <>
+              <div className="w-full border-b border-white/20 pb-2 mb-1">
+                <p className="text-[10px] text-gray-400 text-center">Subscribed</p>
+              </div>
+              {subscribedChannels.map((channel) => {
+                const profileIdentifier = creatorIdToUsername[channel.creatorId] || channel.creatorId;
+                return (
+                  <Link
+                    key={channel.creatorId}
+                    href={`/creator/${encodeURIComponent(profileIdentifier)}`}
+                    className="group relative"
+                    title={channel.title || channel.streamName || 'Channel'}
+                  >
+                    {channel.logo ? (
+                      <img
+                        src={channel.logo}
+                        alt={channel.title || channel.streamName || 'Channel'}
+                        className="w-10 h-10 rounded-full object-cover border-2 border-transparent hover:border-yellow-500 transition-all"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold border-2 border-transparent hover:border-white transition-all">
+                        {((channel.title || channel.streamName || channel.creatorId)?.slice(0, 2) || '??').toUpperCase()}
+                      </div>
+                    )}
+                    {/* Tooltip */}
+                    <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-black/90 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                      {channel.title || channel.streamName || 'Channel'}
+                    </div>
+                  </Link>
+                );
+              })}
+            </>
+          )}
+
+          {/* Owned Channels Icons */}
+          {loadingOwnedChannels ? (
+            <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
+          ) : ownedChannels.length > 0 && (
+            <>
+              <div className="w-full border-b border-white/20 pb-2 mb-1 mt-2">
+                <p className="text-[10px] text-gray-400 text-center">Owned</p>
+              </div>
+              {ownedChannels.map((channel) => (
                 <button
                   key={channel.playbackId}
                   onClick={() => {
                     if (channel.playbackId) {
                       if (isInDashboard) {
-                        // If in dashboard, use context to update state
                         setSelectedChannelId(channel.playbackId);
-                        console.log('selected channel id', channel.playbackId);
                       } else {
-                        // If outside dashboard, navigate to dashboard with channelId
                         router.push(`/dashboard?channelId=${channel.playbackId}`);
                       }
                     } else {
@@ -384,57 +609,40 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick }: SidebarPro
                       }
                     }
                   }}
-                  className="w-full flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/10 transition-colors text-left"
+                  className="group relative"
+                  title={channel.title || channel.streamName || 'Channel'}
                 >
                   {channel.logo ? (
                     <img
                       src={channel.logo}
                       alt={channel.title || channel.streamName || 'Channel'}
-                      className="w-8 h-8 rounded-full object-cover"
+                      className="w-10 h-10 rounded-full object-cover border-2 border-transparent hover:border-yellow-500 transition-all"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold border-2 border-transparent hover:border-white transition-all">
                       {(channel.title || channel.streamName || channel.creatorId?.slice(0, 2) || 'CH').toUpperCase().slice(0, 2)}
                     </div>
                   )}
-                  <span className="text-gray-300 text-sm truncate flex-1">
-                    {channel.title || channel.streamName || channel.creatorId?.slice(0, 8) + '...' || 'Untitled Channel'}
-                  </span>
+                  {/* Tooltip */}
+                  <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-black/90 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                    {channel.title || channel.streamName || 'Channel'}
+                  </div>
                 </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+              ))}
+            </>
+          )}
 
-      {/* PWA Install Button - Only show on creator profile pages */}
-      {!sidebarCollapsed && isInstallable && onInstallClick && (
-        <div className="w-full mt-12">
-          <button
-            onClick={onInstallClick}
-            className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-md transition-all duration-200 text-sm font-semibold"
-            title="Install as PWA"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-            <span>Add to Home Screen</span>
-          </button>
-        </div>
-      )}
-
-      {/* Collapsed Add Channel Button */}
-      {sidebarCollapsed && (
-        <div className="w-full mt-4">
+          {/* Add Channel Button */}
           <button
             onClick={handleAddChannel}
-            className="w-full flex items-center justify-center p-3 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-md transition-all duration-200"
+            className="w-10 h-10 flex items-center justify-center bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-full transition-all duration-200 mt-2"
             title="Add Channel"
           >
             <HiPlus className="w-5 h-5" />
           </button>
         </div>
       )}
+
 
 
       {/* Signup Modal */}

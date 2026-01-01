@@ -4,6 +4,7 @@ import Analytics from './Analytics';
 import SectionCard from '@/components/Card/SectionCard';
 import { ChannelCard, VideoCard } from '@/components/Card/Card';
 import { ChannelCardRedesign } from '@/components/Card/ChannelCardRedesign';
+import { CreatorChannelCard } from '@/components/templates/creator/CreatorChannelCard';
 import { RiVideoAddLine } from 'react-icons/ri';
 import * as Dialog from '@radix-ui/react-dialog';
 import { IoMdClose } from 'react-icons/io';
@@ -22,7 +23,6 @@ import Spinner from '@/components/Spinner';
 import UploadVideoAsset from '@/components/UploadVideoAsset';
 import type { Asset, Stream } from '@/interfaces';
 import MobileSidebar from '@/components/MobileSidebar';
-import { ProfileColumn } from './ProfileColumn';
 import BottomNav from '@/components/BottomNav';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { UserSetupModal } from '@/components/UserSetupModal';
@@ -53,7 +53,8 @@ const Dashboard = () => {
   const [showStreamSetupModal, setShowStreamSetupModal] = useState(false);
   const [pendingStreamId, setPendingStreamId] = useState<string | null>(null);
   const [streamForSetup, setStreamForSetup] = useState<any>(null);
-  
+  const [channelSupabaseData, setChannelSupabaseData] = useState<any>(null);
+
   // Get channelId from URL query params (for navigation from outside dashboard)
   const urlChannelId = searchParams?.get('channelId');
   
@@ -194,6 +195,48 @@ const selectedChannel = useMemo(() => {
   if (!selectedChannelId) return null;
   return filteredStreams.find((stream) => stream.playbackId === selectedChannelId) || null;
 }, [selectedChannelId, filteredStreams]);
+
+// Fetch Supabase stream data for bio/socialLinks when channel is selected
+useEffect(() => {
+  const fetchChannelData = async () => {
+    if (!selectedChannel || !creatorAddress) {
+      setChannelSupabaseData(null);
+      return;
+    }
+    try {
+      const streams = await getStreamsByCreator(creatorAddress);
+      const channelData = streams.find(s => s.playbackId === selectedChannel.playbackId);
+      setChannelSupabaseData(channelData || null);
+    } catch (error) {
+      console.error('Error fetching channel data:', error);
+      setChannelSupabaseData(null);
+    }
+  };
+  fetchChannelData();
+}, [selectedChannel, creatorAddress]);
+
+// Helper to parse socialLinks from array format
+const parseSocialLinks = (socialLinksArray: string[] | null | undefined): { twitter?: string; instagram?: string; youtube?: string; website?: string } => {
+  const socialLinks: { twitter?: string; instagram?: string; youtube?: string; website?: string } = {};
+  if (!Array.isArray(socialLinksArray)) return socialLinks;
+  socialLinksArray.forEach((jsonString: string) => {
+    if (typeof jsonString === 'string') {
+      try {
+        const parsed = JSON.parse(jsonString);
+        Object.keys(parsed).forEach((key) => {
+          const value = parsed[key];
+          if (key === 'twitter' && value) socialLinks.twitter = value;
+          else if (key === 'instagram' && value) socialLinks.instagram = value;
+          else if (key === 'youtube' && value) socialLinks.youtube = value;
+          else if (key === 'website' && value) socialLinks.website = value;
+        });
+      } catch (e) {
+        console.warn('Failed to parse social link JSON:', jsonString);
+      }
+    }
+  });
+  return socialLinks;
+};
 
 // Filter assets by selected channel if one is selected
 const filteredAssetsForChannel = useMemo(() => {
@@ -407,10 +450,7 @@ const filteredAssetsForChannel = useMemo(() => {
           <Header toggleMenu={toggleMobileMenu} mobileOpen={mobileMenuOpen} />
           {/* Only show "Your Channel" section when a channel is selected */}
           {selectedChannel && (
-            <div className="md:px-6 px-3 w-full py-2 pb-4 relative rounded-lg my-2 bg-white/10 backdrop-blur-sm border border-white/20">
-              <div className="mb-2">
-                <p className="text-lg font-bold text-white">Your Channel</p>
-              </div>
+            <div className="md:px-6 px-3 w-full py-2 pb-4 relative rounded-lg my-2">
               {streamsLoading ? (
                 Array.from({ length: 1 }, (_, index) => (
                   <div key={index} className="flex flex-col space-y-2">
@@ -423,16 +463,14 @@ const filteredAssetsForChannel = useMemo(() => {
                 ))
               ) : (
                 <div key={selectedChannel.id} className="col-span-full w-full">
-                  <ChannelCardRedesign
-                    title={selectedChannel.title || selectedChannel.name}
-                    image={image1}
-                    logo={selectedChannel.logo}
-                    goLive={() => initiateLiveVideo(selectedChannel.id)}
-                    streamId={selectedChannel.id}
-                    playbackId={selectedChannel.playbackId}  
-                    playb={selectedChannel.playbackId}
-                    lastSeen={new Date(selectedChannel.lastSeen || 0)}
-                    status={selectedChannel.isActive}
+                  <CreatorChannelCard
+                    title={channelSupabaseData?.title || selectedChannel.title || selectedChannel.name || 'Your Channel'}
+                    logo={channelSupabaseData?.logo || selectedChannel.logo || null}
+                    bio={channelSupabaseData?.description || null}
+                    socialLinks={parseSocialLinks(channelSupabaseData?.socialLinks) || {}}
+                    defaultImage={image1}
+                    isActive={selectedChannel.isActive || false}
+                    creatorId={creatorAddress || undefined}
                   />
                 </div>
               )}
@@ -673,52 +711,6 @@ const filteredAssetsForChannel = useMemo(() => {
           <div className="flex-shrink-0 z-10">
             <BottomNav />
           </div>
-          </div>
-        
-          {/* Third Column - Profile Column */}
-          <div className="hidden lg:block flex-shrink-0 pt-2 pr-2">
-            {ready && authenticated ? (
-              // Logged in: Show ProfileColumn component
-              <ProfileColumn />
-            ) : (
-              // Not logged in: Show login prompts
-              <div className="w-[400px] p-4 px-10 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg space-y-4">
-                <div className="text-center space-y-4">
-                  {/* Icon */}
-                  <div className="flex justify-center">
-                    <div className="w-24 h-24 rounded-full bg-gradient-to-r from-yellow-500/30 to-teal-500/30 flex items-center justify-center border-2 border-yellow-400">
-                      <svg className="w-12 h-12 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                    </div>
-                  </div>
-
-                  {/* Title */}
-                  <div className="space-y-2">
-                    <h3 className="text-white font-semibold text-lg">Join ChainfrenTV</h3>
-                    <p className="text-gray-400 text-sm">
-                      Sign in to access your profile, manage your content, and interact with creators.
-                    </p>
-                  </div>
-
-                  {/* Login Button */}
-                  <Link
-                    href="/auth/login"
-                    className="w-full flex items-center justify-center gap-2 py-2 px-4 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors text-sm font-medium"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                    Sign In
-                  </Link>
-
-                  {/* Additional Info */}
-                  <p className="text-gray-500 text-xs mt-4">
-                    New to ChainfrenTV? Signing in will create your account automatically.
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
         </div>
         

@@ -624,6 +624,35 @@ export async function getSubscribedChannels(userWalletAddress: string): Promise<
   return creatorStreams.filter((stream): stream is SupabaseStream => stream !== null);
 }
 
+/**
+ * Get subscriber count for a creator (counts users who have this creatorId in their Channels array)
+ */
+export async function getSubscriberCount(creatorId: string): Promise<number> {
+  try {
+    // Query all users and filter those who have this creatorId in their Channels array
+    const { data, error } = await supabase
+      .from('users')
+      .select('Channels');
+
+    if (error) {
+      console.error('Error fetching subscriber count:', error);
+      return 0;
+    }
+
+    if (!data) return 0;
+
+    // Count users who have this creatorId in their Channels array
+    const subscriberCount = data.filter((user) => {
+      return user.Channels && Array.isArray(user.Channels) && user.Channels.includes(creatorId);
+    }).length;
+
+    return subscriberCount;
+  } catch (error) {
+    console.error('Error getting subscriber count:', error);
+    return 0;
+  }
+}
+
 // ==================== VIDEO OPERATIONS ====================
 
 /**
