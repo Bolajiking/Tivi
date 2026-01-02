@@ -2,10 +2,11 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { MdOutlineLogout } from 'react-icons/md';
 import { useRouter } from 'next/navigation';
 import { useLogout, usePrivy, useWallets } from '@privy-io/react-auth';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useCallback } from 'react';
 import { FaRegUserCircle, FaShoppingBag } from 'react-icons/fa';
 import { IoSettingsOutline } from 'react-icons/io5';
 import { toast } from 'sonner';
+import { formatEther } from 'viem';
 import { Menu, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useDispatch } from 'react-redux';
@@ -16,7 +17,7 @@ import Image from 'next/image';
 
 const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mobileOpen: boolean; title?: string }) => {
   const navigate = useRouter();
-  const { user, ready } = usePrivy();
+  const { user, ready, login, authenticated } = usePrivy();
   const { wallets } = useWallets();
   const [walletAddress, setWalletAddress] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'profile' | 'wallet'>('profile');
@@ -24,6 +25,8 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
   const [showTopUp, setShowTopUp] = useState(false);
   const [userProfile, setUserProfile] = useState<SupabaseUser | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<string>('0.00');
+  const [loadingBalance, setLoadingBalance] = useState(false);
   const dispatch = useDispatch();
 
   // Get creator address from linked accounts
@@ -90,6 +93,41 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
       window.removeEventListener('profileUpdated', handleProfileUpdate);
     };
   }, [creatorAddress, ready]);
+
+  // Fetch wallet balance
+  const fetchWalletBalance = useCallback(async () => {
+    if (!walletAddress || !ready) return;
+
+    try {
+      setLoadingBalance(true);
+      // Find the wallet to get provider
+      const walletObj: any = wallets.find((wallet: any) =>
+        wallet.walletClientType === 'privy' || wallet.clientType === 'privy'
+      ) || wallets[0];
+
+      if (walletObj) {
+        const provider = await walletObj.getEthereumProvider();
+        if (provider) {
+          const balance = await provider.request({
+            method: 'eth_getBalance',
+            params: [walletAddress, 'latest'],
+          });
+          // Convert from wei to ETH and format
+          const balanceInEth = formatEther(BigInt(balance));
+          setWalletBalance(parseFloat(balanceInEth).toFixed(4));
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching wallet balance:', error);
+      setWalletBalance('0.00');
+    } finally {
+      setLoadingBalance(false);
+    }
+  }, [walletAddress, wallets, ready]);
+
+  useEffect(() => {
+    fetchWalletBalance();
+  }, [fetchWalletBalance]);
 
   const { logout: handleLogout } = useLogout({
     onSuccess: () => {
@@ -185,94 +223,161 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
                     {activeTab === 'profile' ? (
                       /* Profile Tab */
                       <div className="flex flex-col items-center">
-                        {/* User Avatar and Info */}
-                        <div className="mb-6 text-center">
-                          {loadingProfile ? (
-                            <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-white/10 animate-pulse" />
-                          ) : userProfile?.avatar ? (
-                            <div className="w-20 h-20 mx-auto mb-3 rounded-full overflow-hidden border-2 border-yellow-400">
-                              <Image
-                                src={userProfile.avatar}
-                                alt="Profile"
-                                width={80}
-                                height={80}
-                                className="object-cover w-full h-full"
-                                unoptimized
-                              />
+                        {!ready || !authenticated ? (
+                          /* Sign In State for Unauthenticated Users */
+                          <div className="flex flex-col items-center justify-center py-8">
+                            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-gray-700 to-gray-600 flex items-center justify-center">
+                              <FaRegUserCircle className="text-4xl text-gray-400" />
                             </div>
-                          ) : (
-                            <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center">
-                              <FaRegUserCircle className="text-4xl text-black" />
-                            </div>
-                          )}
-                          <h3 className="text-xl font-semibold text-white mb-1">
-                            {userProfile?.displayName || user?.email?.address?.split('@')[0] || user?.google?.email?.split('@')[0] || 'Member'}
-                          </h3>
-                          <p className="text-gray-400 text-xs">
-                            {user?.email?.address || user?.google?.email || 'No email connected'}
-                          </p>
-                          <div className="mt-2 inline-block px-3 py-1 bg-yellow-900/30 border border-yellow-700/50 rounded-full">
-                            <span className="text-yellow-400 text-xs font-medium">Member</span>
+                            <h3 className="text-xl font-semibold text-white mb-2">Welcome to TVinBio</h3>
+                            <p className="text-gray-400 text-sm text-center mb-6 max-w-xs">
+                              Sign in to create your channel, go live, and start earning from your content.
+                            </p>
+                            <button
+                              onClick={() => login()}
+                              className="w-full max-w-xs bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black font-semibold py-3 px-6 rounded-xl transition-colors text-base"
+                            >
+                              Sign In
+                            </button>
+                            <p className="text-gray-500 text-xs mt-3">
+                              Connect with wallet, email, or Farcaster
+                            </p>
                           </div>
-                        </div>
+                        ) : (
+                          /* Authenticated User Profile */
+                          <>
+                            {/* User Avatar and Info */}
+                            <div className="mb-6 text-center">
+                              {loadingProfile ? (
+                                <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-white/10 animate-pulse" />
+                              ) : userProfile?.avatar ? (
+                                <div className="w-20 h-20 mx-auto mb-3 rounded-full overflow-hidden border-2 border-yellow-400">
+                                  <Image
+                                    src={userProfile.avatar}
+                                    alt="Profile"
+                                    width={80}
+                                    height={80}
+                                    className="object-cover w-full h-full"
+                                    unoptimized
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-20 h-20 mx-auto mb-3 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center">
+                                  <FaRegUserCircle className="text-4xl text-black" />
+                                </div>
+                              )}
+                              <h3 className="text-xl font-semibold text-white mb-1">
+                                {userProfile?.displayName || user?.email?.address?.split('@')[0] || user?.google?.email?.split('@')[0] || 'Member'}
+                              </h3>
+                              <p className="text-gray-400 text-xs">
+                                {user?.email?.address || user?.google?.email || 'No email connected'}
+                              </p>
+                              <div className="mt-2 inline-block px-3 py-1 bg-yellow-900/30 border border-yellow-700/50 rounded-full">
+                                <span className="text-yellow-400 text-xs font-medium">Member</span>
+                              </div>
+                            </div>
 
-                        {/* Action Buttons */}
-                        <div className="w-full space-y-2">
-                          <button
-                            onClick={() => {
-                              navigate.push('/dashboard/profile');
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
-                          >
-                            <IoSettingsOutline className="text-lg text-white" />
-                            <span className="text-white text-sm font-medium">Account Settings</span>
-                          </button>
+                            {/* Action Buttons */}
+                            <div className="w-full space-y-2">
+                              <button
+                                onClick={() => {
+                                  navigate.push('/dashboard/profile');
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                              >
+                                <IoSettingsOutline className="text-lg text-white" />
+                                <span className="text-white text-sm font-medium">Account Settings</span>
+                              </button>
 
-                          <button
-                            onClick={() => {
-                              navigate.push('/dashboard/analytics');
-                            }}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
-                          >
-                            <FaShoppingBag className="text-lg text-white" />
-                            <span className="text-white text-sm font-medium">Order History</span>
-                          </button>
+                              <button
+                                onClick={() => {
+                                  navigate.push('/dashboard/order-history');
+                                }}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+                              >
+                                <FaShoppingBag className="text-lg text-white" />
+                                <span className="text-white text-sm font-medium">Order History</span>
+                              </button>
 
-                          <button
-                            onClick={handleLogout}
-                            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-red-900/20 hover:bg-red-900/30 border border-red-700/50 transition-colors"
-                          >
-                            <MdOutlineLogout className="text-lg text-red-400" />
-                            <span className="text-red-400 text-sm font-medium">Sign Out</span>
-                          </button>
-                        </div>
+                              <button
+                                onClick={handleLogout}
+                                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-red-900/20 hover:bg-red-900/30 border border-red-700/50 transition-colors"
+                              >
+                                <MdOutlineLogout className="text-lg text-red-400" />
+                                <span className="text-red-400 text-sm font-medium">Sign Out</span>
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     ) : (
                       /* Mobile Purse Tab */
                       <div className="flex flex-col">
-                        {/* Available Balance Card */}
-                        <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 border border-yellow-700/30 rounded-xl p-4 mb-4">
-                          <p className="text-gray-300 text-xs mb-1">Available Balance</p>
-                          <h2 className="text-3xl font-bold text-white mb-4">$124.50</h2>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => setShowTopUp(!showTopUp)}
-                              className="flex-1 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-500 hover:to-yellow-600 text-black font-semibold py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm"
-                            >
-                              <span className="text-lg">{showTopUp ? '−' : '+'}</span>
-                              Add Funds
-                            </button>
-                            <button className="flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-1 border border-white/20 text-sm">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        {!ready || !authenticated ? (
+                          /* Sign In State for Unauthenticated Users */
+                          <div className="flex flex-col items-center justify-center py-8">
+                            <div className="w-16 h-16 mx-auto mb-4 rounded-xl bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 border border-yellow-700/30 flex items-center justify-center">
+                              <svg className="w-8 h-8 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                               </svg>
-                              Send
+                            </div>
+                            <h3 className="text-xl font-semibold text-white mb-2">Mobile Purse</h3>
+                            <p className="text-gray-400 text-sm text-center mb-6 max-w-xs">
+                              Sign in to access your wallet, view balances, and manage your funds.
+                            </p>
+                            <button
+                              onClick={() => login()}
+                              className="w-full max-w-xs bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black font-semibold py-3 px-6 rounded-xl transition-colors text-base"
+                            >
+                              Sign In to Continue
                             </button>
                           </div>
-                        </div>
+                        ) : (
+                          <>
+                            {/* Available Balance Card */}
+                            <div className="bg-gradient-to-br from-yellow-900/40 to-yellow-800/20 border border-yellow-700/30 rounded-xl p-4 mb-4">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-gray-300 text-xs">Available Balance</p>
+                                <button
+                                  onClick={() => fetchWalletBalance()}
+                                  disabled={loadingBalance}
+                                  className="text-gray-400 hover:text-white transition-colors p-1"
+                                  title="Refresh balance"
+                                >
+                                  <svg className={`w-4 h-4 ${loadingBalance ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                  </svg>
+                                </button>
+                              </div>
+                              <div className="flex items-baseline gap-2 mb-4">
+                                {loadingBalance ? (
+                                  <div className="h-9 w-32 bg-white/10 animate-pulse rounded" />
+                                ) : (
+                                  <>
+                                    <h2 className="text-3xl font-bold text-white">{walletBalance}</h2>
+                                    <span className="text-gray-400 text-sm">ETH</span>
+                                  </>
+                                )}
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => setShowTopUp(!showTopUp)}
+                                  className="flex-1 bg-gradient-to-r from-yellow-600 to-yellow-700 hover:from-yellow-500 hover:to-yellow-600 text-black font-semibold py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm"
+                                >
+                                  <span className="text-lg">{showTopUp ? '−' : '+'}</span>
+                                  Add Funds
+                                </button>
+                                <button className="flex-1 bg-white/10 hover:bg-white/20 text-white font-semibold py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-1 border border-white/20 text-sm">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                  </svg>
+                                  Send
+                                </button>
+                              </div>
+                            </div>
 
-                        {/* Wallet Address */}
-                        {walletAddress && (
+                            {/* Wallet Address */}
+                            {walletAddress && (
                           <div className="mb-4">
                             <p className="text-gray-400 text-xs mb-2">Wallet Address</p>
                             <div className="flex items-center gap-2">
@@ -340,6 +445,8 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
                               Secured by Stripe & Circle. Funds available instantly.
                             </p>
                           </div>
+                        )}
+                          </>
                         )}
                       </div>
                     )}

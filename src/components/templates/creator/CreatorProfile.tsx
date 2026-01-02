@@ -834,13 +834,13 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
           <SectionCard title="">
             <Tabs defaultValue="videos" className="w-full col-span-full">
               <TabsList className="grid w-full grid-cols-2 bg-white/10 backdrop-blur-sm border border-white/20 p-1">
-                <TabsTrigger 
-                  value="videos" 
+                <TabsTrigger
+                  value="videos"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-teal-500 data-[state=active]:text-black text-white"
                 >
                   Videos
                 </TabsTrigger>
-                <TabsTrigger 
+                <TabsTrigger
                   value="livestreams"
                   className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-teal-500 data-[state=active]:text-black text-white"
                 >
@@ -989,10 +989,11 @@ export function CreatorProfile({ creatorId }: CreatorProfileProps) {
                   </>
                 )}
               </TabsContent>
+
             </Tabs>
           </SectionCard>
           </div>
-          
+
           {/* Bottom Navigation - Fixed at bottom of middle column */}
           <div className="flex-shrink-0 z-10">
             <BottomNav />

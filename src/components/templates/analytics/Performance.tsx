@@ -22,11 +22,11 @@ const Performance: React.FC<PerformanceProps> = ({ metrics, loading }) => {
 
   if (initialLoad) {
     return (
-      <div className="w-full overflow-hidden rounded-md border shadow-md p-6 border-[#DFE0E1]">
-        <h1 className="font-semibold text-lg text-black pb-6">Performance Metrics</h1>
+      <div className="w-full overflow-hidden rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm shadow-md p-6">
+        <h1 className="font-semibold text-lg text-white pb-6">Performance Metrics</h1>
         <div className="space-y-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="h-12 w-full" />
+            <Skeleton key={i} className="h-12 w-full bg-white/20" />
           ))}
         </div>
       </div>
@@ -75,31 +75,31 @@ const Performance: React.FC<PerformanceProps> = ({ metrics, loading }) => {
   ]
 
   return (
-    <div className="w-full overflow-hidden rounded-md border shadow-md p-6 border-[#DFE0E1]">
-      <h1 className="font-semibold text-lg text-black flex items-center justify-between pb-6">Performance Metrics</h1>
+    <div className="w-full overflow-hidden rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm shadow-md p-6">
+      <h1 className="font-semibold text-lg text-white flex items-center justify-between pb-6">Performance Metrics</h1>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[600px]">
           <thead>
-            <tr className="font-bold border-b border-[#DFE0E1]">
-              <th className="py-2 text-left">Metric</th>
-              <th className="py-2 text-left">Value</th>
-              <th className="py-2 text-left">Trend</th>
-              <th className="py-2 text-left hidden md:table-cell">Description</th>
+            <tr className="font-bold border-b border-white/20">
+              <th className="py-2 text-left text-white">Metric</th>
+              <th className="py-2 text-left text-white">Value</th>
+              <th className="py-2 text-left text-white">Trend</th>
+              <th className="py-2 text-left text-white hidden md:table-cell">Description</th>
             </tr>
           </thead>
           <tbody>
             {metricItems.map((item, idx) => (
-              <tr key={idx} className="border-b border-[#DFE0E1] hover:bg-gray-50">
-                <td className="py-4 font-medium">{item.title}</td>
-                <td className="py-4">{item.value}</td>
+              <tr key={idx} className="border-b border-white/10 hover:bg-white/5 transition-colors">
+                <td className="py-4 font-medium text-white">{item.title}</td>
+                <td className="py-4 text-gray-200">{item.value}</td>
                 <td className="py-4">
                   {item.trend === "up" ? (
-                    <ArrowUpRight className="text-green-500" />
+                    <ArrowUpRight className="text-green-400" />
                   ) : (
-                    <ArrowDownRight className="text-red-500" />
+                    <ArrowDownRight className="text-red-400" />
                   )}
                 </td>
-                <td className="py-4 text-sm text-gray-500 hidden md:table-cell">{item.description}</td>
+                <td className="py-4 text-sm text-gray-300 hidden md:table-cell">{item.description}</td>
               </tr>
             ))}
           </tbody>
