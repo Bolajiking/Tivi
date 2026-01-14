@@ -30,6 +30,7 @@ export default function RootLayout({
       <head>
         <title>TVinBio - Your Audience. Your Platform. Your Revenue.</title>
         <meta name="description" content="TVinBio - The personalized streaming platform that lives in your social bio. Full control over your audience, monetization, and data." />
+        <meta name="base:app_id" content="69678d800c770beef048620f" />
         <link rel="icon" href="/assets/images/icon.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
