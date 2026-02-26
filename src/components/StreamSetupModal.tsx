@@ -18,15 +18,14 @@ interface StreamSetupModalProps {
     streamName?: string | null;
     streamMode?: 'free' | 'one-time' | 'monthly' | null;
     streamAmount?: number | null;
+    viewMode?: 'free' | 'one-time' | 'monthly' | null;
+    amount?: number | null;
     Record?: boolean | null;
   } | null;
 }
 
-type StreamMode = 'free' | 'one-time' | 'monthly';
-
 export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSetupModalProps) {
   const [sessionName, setSessionName] = useState('');
-  const [streamMode, setStreamMode] = useState<StreamMode>('free');
   const [streamAmount, setStreamAmount] = useState<number>(0);
   const [record, setRecord] = useState<boolean>(false);
   const [loading, setLoading] = useState(false);
@@ -39,11 +38,13 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
   useEffect(() => {
     if (stream) {
       setSessionName(stream.streamName || '');
-      setStreamMode(stream.streamMode || 'free');
-      setStreamAmount(stream.streamAmount || 0);
+      setStreamAmount(stream.streamAmount ?? stream.amount ?? 0);
       setRecord(stream.Record ?? false);
     }
   }, [stream]);
+
+  const effectiveStreamMode = stream?.streamMode || stream?.viewMode || 'free';
+  const isPaidMode = effectiveStreamMode !== 'free';
 
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
@@ -56,8 +57,8 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
       newErrors.sessionName = 'Session name must be less than 100 characters';
     }
 
-    // Validate amount if streamMode is not free
-    if (streamMode !== 'free') {
+    // Validate amount only when mode is paid (configured in dashboard settings)
+    if (isPaidMode) {
       if (streamAmount === undefined || streamAmount === null || streamAmount <= 0 || isNaN(streamAmount)) {
         newErrors.streamAmount = 'Amount is required and must be greater than 0';
       }
@@ -85,8 +86,10 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
       // Update stream with new values
       await updateStream(stream.playbackId, {
         streamName: sessionName.trim(),
-        streamMode: streamMode,
-        streamAmount: streamMode !== 'free' ? streamAmount : null,
+        streamMode: effectiveStreamMode,
+        viewMode: effectiveStreamMode,
+        streamAmount: isPaidMode ? streamAmount : null,
+        amount: isPaidMode ? streamAmount : null,
         Record: record,
       });
 
@@ -136,38 +139,8 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
               )}
             </div>
 
-            {/* Stream Mode Input */}
-            <div>
-              <label className="block text-sm font-medium mb-2 text-white">
-                Stream Mode
-              </label>
-              <div className="flex gap-2 flex-wrap">
-                {(['free', 'one-time', 'monthly'] as StreamMode[]).map((option) => (
-                  <button
-                    key={option}
-                    type="button"
-                    onClick={() => {
-                      setStreamMode(option);
-                      // Clear amount error when mode changes
-                      if (errors.streamAmount) {
-                        setErrors(prev => ({ ...prev, streamAmount: undefined }));
-                      }
-                    }}
-                    className={clsx(
-                      'px-4 py-2 border capitalize text-sm rounded transition-colors',
-                      streamMode === option 
-                        ? 'bg-gradient-to-r from-yellow-500 to-teal-500 text-black border-transparent' 
-                        : 'bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20'
-                    )}
-                  >
-                    {option}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Stream Amount Input - Only show if streamMode is not free */}
-            {streamMode !== 'free' && (
+            {/* Stream Amount Input - controlled by dashboard settings livestream mode */}
+            {isPaidMode && (
               <div>
                 <label className="block text-sm font-medium mb-1 text-white">
                   Amount (USDC) <span className="text-red-400">*</span>
@@ -266,4 +239,3 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
     </Dialog.Root>
   );
 }
-

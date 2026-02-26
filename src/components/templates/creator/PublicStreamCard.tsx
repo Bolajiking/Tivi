@@ -54,6 +54,9 @@ export const PublicStreamCard: React.FC<PublicStreamCardProps> = ({
 
   const imageSrc = getImageSource();
   const useRegularImg = typeof imageSrc === 'string' && isLivepeerCDN(imageSrc);
+  const liveHref = creatorId
+    ? `/creator/${encodeURIComponent(creatorId)}/live/${encodeURIComponent(playbackId)}`
+    : `/view/${encodeURIComponent(playbackId)}?streamName=${encodeURIComponent(title)}`;
 
   const handleImageError = () => {
     if (!imageError && thumbnailUrl) {
@@ -108,10 +111,10 @@ export const PublicStreamCard: React.FC<PublicStreamCardProps> = ({
         )}
       </div>
 
-      {/* View Stream Button */}
+        {/* View Stream Button */}
       <div className="flex flex-col items-center justify-center gap-3">
         <Link
-          href={`/view/${playbackId}?streamName=${encodeURIComponent(title)}&id=${creatorId}`}
+          href={liveHref}
           className="flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-all duration-200 font-semibold"
         >
           <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
@@ -123,4 +126,3 @@ export const PublicStreamCard: React.FC<PublicStreamCardProps> = ({
     </div>
   );
 };
-

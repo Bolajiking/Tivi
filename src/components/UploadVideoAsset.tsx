@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { clsx } from 'clsx';
 import { RotatingLines } from 'react-loader-spinner';
 import * as tus from 'tus-js-client';
@@ -9,23 +9,54 @@ import { toast } from 'sonner';
 import { useDispatch } from 'react-redux';
 import { getAssets } from '@/features/assetsAPI';
 import { AppDispatch } from '@/store/store';
-import { createVideo } from '@/lib/supabase-service';
+import { createVideo, updateVideo } from '@/lib/supabase-service';
 import InputField from './ui/InputField';
 
 type viewMode = 'free' | 'one-time' | 'monthly';
-export default function UploadVideoAsset({ onClose }: { onClose: () => void }) {
+export type VideoUploadNotice = {
+  phase: 'uploading' | 'saving' | 'pending-metadata' | 'completed' | 'error';
+  title: string;
+  progress: number;
+  message?: string;
+};
+
+export default function UploadVideoAsset({
+  onClose,
+  onStatusChange,
+}: {
+  onClose: () => void;
+  onStatusChange?: (status: VideoUploadNotice | null) => void;
+}) {
   const { user } = usePrivy();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [viewMode, setviewMode] = useState<viewMode>('free');
   const [amount, setAmount] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [savingMetadata, setSavingMetadata] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ amount?: string }>({});
   const [presetValues, setPresetValues] = useState<number[]>([0, 0, 0, 0]);
+  const [pendingMetadata, setPendingMetadata] = useState<{
+    playbackId: string;
+    assetName: string;
+  } | null>(null);
 
   const dispatch = useDispatch<AppDispatch>();
+
+  const emitStatus = useCallback(
+    (status: VideoUploadNotice | null) => {
+      onStatusChange?.(status);
+    },
+    [onStatusChange],
+  );
+
+  useEffect(() => {
+    return () => {
+      emitStatus(null);
+    };
+  }, [emitStatus]);
   
   // Get creator address (wallet address)
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
@@ -83,6 +114,96 @@ export default function UploadVideoAsset({ onClose }: { onClose: () => void }) {
     setPresetValues(newVals);
   };
 
+  const saveVideoMetadata = useCallback(
+    async ({ playbackId, assetName }: { playbackId: string; assetName: string }) => {
+      if (!creatorAddress) {
+        throw new Error('Wallet address not found. Please connect a wallet.');
+      }
+
+      const metadataPayload = {
+        playbackId,
+        viewMode: viewMode || 'free',
+        amount: amount || null,
+        assetName: assetName || title,
+        creatorId: creatorAddress,
+        Users: [],
+        donations: presetValues || [],
+      };
+
+      const maxAttempts = 3;
+      let lastError: any = null;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+          await createVideo(metadataPayload);
+          return;
+        } catch (saveError: any) {
+          lastError = saveError;
+          const message = String(saveError?.message || '');
+          const isDuplicate =
+            message.toLowerCase().includes('duplicate key') ||
+            message.toLowerCase().includes('unique constraint');
+
+          if (isDuplicate) {
+            await updateVideo(playbackId, {
+              viewMode: metadataPayload.viewMode,
+              amount: metadataPayload.amount,
+              assetName: metadataPayload.assetName,
+              creatorId: metadataPayload.creatorId,
+              Users: metadataPayload.Users,
+              donations: metadataPayload.donations,
+            });
+            return;
+          }
+
+          if (attempt < maxAttempts) {
+            await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+          }
+        }
+      }
+
+      throw lastError || new Error('Failed to save video metadata');
+    },
+    [amount, creatorAddress, presetValues, title, viewMode],
+  );
+
+  const handleRetryMetadataSave = useCallback(async () => {
+    if (!pendingMetadata) return;
+    setSavingMetadata(true);
+    setError(null);
+    emitStatus({
+      phase: 'saving',
+      title: pendingMetadata.assetName || title || 'Video upload',
+      progress: 100,
+      message: 'Retrying metadata save…',
+    });
+    try {
+      await saveVideoMetadata(pendingMetadata);
+      emitStatus({
+        phase: 'completed',
+        title: pendingMetadata.assetName || title || 'Video upload',
+        progress: 100,
+        message: 'Video metadata saved. Upload is complete.',
+      });
+      toast.success('Video metadata saved successfully!');
+      setPendingMetadata(null);
+      dispatch(getAssets());
+      onClose();
+    } catch (err: any) {
+      const errorMessage = err?.message || err?.toString() || 'Failed to save video metadata';
+      setError(`Metadata save failed: ${errorMessage}`);
+      emitStatus({
+        phase: 'pending-metadata',
+        title: pendingMetadata.assetName || title || 'Video upload',
+        progress: 100,
+        message: 'Upload finished but metadata save failed. Re-open and retry metadata save.',
+      });
+      toast.error('Metadata save failed. Please retry.');
+    } finally {
+      setSavingMetadata(false);
+    }
+  }, [dispatch, emitStatus, onClose, pendingMetadata, saveVideoMetadata, title]);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!file) {
@@ -100,91 +221,137 @@ export default function UploadVideoAsset({ onClose }: { onClose: () => void }) {
     setError(null);
     setUploading(true);
     setProgress(0);
+    setPendingMetadata(null);
+    emitStatus({
+      phase: 'uploading',
+      title: title || file.name || 'Video upload',
+      progress: 0,
+      message: 'Upload started',
+    });
 
     try {
       if (!creatorAddress) {
         throw new Error('Wallet address not found. Please connect a wallet.');
       }
 
+      const requesterCreatorId = creatorAddress.trim().toLowerCase();
       const response = await api.post('/asset/request-upload', {
         name: title,
         creatorId: {
           type: 'unverified',
           value: creatorAddress,
         },
+      }, {
+        headers: {
+          'x-creator-id': requesterCreatorId,
+        },
       });
 
       const { playbackId, name } = response.data.asset;
-      console.log('response2', playbackId, name);
-
-      // Save video metadata to Supabase
-      try {
-        await createVideo({
-          playbackId: playbackId,
-          viewMode: viewMode || 'free',
-          amount: amount || null,
-          assetName: name || title,
-          creatorId: creatorAddress,
-          Users: [],
-          donations: presetValues || [],
-        });
-        console.log('Video metadata saved to Supabase successfully');
-      } catch (supabaseError: any) {
-        console.error('Failed to save video to Supabase:', supabaseError);
-        // Continue anyway - video is uploaded to Livepeer
-        // In production, you might want to handle this differently
-      }
 
       if (response.status !== 200) {
         throw new Error('Failed to request upload URL');
       }
-      console.log('response2', response.data);
 
       const { tusEndpoint } = response.data;
 
       if (!tusEndpoint) {
         throw new Error('tusEndpoint not provided');
       }
-      // Create a tus upload instance
-      const upload = new tus.Upload(file, {
-        endpoint: tusEndpoint,
-        metadata: {
-          filename: file.name,
-          filetype: file.type,
-        },
-        uploadSize: file.size,
-        onError: (err) => {
-          console.error('Error uploading file:', err);
-          setError('Error uploading file: ' + err.toString());
-          setUploading(false);
-        },
-        onProgress: (bytesUploaded, bytesTotal) => {
-          const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2);
-          setProgress(parseFloat(percentage));
-        },
-        onSuccess: () => {
-          setUploading(false);
-
-          toast.success('Video uploaded successfully!');
-          onClose();
-          dispatch(getAssets());
-          // Reset form
-          setFile(null);
-          setTitle('');
-          setProgress(0);
-        },
+      await new Promise<void>((resolve, reject) => {
+        const upload = new tus.Upload(file, {
+          endpoint: tusEndpoint,
+          metadata: {
+            filename: file.name,
+            filetype: file.type,
+          },
+          uploadSize: file.size,
+          onError: (err) => {
+            reject(err);
+          },
+          onProgress: (bytesUploaded, bytesTotal) => {
+            const percentage = ((bytesUploaded / bytesTotal) * 100).toFixed(2);
+            const parsedPercentage = parseFloat(percentage);
+            setProgress(parsedPercentage);
+            emitStatus({
+              phase: 'uploading',
+              title: name || title || file.name || 'Video upload',
+              progress: parsedPercentage,
+              message: `Uploading… ${parsedPercentage.toFixed(0)}%`,
+            });
+          },
+          onSuccess: () => {
+            resolve();
+          },
+        });
+        upload
+          .findPreviousUploads()
+          .then((previousUploads) => {
+            if (previousUploads.length > 0) {
+              upload.resumeFromPreviousUpload(previousUploads[0]);
+            }
+            upload.start();
+          })
+          .catch(reject);
       });
 
-      // Check for previous uploads to resume if available
-      const previousUploads = await upload.findPreviousUploads();
-      if (previousUploads.length > 0) {
-        upload.resumeFromPreviousUpload(previousUploads[0]);
+      setUploading(false);
+      setSavingMetadata(true);
+      emitStatus({
+        phase: 'saving',
+        title: name || title || file.name || 'Video upload',
+        progress: 100,
+        message: 'Upload complete. Saving metadata…',
+      });
+
+      try {
+        await saveVideoMetadata({
+          playbackId,
+          assetName: name || title,
+        });
+        emitStatus({
+          phase: 'completed',
+          title: name || title || file.name || 'Video upload',
+          progress: 100,
+          message: 'Video uploaded successfully.',
+        });
+        toast.success('Video uploaded successfully!');
+        dispatch(getAssets());
+        setFile(null);
+        setTitle('');
+        setProgress(0);
+        onClose();
+      } catch (metadataError: any) {
+        const metadataMessage =
+          metadataError?.message || metadataError?.toString() || 'Failed to save video metadata';
+        setPendingMetadata({
+          playbackId,
+          assetName: name || title,
+        });
+        setError(
+          `Upload succeeded, but metadata save failed. Please retry metadata save. (${metadataMessage})`,
+        );
+        emitStatus({
+          phase: 'pending-metadata',
+          title: name || title || file.name || 'Video upload',
+          progress: 100,
+          message: 'Upload complete, metadata failed. Re-open and tap Retry Metadata Save.',
+        });
+        toast.error('Upload completed, but metadata was not saved.');
+      } finally {
+        setSavingMetadata(false);
       }
-      upload.start();
     } catch (err: any) {
       console.error(err);
       setError('Upload failed: ' + err.toString());
+      emitStatus({
+        phase: 'error',
+        title: title || file.name || 'Video upload',
+        progress,
+        message: 'Upload failed. Please try again.',
+      });
       setUploading(false);
+      setSavingMetadata(false);
     }
   };
 
@@ -335,10 +502,10 @@ export default function UploadVideoAsset({ onClose }: { onClose: () => void }) {
 
         <button
           type="submit"
-          disabled={uploading}
+          disabled={uploading || savingMetadata}
           className="mt-2 flex items-center justify-center gap-2 bg-main-blue text-white rounded-md px-4 py-2 hover:bg-blue-700 transition duration-200 disabled:opacity-50"
         >
-          {uploading ? (
+          {uploading || savingMetadata ? (
             <RotatingLines
               visible={true}
               strokeWidth="5"
@@ -351,6 +518,17 @@ export default function UploadVideoAsset({ onClose }: { onClose: () => void }) {
             'Upload Video'
           )}
         </button>
+
+        {pendingMetadata && (
+          <button
+            type="button"
+            onClick={handleRetryMetadataSave}
+            disabled={savingMetadata}
+            className="mt-2 flex items-center justify-center gap-2 border border-main-blue text-main-blue rounded-md px-4 py-2 hover:bg-main-blue hover:text-white transition duration-200 disabled:opacity-50"
+          >
+            {savingMetadata ? 'Retrying metadata save...' : 'Retry Metadata Save'}
+          </button>
+        )}
       </form>
     </div>
   );
@@ -436,11 +614,20 @@ export function UploadAdsAsset({ onClose }: { onClose: () => void }) {
     setProgress(0);
 
     try {
+      const walletAddress = user?.wallet?.address?.trim().toLowerCase();
+      if (!walletAddress) {
+        throw new Error('Wallet address not found. Please connect a wallet.');
+      }
+
       const response = await api.post('/asset/request-upload', {
         name: title,
         creatorId: {
           type: 'unverified',
-          value: user?.wallet?.address,
+          value: walletAddress,
+        },
+      }, {
+        headers: {
+          'x-creator-id': walletAddress,
         },
       });
 

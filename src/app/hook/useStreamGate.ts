@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
-import { getStreamByPlaybackId, addPayingUserToStream } from '@/lib/supabase-service';
-import type { SupabaseStream } from '@/lib/supabase-types';
+import { getStreamByPlaybackId } from '@/lib/supabase-service';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
+import type { Subscription } from '@/lib/supabase-types';
 
 export interface Stream {
   playbackId: string;
@@ -9,6 +9,7 @@ export interface Stream {
   viewMode: 'free' | 'one-time' | 'monthly';
   amount: number;
   Users?: string[]; // Array of wallet addresses (updated to match Supabase)
+  subscriptions?: Subscription[];
   description: string;
   streamName: string;
   logo: string;
@@ -21,6 +22,7 @@ export interface Stream {
 }
 
 export function useStreamGate(playbackId: string) {
+  const { walletAddress } = useWalletAddress();
   const [stream, setStream] = useState<Stream | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,6 +45,7 @@ export function useStreamGate(playbackId: string) {
             viewMode: supabaseStream.viewMode,
             amount: supabaseStream.amount || 0,
             Users: supabaseStream.Users || [],
+            subscriptions: supabaseStream.subscriptions || [],
             description: supabaseStream.description || '',
             streamName: supabaseStream.streamName,
             logo: supabaseStream.logo || '',
@@ -77,33 +80,79 @@ export function useStreamGate(playbackId: string) {
       .finally(() => setLoading(false));
   }, [playbackId]);
 
-  // 2️⃣ Check if viewer's wallet address is in the Users array or if viewer is the creator
-  // Note: This now relies on localStorage or external payment verification
-  // Wallet address should be provided via props or context if needed
+  const hasValidLocalPayment = (key: string, viewMode: Stream['viewMode']) => {
+    const paymentRecord = localStorage.getItem(key);
+    if (!paymentRecord) return false;
+
+    try {
+      const record = JSON.parse(paymentRecord);
+      if (viewMode === 'one-time') {
+        return true;
+      }
+      return Boolean(record?.expiresAt && Number(record.expiresAt) > Date.now());
+    } catch {
+      return false;
+    }
+  };
+
+  const hasValidSubscription = (subscriptions: Subscription[] | undefined, viewerAddress: string, viewMode: Stream['viewMode']) => {
+    if (!subscriptions || subscriptions.length === 0) return false;
+
+    const viewer = viewerAddress.toLowerCase();
+    return subscriptions.some((sub) => {
+      const sameViewer =
+        String(sub?.subscriberAddress || '').toLowerCase() === viewer;
+      if (!sameViewer) return false;
+      if (viewMode === 'one-time') return true;
+      if (viewMode === 'monthly') {
+        return Boolean(sub?.expiresAt && new Date(sub.expiresAt).getTime() > Date.now());
+      }
+      return true;
+    });
+  };
+
+  // 2️⃣ Check if viewer already has access using creator ownership, Users array,
+  // persisted local payment records, or subscriptions array.
   useEffect(() => {
     if (!stream || stream.viewMode === 'free') {
       if (stream?.viewMode === 'free') {
-      setHasAccess(true);
-    }
+        setHasAccess(true);
+      }
       return;
     }
 
-    // Check localStorage for payment record (for Ethereum-based payments)
-    const paymentKey = `creator_access_${stream.creatorId}`;
-    const paymentRecord = localStorage.getItem(paymentKey);
-    
-    if (paymentRecord) {
-      try {
-        const record = JSON.parse(paymentRecord);
-        // Check if payment is still valid (for monthly, check expiration)
-        if (stream.viewMode === 'one-time' || (stream.viewMode === 'monthly' && record.expiresAt > Date.now())) {
-          setHasAccess(true);
-        }
-      } catch (e) {
-        console.warn('Failed to parse payment record:', e);
-      }
+    if (!walletAddress) {
+      setHasAccess(false);
+      return;
     }
-  }, [stream]);
+
+    const viewer = walletAddress.toLowerCase();
+    const isCreator = stream.creatorId.toLowerCase() === viewer;
+    const isInUsers = Boolean(
+      stream.Users?.some((addr) => String(addr).toLowerCase() === viewer),
+    );
+    const hasCreatorAccessRecord = hasValidLocalPayment(
+      `creator_access_${stream.creatorId}`,
+      stream.viewMode,
+    );
+    const hasStreamAccessRecord = hasValidLocalPayment(
+      `stream_access_${stream.playbackId}`,
+      stream.viewMode,
+    );
+    const hasSubscription = hasValidSubscription(
+      stream.subscriptions,
+      walletAddress,
+      stream.viewMode,
+    );
+
+    setHasAccess(
+      isCreator ||
+        isInUsers ||
+        hasCreatorAccessRecord ||
+        hasStreamAccessRecord ||
+        hasSubscription,
+    );
+  }, [stream, walletAddress]);
 
   // 3️⃣ Process payment - now handled externally via Ethereum/Privy
   // This function is kept for compatibility but should be handled by CreatorPaymentGate
@@ -117,9 +166,19 @@ export function useStreamGate(playbackId: string) {
 
   // 4️⃣ Helper function to check if user has paid (for after payment confirmation)
   const markPaid = (userAddress: string) => {
-    if (stream?.Users?.some((addr) => addr.toLowerCase() === userAddress.toLowerCase())) {
-      setHasAccess(true);
-    }
+    setHasAccess(true);
+    setStream((prev) => {
+      if (!prev) return prev;
+      const existingUsers = prev.Users || [];
+      const alreadyPresent = existingUsers.some(
+        (addr) => addr.toLowerCase() === userAddress.toLowerCase(),
+      );
+      if (alreadyPresent) return prev;
+      return {
+        ...prev,
+        Users: [...existingUsers, userAddress],
+      };
+    });
   };
 
   return { 
@@ -155,6 +214,7 @@ export function useGetStreamDetails(playbackId: string) {
             viewMode: supabaseStream.viewMode,
             amount: supabaseStream.amount || 0,
             Users: supabaseStream.Users || [],
+            subscriptions: supabaseStream.subscriptions || [],
             description: supabaseStream.description || '',
             streamName: supabaseStream.streamName,
             logo: supabaseStream.logo || '',

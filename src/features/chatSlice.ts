@@ -29,6 +29,14 @@ const chatSlice = createSlice({
       state.messages.push(action.payload);
       state.lastMessageId = action.payload.id;
     },
+    addIncomingMessage: (state, action) => {
+      const incoming = action.payload as ChatMessage;
+      const exists = state.messages.some((message) => message.id === incoming.id);
+      if (!exists) {
+        state.messages.push(incoming);
+        state.lastMessageId = incoming.id;
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -78,5 +86,5 @@ const chatSlice = createSlice({
   },
 });
 
-export const { clearChat, addLocalMessage } = chatSlice.actions;
+export const { clearChat, addLocalMessage, addIncomingMessage } = chatSlice.actions;
 export default chatSlice.reducer; 

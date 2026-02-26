@@ -66,6 +66,8 @@ export interface AssetPopProps {
 export interface Asset {
   id: string;
   name: string;
+  title?: string;
+  description?: string;
   size: number;
   source: { type: string };
   status: { phase: string; updatedAt: number };
@@ -80,6 +82,11 @@ export interface Asset {
   playbackUrl: string;
   assetId: string;
   duration: number;
+  viewMode?: 'free' | 'one-time' | 'monthly';
+  amount?: number | null;
+  donation?: number[];
+  Users?: string[];
+  creatorWalletAddress?: string;
 }
 export interface Product {
   _id?: string;

@@ -1,16 +1,27 @@
-import type { Src } from '@livepeer/react';
+'use client';
+
 import { PlayerWithControls } from '@/components/templates/player/player/Player';
+import { useLivePlaybackInfo } from '@/app/hook/useLivePlaybackInfo';
 
 export default function PlayerWithChat({
-  src,
   title,
   playbackId,
   id,
 }: {
-  src: Src[];
   title: string;
   playbackId: string;
   id: string;
 }) {
-  return <PlayerWithControls src={src} title={title} playbackId={playbackId} id={id} />;
+  const { src, status } = useLivePlaybackInfo(playbackId);
+
+  // Render player immediately so active streams are not blocked by transient source polling lag.
+  return (
+    <PlayerWithControls
+      src={src || []}
+      streamStatus={status}
+      title={title}
+      playbackId={playbackId}
+      id={id}
+    />
+  );
 }

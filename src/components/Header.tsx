@@ -10,16 +10,16 @@ import { formatEther } from 'viem';
 import { Menu, X } from 'lucide-react';
 import clsx from 'clsx';
 import { useDispatch } from 'react-redux';
-import { setSolanaWalletAddress } from '@/features/userSlice';
+import { setWalletAddress } from '@/features/userSlice';
 import { getUserProfile } from '@/lib/supabase-service';
 import type { SupabaseUser } from '@/lib/supabase-types';
 import Image from 'next/image';
 
-const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mobileOpen: boolean; title?: string }) => {
+const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen: boolean; title?: string }) => {
   const navigate = useRouter();
   const { user, ready, login, authenticated } = usePrivy();
   const { wallets } = useWallets();
-  const [walletAddress, setWalletAddress] = useState<string>('');
+  const [walletAddress, setLocalWalletAddress] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'profile' | 'wallet'>('profile');
   const [topUpAmount, setTopUpAmount] = useState<string>('');
   const [showTopUp, setShowTopUp] = useState(false);
@@ -58,8 +58,8 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
     if (walletObj) {
       const address = walletObj?.address ?? walletObj?.wallet?.address;
       if (address) {
-        setWalletAddress(address);
-        dispatch(setSolanaWalletAddress(address)); // Keep using same action for compatibility
+        setLocalWalletAddress(address);
+        dispatch(setWalletAddress(address));
       }
     }
   }, [ready, wallets, user, dispatch]);
@@ -138,29 +138,21 @@ const Header = ({ toggleMenu, mobileOpen, title }: { toggleMenu: () => void; mob
 
   return (
     <>
-      <header
-        className={clsx('flex-1   w-full z-10 top-0 right-0 transition-all shadow-md duration-300 ease-in-out', {})}
-      >
-        <div className="flex justify-between items-center p-2 sm:p-5 bg-white/10 backdrop-blur-sm border-b border-white/20 sticky top-0 z-10">
-          <div className="flex items-center w-full flex-1 gap-3">
-            <button onClick={toggleMenu} className="md:hidden">
+      <header className="fixed top-3 left-3 right-3 z-30 pointer-events-none">
+        <div className="flex justify-between items-start">
+          <div className="pointer-events-auto">
+            <button
+              onClick={toggleMenu}
+              className="md:hidden inline-flex items-center justify-center rounded-full border border-white/20 bg-black/45 p-2 text-white backdrop-blur-sm"
+            >
               {mobileOpen ? <X className="h-7 w-7 text-white" /> : <Menu className="h-7 w-7 text-white" />}
             </button>
-            <div className=" rounded-md flex items-center gap-1">
-              {/* <Image src={Chainfren_Logo} alt={'header_Logo'} />
-               */}
-               <h1 className="text-md sm:text-lg font-bold text-white">
-                 {title ? title : ''}
-               </h1>
-               {title && <span className="text-yellow-300 text-sm  -translate-y-1">TV</span>}
-            </div>
           </div>
-          {/* Avatar */}
 
-          <div className="flex items-center flex-1 justify-end gap-4">
+          <div className="flex items-center justify-end gap-4 pointer-events-auto ml-auto">
             <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
-                <button className="flex items-center justify-center p-1 hover:bg-white/10 rounded-full transition-colors">
+                <button className="flex items-center justify-center rounded-full border border-white/20 bg-black/45 p-1 hover:bg-white/10 transition-colors backdrop-blur-sm">
                   {ready && walletAddress ? (
                     userProfile?.avatar ? (
                       <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-yellow-400">

@@ -24,22 +24,22 @@ const Donations = () => {
   return (
     <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6">
       {/* Configure Donations Section */}
-      <h2 className="text-xl font-semibold mb-4">Configure your donation and tip options</h2>
+      <h2 className="text-xl font-semibold mb-4 text-white">Configure your donation and tip options</h2>
 
-      <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+      <div className="bg-white/5 border border-white/20 rounded-xl shadow-md p-6 mb-8">
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-xl font-semibold">Preset Donation Amount</h3>
+          <h3 className="text-xl font-semibold text-white">Preset Donation Amount</h3>
           {!isEditing ? (
             <button
               onClick={toggleEdit}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              className="bg-gradient-to-r from-yellow-500 to-teal-500 text-black px-4 py-2 rounded-md hover:from-yellow-600 hover:to-teal-600 transition-colors"
             >
               Edit
             </button>
           ) : (
             <button
               onClick={handleSave}
-              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors"
+              className="bg-emerald-600 text-white px-4 py-2 rounded-md hover:bg-emerald-700 transition-colors"
             >
               Save
             </button>
@@ -51,7 +51,7 @@ const Donations = () => {
             <input
               key={index}
               type="number"
-              className="w-full border rounded-lg p-3 outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full border border-white/20 bg-white/10 text-white rounded-lg p-3 outline-none focus:ring-2 focus:ring-yellow-500"
               value={value}
               onChange={(e) => handleChange(index, e)}
               disabled={!isEditing}

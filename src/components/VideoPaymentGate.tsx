@@ -1,19 +1,26 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useWallets, useSendTransaction } from '@privy-io/react-auth';
+import React, { useState, useEffect } from 'react';
+import { useSendTransaction } from '@privy-io/react-auth';
 import { toast } from 'sonner';
 import { Bars } from 'react-loader-spinner';
 import { usePrivy } from '@privy-io/react-auth';
-import { parseUnits, encodeFunctionData, erc20Abi } from 'viem';
-import { getVideoByPlaybackId, addSubscriptionToVideo, addNotificationToVideo } from '@/lib/supabase-service';
+import {
+  getVideoByPlaybackId,
+  addPayingUserToVideo,
+  addSubscriptionToVideo,
+  addNotificationToVideo,
+} from '@/lib/supabase-service';
 import type { Subscription, Notification } from '@/lib/supabase-types';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
+import { BASE_CHAIN_NAME, USDC_SYMBOL, sendBaseUsdcPayment } from '@/lib/base-usdc-payment';
 
 interface VideoPaymentGateProps {
   playbackId: string;
   creatorId: string;
   children: React.ReactNode;
   onPlayClick?: () => void; // Optional callback for when play is clicked
+  enforceAccess?: boolean;
 }
 
 /**
@@ -25,10 +32,11 @@ export function VideoPaymentGate({
   creatorId,
   children,
   onPlayClick,
+  enforceAccess = false,
 }: VideoPaymentGateProps) {
-  const { authenticated, ready, user } = usePrivy();
-  const { wallets } = useWallets();
+  const { authenticated, ready } = usePrivy();
   const { sendTransaction } = useSendTransaction();
+  const { walletAddress } = useWalletAddress();
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
@@ -36,33 +44,41 @@ export function VideoPaymentGate({
   const [videoData, setVideoData] = useState<any>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
-  // Get wallet address
-  const walletAddress = useMemo(() => {
-    if (wallets && wallets.length > 0) {
-      const embeddedWallet = wallets.find((w: any) => 
-        w.walletClientType === 'privy' || 
-        w.clientType === 'privy' ||
-        w.connectorType === 'privy'
-      );
-      if (embeddedWallet?.address) {
-        return embeddedWallet.address;
+  const hasValidLocalPayment = (key: string, viewMode: 'free' | 'one-time' | 'monthly') => {
+    const paymentRecord = localStorage.getItem(key);
+    if (!paymentRecord) return false;
+
+    try {
+      const record = JSON.parse(paymentRecord);
+      if (viewMode === 'one-time') {
+        return true;
       }
-      if (wallets[0]?.address) {
-        return wallets[0].address;
-      }
+      return Boolean(record?.expiresAt && Number(record.expiresAt) > Date.now());
+    } catch {
+      return false;
     }
-    
-    if (user?.linkedAccounts && user.linkedAccounts.length > 0) {
-      const walletAccount = user.linkedAccounts.find(
-        (account: any) => account.type === 'wallet' && 'address' in account && account.address
-      );
-      if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-        return walletAccount.address;
+  };
+
+  const hasValidSubscription = (
+    subscriptions: Subscription[] | null | undefined,
+    viewerAddress: string,
+    viewMode: 'free' | 'one-time' | 'monthly',
+  ) => {
+    if (!subscriptions || subscriptions.length === 0) return false;
+
+    const viewer = viewerAddress.toLowerCase();
+    return subscriptions.some((sub) => {
+      const sameViewer =
+        String(sub?.subscriberAddress || '').toLowerCase() === viewer;
+      if (!sameViewer) return false;
+
+      if (viewMode === 'one-time') return true;
+      if (viewMode === 'monthly') {
+        return Boolean(sub?.expiresAt && new Date(sub.expiresAt).getTime() > Date.now());
       }
-    }
-    
-    return null;
-  }, [wallets, user?.linkedAccounts]);
+      return true;
+    });
+  };
 
   // Fetch video data and check access
   useEffect(() => {
@@ -84,51 +100,47 @@ export function VideoPaymentGate({
 
         setVideoData(video);
 
-        const viewMode = video.viewMode || 'free';
-        const amount = video.amount || 0;
+        const viewMode = (video.viewMode || 'free') as 'free' | 'one-time' | 'monthly';
+        const amount = Number(video.amount || 0);
+        const resolvedCreatorId = String(video.creatorId || creatorId || '');
 
         // If free, grant access
-        if (viewMode === 'free') {
+        if (viewMode === 'free' || amount <= 0) {
           setHasAccess(true);
           setCheckingAccess(false);
           return;
         }
 
-        // Check if user is the creator
-        if (walletAddress && walletAddress.toLowerCase() === creatorId.toLowerCase()) {
-          setHasAccess(true);
-          setCheckingAccess(false);
+        if (!walletAddress) {
+          setHasAccess(false);
           return;
         }
 
-        // Check localStorage for payment record
-        const paymentKey = `video_access_${playbackId}`;
-        const paymentRecord = localStorage.getItem(paymentKey);
-        
-        if (paymentRecord) {
-          try {
-            const record = JSON.parse(paymentRecord);
-            // Check if payment is still valid (for monthly, check expiration)
-            if (viewMode === 'one-time' || (viewMode === 'monthly' && record.expiresAt > Date.now())) {
-              setHasAccess(true);
-            }
-          } catch (e) {
-            console.warn('Failed to parse payment record:', e);
-          }
-        }
+        const viewer = walletAddress.toLowerCase();
+        const isCreator = resolvedCreatorId.toLowerCase() === viewer;
+        const isInUsers = Boolean(
+          (video.Users || []).some((addr: string) => String(addr).toLowerCase() === viewer),
+        );
+        const hasVideoAccessRecord = hasValidLocalPayment(
+          `video_access_${playbackId}`,
+          viewMode,
+        );
+        const hasCreatorAccessRecord = resolvedCreatorId
+          ? hasValidLocalPayment(`creator_access_${resolvedCreatorId}`, viewMode)
+          : false;
+        const hasSubscription = hasValidSubscription(
+          video.subscriptions,
+          walletAddress,
+          viewMode,
+        );
 
-        // Check subscriptions array in video
-        if (video.subscriptions && Array.isArray(video.subscriptions)) {
-          const userSubscription = video.subscriptions.find(
-            (sub: Subscription) => 
-              sub.subscriberAddress.toLowerCase() === walletAddress?.toLowerCase() &&
-              (viewMode === 'one-time' || 
-               (viewMode === 'monthly' && sub.expiresAt && new Date(sub.expiresAt) > new Date()))
-          );
-          if (userSubscription) {
-            setHasAccess(true);
-          }
-        }
+        setHasAccess(
+          isCreator ||
+            isInUsers ||
+            hasVideoAccessRecord ||
+            hasCreatorAccessRecord ||
+            hasSubscription,
+        );
       } catch (error) {
         console.error('Error checking video access:', error);
         // On error, allow access (fail open)
@@ -159,55 +171,26 @@ export function VideoPaymentGate({
 
     const viewMode = videoData.viewMode || 'free';
     const amount = videoData.amount || 0;
+    const resolvedCreatorId = String(videoData.creatorId || creatorId || '');
 
     if (viewMode === 'free' || amount <= 0) {
       toast.error('Invalid payment configuration');
+      return;
+    }
+    if (!resolvedCreatorId) {
+      toast.error('Creator wallet not available for this video.');
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      // USDC token contract addresses
-      const USDC_CONTRACT = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`; // Base Sepolia USDC
-      const USDC_DECIMALS = 6;
-
-      // Convert USD amount to USDC (6 decimals)
-      const usdcAmount = parseUnits(amount.toFixed(6), USDC_DECIMALS);
-
-      // Ensure creatorId is a valid address
-      const recipientAddress = creatorId.startsWith('0x') 
-        ? creatorId as `0x${string}`
-        : `0x${creatorId}` as `0x${string}`;
-
-      // Encode the ERC20 transfer function call
-      const data = encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'transfer',
-        args: [recipientAddress, usdcAmount],
+      const txHash = await sendBaseUsdcPayment({
+        sendTransaction: sendTransaction as any,
+        payerAddress: walletAddress,
+        recipientAddress: resolvedCreatorId,
+        amountUsd: amount,
       });
-
-      // Create the transaction
-      const unsignedTx = {
-        to: USDC_CONTRACT,
-        value: '0x0' as `0x${string}`,
-        data: data,
-      };
-
-      // Log wallet info for debugging
-      console.log('Wallet info:', {
-        walletAddress,
-        wallets: wallets?.map((w: any) => ({ address: w.address, type: w.walletClientType })),
-      });
-
-      // Use useSendTransaction with the address option to specify which wallet to use
-      // This is recommended for external wallets to ensure reliable functionality
-      const txResult = await sendTransaction(unsignedTx, {
-        address: walletAddress, // Specify the wallet to use for signing
-      });
-      
-      const txHash = txResult.hash;
-      console.log('Transaction sent successfully:', txHash);
 
       // Calculate expiration date for monthly subscriptions
       const expiresAt = viewMode === 'monthly' 
@@ -228,7 +211,7 @@ export function VideoPaymentGate({
       const notification: Notification = {
         type: 'payment',
         title: 'New Video Payment Received',
-        message: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} paid $${amount.toFixed(2)} USDC for ${viewMode} access to video`,
+        message: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} paid $${amount.toFixed(2)} ${USDC_SYMBOL} on ${BASE_CHAIN_NAME} for ${viewMode} access to video`,
         walletAddress: walletAddress,
         txHash: txHash,
         amount: amount,
@@ -239,6 +222,7 @@ export function VideoPaymentGate({
       // Save subscription and notification to Supabase
       try {
         await Promise.all([
+          addPayingUserToVideo(playbackId, walletAddress),
           addSubscriptionToVideo(playbackId, subscription),
           addNotificationToVideo(playbackId, notification),
         ]);
@@ -252,7 +236,7 @@ export function VideoPaymentGate({
       const paymentKey = `video_access_${playbackId}`;
       const paymentRecord = {
         playbackId,
-        creatorId,
+        creatorId: resolvedCreatorId,
         viewMode,
         amount,
         txHash,
@@ -262,8 +246,21 @@ export function VideoPaymentGate({
           : null,
       };
       localStorage.setItem(paymentKey, JSON.stringify(paymentRecord));
+      localStorage.setItem(`creator_access_${resolvedCreatorId}`, JSON.stringify(paymentRecord));
       
       setHasAccess(true);
+      setVideoData((prev: any) => {
+        if (!prev) return prev;
+        const existingUsers: string[] = Array.isArray(prev.Users) ? prev.Users : [];
+        const alreadyPresent = existingUsers.some(
+          (addr) => String(addr).toLowerCase() === walletAddress.toLowerCase(),
+        );
+        if (alreadyPresent) return prev;
+        return {
+          ...prev,
+          Users: [...existingUsers, walletAddress],
+        };
+      });
       setShowPaymentModal(false);
       toast.success('Payment successful! Access granted.');
       
@@ -329,6 +326,18 @@ export function VideoPaymentGate({
             ${amount.toFixed(2)}
           </div>
         )}
+
+        {enforceAccess && isPaid && !hasAccess && (
+          <div className="absolute inset-0 z-20 flex items-center justify-center rounded-lg bg-gray-900/80 backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={() => setShowPaymentModal(true)}
+              className="rounded-lg bg-gradient-to-r from-yellow-500 to-teal-500 px-4 py-2 text-sm font-semibold text-black"
+            >
+              Unlock Video
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Payment Modal - only shows when user clicks play */}
@@ -372,7 +381,7 @@ export function VideoPaymentGate({
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-300 text-sm">Amount:</span>
-                <span className="text-white font-semibold text-sm">${amount.toFixed(2)} USDC</span>
+                <span className="text-white font-semibold text-sm">${amount.toFixed(2)} {USDC_SYMBOL}</span>
               </div>
             </div>
 
@@ -399,7 +408,7 @@ export function VideoPaymentGate({
                   <span>Processing...</span>
                 </>
               ) : (
-                `Pay $${amount.toFixed(2)} USDC`
+                `Pay $${amount.toFixed(2)} ${USDC_SYMBOL}`
               )}
             </button>
           </div>
@@ -408,4 +417,3 @@ export function VideoPaymentGate({
     </>
   );
 }
-

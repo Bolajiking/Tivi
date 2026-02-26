@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useWallets, useSendTransaction } from '@privy-io/react-auth';
+import { useState, useEffect } from 'react';
+import { useSendTransaction } from '@privy-io/react-auth';
 import { toast } from 'sonner';
 import { Bars } from 'react-loader-spinner';
 import { usePrivy } from '@privy-io/react-auth';
-import { parseUnits, encodeFunctionData, erc20Abi } from 'viem';
 import { getStreamByPlaybackId, addSubscriptionToStream, addNotificationToStream } from '@/lib/supabase-service';
 import type { Subscription, Notification } from '@/lib/supabase-types';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
+import { BASE_CHAIN_NAME, USDC_SYMBOL, sendBaseUsdcPayment } from '@/lib/base-usdc-payment';
 
 interface StreamPaymentGateProps {
   playbackId: string;
@@ -24,42 +25,14 @@ export function StreamPaymentGate({
   creatorId,
   children,
 }: StreamPaymentGateProps) {
-  const { authenticated, ready, user } = usePrivy();
-  const { wallets } = useWallets();
+  const { authenticated, ready } = usePrivy();
   const { sendTransaction } = useSendTransaction();
+  const { walletAddress } = useWalletAddress();
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
   const [streamData, setStreamData] = useState<any>(null);
-
-  // Get wallet address
-  const walletAddress = useMemo(() => {
-    if (wallets && wallets.length > 0) {
-      const embeddedWallet = wallets.find((w: any) => 
-        w.walletClientType === 'privy' || 
-        w.clientType === 'privy' ||
-        w.connectorType === 'privy'
-      );
-      if (embeddedWallet?.address) {
-        return embeddedWallet.address;
-      }
-      if (wallets[0]?.address) {
-        return wallets[0].address;
-      }
-    }
-    
-    if (user?.linkedAccounts && user.linkedAccounts.length > 0) {
-      const walletAccount = user.linkedAccounts.find(
-        (account: any) => account.type === 'wallet' && 'address' in account && account.address
-      );
-      if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-        return walletAccount.address;
-      }
-    }
-    
-    return null;
-  }, [wallets, user?.linkedAccounts]);
 
   // Fetch stream data and check access
   useEffect(() => {
@@ -165,46 +138,12 @@ export function StreamPaymentGate({
     setIsProcessing(true);
 
     try {
-      // USDC token contract addresses
-      const USDC_CONTRACT = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`; // Base Sepolia USDC
-      const USDC_DECIMALS = 6;
-
-      // Convert USD amount to USDC (6 decimals)
-      const usdcAmount = parseUnits(amount.toFixed(6), USDC_DECIMALS);
-
-      // Ensure creatorId is a valid address
-      const recipientAddress = creatorId.startsWith('0x') 
-        ? creatorId as `0x${string}`
-        : `0x${creatorId}` as `0x${string}`;
-
-      // Encode the ERC20 transfer function call
-      const data = encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'transfer',
-        args: [recipientAddress, usdcAmount],
+      const txHash = await sendBaseUsdcPayment({
+        sendTransaction: sendTransaction as any,
+        payerAddress: walletAddress,
+        recipientAddress: creatorId,
+        amountUsd: amount,
       });
-
-      // Create the transaction
-      const unsignedTx = {
-        to: USDC_CONTRACT,
-        value: '0x0' as `0x${string}`,
-        data: data,
-      };
-
-      // Log wallet info for debugging
-      console.log('Wallet info:', {
-        walletAddress,
-        wallets: wallets?.map((w: any) => ({ address: w.address, type: w.walletClientType })),
-      });
-
-      // Use useSendTransaction with the address option to specify which wallet to use
-      // This is recommended for external wallets to ensure reliable functionality
-      const txResult = await sendTransaction(unsignedTx, {
-        address: walletAddress, // Specify the wallet to use for signing
-      });
-      
-      const txHash = txResult.hash;
-      console.log('Transaction sent successfully:', txHash);
 
       // Calculate expiration date for monthly subscriptions
       const expiresAt = streamMode === 'monthly' 
@@ -225,7 +164,7 @@ export function StreamPaymentGate({
       const notification: Notification = {
         type: 'payment',
         title: 'New Stream Payment Received',
-        message: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} paid $${amount.toFixed(2)} USDC for ${streamMode} access to stream`,
+        message: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} paid $${amount.toFixed(2)} ${USDC_SYMBOL} on ${BASE_CHAIN_NAME} for ${streamMode} access to stream`,
         walletAddress: walletAddress,
         txHash: txHash,
         amount: amount,
@@ -329,7 +268,7 @@ export function StreamPaymentGate({
             </div>
             <div className="flex justify-between items-center">
               <span className="text-gray-300 text-sm">Amount:</span>
-              <span className="text-white font-semibold text-sm">${amount.toFixed(2)} USDC</span>
+              <span className="text-white font-semibold text-sm">${amount.toFixed(2)} {USDC_SYMBOL}</span>
             </div>
           </div>
 
@@ -356,7 +295,7 @@ export function StreamPaymentGate({
                 <span>Processing...</span>
               </>
             ) : (
-              `Pay $${amount.toFixed(2)} USDC`
+              `Pay $${amount.toFixed(2)} ${USDC_SYMBOL}`
             )}
           </button>
         </div>
@@ -364,4 +303,3 @@ export function StreamPaymentGate({
     </div>
   );
 }
-

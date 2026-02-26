@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { usePrivy } from '@privy-io/react-auth';
+import api from '@/utils/api';
 
 interface LivepeerMetrics {
   totalViews: number;
@@ -21,9 +22,6 @@ interface LivepeerAnalyticsProps {
   timeRange?: '24h' | '7d' | '30d' | 'all';
 }
 
-const LIVEPEER_API_KEY = process.env.NEXT_PUBLIC_LIVEPEER_API_KEY;
-const LIVEPEER_API_URL = 'https://livepeer.studio/api';
-
 export const useLivepeerAnalytics = ({ streamId, assetId, timeRange = '24h' }: LivepeerAnalyticsProps) => {
   const { user } = usePrivy();
   const [loading, setLoading] = useState<boolean>(false);
@@ -31,30 +29,29 @@ export const useLivepeerAnalytics = ({ streamId, assetId, timeRange = '24h' }: L
   const [metrics, setMetrics] = useState<LivepeerMetrics | null>(null);
 
   const fetchAnalytics = useCallback(async () => {
-    if (!user || !LIVEPEER_API_KEY) {
-      setError('User is not authenticated or Livepeer API key is missing');
+    if (!user) {
+      setError('User is not authenticated');
+      return;
+    }
+    if (!streamId) {
+      setError('Stream ID is required');
       return;
     }
 
     try {
       setLoading(true);
+      setError(null);
 
       // Fetch stream metrics
-      const streamResponse = await fetch(
-        `${LIVEPEER_API_URL}/stream/${streamId}/metrics?from=${getTimeRangeStart(timeRange)}`,
-        {
-          headers: {
-            Authorization: `Bearer ${LIVEPEER_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-        },
+      const streamResponse = await api.get(
+        `/stream/${streamId}/metrics?from=${getTimeRangeStart(timeRange)}`,
       );
 
-      if (!streamResponse.ok) {
+      if (streamResponse.status !== 200) {
         throw new Error('Failed to fetch stream metrics');
       }
 
-      const streamData = await streamResponse.json();
+      const streamData = streamResponse.data;
 
       // Process the data into our metrics format
       const processedMetrics: LivepeerMetrics = {

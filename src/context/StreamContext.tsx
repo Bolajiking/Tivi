@@ -10,8 +10,6 @@ interface StreamContextType {
   filteredStreams: any[];
   selectedStream: string;
   setSelectedStream: (streamId: string) => void;
-  isEnabled: boolean;
-  toggleEnabled: () => void;
   loading: boolean;
 }
 
@@ -22,7 +20,6 @@ export const StreamProvider = ({ children }: { children: ReactNode }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { streams, loading } = useSelector((state: RootState) => state.streams);
   const [selectedStream, setSelectedStream] = useState<string>('');
-  const [isEnabled, setIsEnabled] = useState(true);
 
   // Fetch streams when component mounts
   useEffect(() => {
@@ -34,17 +31,11 @@ export const StreamProvider = ({ children }: { children: ReactNode }) => {
     (stream: any) => !!stream.playbackId && stream.creatorId?.value === user?.wallet?.address,
   );
 
-  const toggleEnabled = () => {
-    setIsEnabled((prev) => !prev);
-  };
-
   const value = {
     streams,
     filteredStreams,
     selectedStream,
     setSelectedStream,
-    isEnabled,
-    toggleEnabled,
     loading,
   };
 

@@ -1,13 +1,15 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useWallets, useSendTransaction } from '@privy-io/react-auth';
+import { useState, useEffect } from 'react';
+import { useSendTransaction } from '@privy-io/react-auth';
 import { toast } from 'sonner';
 import { Bars } from 'react-loader-spinner';
 import { usePrivy } from '@privy-io/react-auth';
-import { parseUnits, encodeFunctionData, erc20Abi } from 'viem';
 import { addCreatorSubscriptionAndNotification } from '@/lib/supabase-service';
 import type { Subscription, Notification } from '@/lib/supabase-types';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
+import { BASE_CHAIN_NAME, USDC_SYMBOL, sendBaseUsdcPayment } from '@/lib/base-usdc-payment';
+import { useRouter } from 'next/navigation';
 
 interface CreatorPaymentGateProps {
   creatorId: string;
@@ -33,57 +35,14 @@ export function CreatorPaymentGate({
   onPaymentSuccess,
   children,
 }: CreatorPaymentGateProps) {
+  const router = useRouter();
   const { authenticated, ready, user } = usePrivy();
-  const { wallets } = useWallets();
   const { sendTransaction } = useSendTransaction();
+  const { walletAddress } = useWalletAddress();
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [hasAccess, setHasAccess] = useState(false);
   const [checkingAccess, setCheckingAccess] = useState(true);
-
-  // Get wallet address - prioritize external wallets, but get the actual wallet object too
-  const walletAddress = useMemo(() => {
-    // First, try to get external wallet (non-embedded) - these should work with sendTransaction
-    if (wallets && wallets.length > 0) {
-      // Prefer external wallet over embedded wallet
-      const externalWallet = wallets.find((w: any) => 
-        w.walletClientType !== 'privy' && 
-        w.clientType !== 'privy' &&
-        w.connectorType !== 'privy'
-      );
-      if (externalWallet?.address) {
-        return externalWallet.address;
-      }
-      
-      // Fallback to embedded wallet
-      const embeddedWallet = wallets.find((w: any) => 
-        w.walletClientType === 'privy' || 
-        w.clientType === 'privy' ||
-        w.connectorType === 'privy'
-      );
-      if (embeddedWallet?.address) {
-        return embeddedWallet.address;
-      }
-      
-      // Fallback to first wallet
-      if (wallets[0]?.address) {
-        return wallets[0].address;
-      }
-    }
-    
-    // If no wallet in wallets array, check user's linked accounts
-    if (user?.linkedAccounts && user.linkedAccounts.length > 0) {
-      // Find wallet account - need to check type properly
-      const walletAccount = user.linkedAccounts.find(
-        (account: any) => account.type === 'wallet' && 'address' in account && account.address
-      );
-      if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-        return walletAccount.address;
-      }
-    }
-    
-    return null;
-  }, [wallets, user?.linkedAccounts]);
 
   // Check if user already has access (from localStorage or previous payment)
   // Also check if the user is the owner of the channel
@@ -132,64 +91,19 @@ export function CreatorPaymentGate({
 
     if (!walletAddress) {
       toast.error('No wallet available. Please wait for your embedded wallet to be created, or connect an external wallet.');
-      console.log('Wallet status:', { wallets, user: user?.linkedAccounts });
+      console.log('Wallet status:', { user: user?.linkedAccounts });
       return;
     }
 
     setIsProcessing(true);
 
     try {
-      // USDC token contract addresses on different networks
-      // Base Mainnet: 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
-      // Base Sepolia: 0x036CbD53842c5426634e7929541eC2318f3dCF7e
-      // Ethereum Mainnet: 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48
-      // For now, we'll use Base Sepolia testnet
-      const USDC_CONTRACT = '0x036CbD53842c5426634e7929541eC2318f3dCF7e' as `0x${string}`; // Base Sepolia USDC
-      const USDC_DECIMALS = 6;
-
-      // Convert USD amount to USDC (6 decimals)
-      const usdcAmount = parseUnits(amount.toFixed(6), USDC_DECIMALS);
-
-      // Ensure creatorId is a valid address
-      const recipientAddress = creatorId.startsWith('0x') 
-        ? creatorId as `0x${string}`
-        : `0x${creatorId}` as `0x${string}`;
-
-      // Encode the ERC20 transfer function call
-      const data = encodeFunctionData({
-        abi: erc20Abi,
-        functionName: 'transfer',
-        args: [recipientAddress, usdcAmount],
+      const txHash = await sendBaseUsdcPayment({
+        sendTransaction: sendTransaction as any,
+        payerAddress: walletAddress,
+        recipientAddress: creatorId,
+        amountUsd: amount,
       });
-
-      console.log('Sending USDC transfer:', {
-        to: USDC_CONTRACT,
-        recipient: recipientAddress,
-        amount: amount,
-        usdcAmount: usdcAmount.toString(),
-      });
-
-      // Create the transaction
-      const unsignedTx = {
-        to: USDC_CONTRACT,
-        value: '0x0' as `0x${string}`, // No ETH value, this is a token transfer
-        data: data,
-      };
-
-      // Log wallet info for debugging
-      console.log('Wallet info:', {
-        walletAddress,
-        wallets: wallets?.map((w: any) => ({ address: w.address, type: w.walletClientType })),
-      });
-
-      // Use useSendTransaction with the address option to specify which wallet to use
-      // This is recommended for external wallets to ensure reliable functionality
-      const txResult = await sendTransaction(unsignedTx, {
-        address: walletAddress, // Specify the wallet to use for signing
-      });
-      
-      const txHash = txResult.hash;
-      console.log('Transaction sent successfully:', txHash);
       
       // Continue with success flow...
       // Calculate expiration date for monthly subscriptions
@@ -211,7 +125,7 @@ export function CreatorPaymentGate({
       const notification: Notification = {
         type: 'payment',
         title: 'New Payment Received',
-        message: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} paid $${amount.toFixed(2)} USDC for ${viewMode} access`,
+        message: `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)} paid $${amount.toFixed(2)} ${USDC_SYMBOL} on ${BASE_CHAIN_NAME} for ${viewMode} access`,
         walletAddress: walletAddress,
         txHash: txHash,
         amount: amount,
@@ -260,6 +174,11 @@ export function CreatorPaymentGate({
     }
   };
 
+  const handleClosePaywall = () => {
+    // Return to the neutral browsing state with no channel selected.
+    router.push('/streamviews');
+  };
+
   // Show loading state while checking access
   if (checkingAccess) {
     return (
@@ -277,7 +196,18 @@ export function CreatorPaymentGate({
   // Show payment gate UI - only cover the main content area, not the full screen
   return (
     <div className="flex items-center justify-center h-full w-full bg-gray-900/95 p-4 relative z-10">
-      <div className="max-w-md w-full bg-gray-800 rounded-xl border border-white/20 p-8 text-center z-10">
+      <div className="relative max-w-md w-full bg-gray-800 rounded-xl border border-white/20 p-8 text-center z-10">
+        <button
+          type="button"
+          onClick={handleClosePaywall}
+          aria-label="Close paywall"
+          className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white hover:bg-white/20 transition-colors md:hidden"
+        >
+          <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
         <div className="mb-6">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center">
             <svg
@@ -307,7 +237,7 @@ export function CreatorPaymentGate({
           </div>
           <div className="flex justify-between items-center">
             <span className="text-gray-300">Amount:</span>
-            <span className="text-white font-semibold">${amount.toFixed(2)} USDC</span>
+            <span className="text-white font-semibold">${amount.toFixed(2)} {USDC_SYMBOL}</span>
           </div>
           <div className="flex justify-between items-center mt-2 text-xs text-gray-400">
             <span>Recipient:</span>
@@ -342,12 +272,12 @@ export function CreatorPaymentGate({
               <span>Processing Payment...</span>
             </>
           ) : (
-            `Pay $${amount.toFixed(2)} USDC to Access`
+            `Pay $${amount.toFixed(2)} ${USDC_SYMBOL} to Access`
           )}
         </button>
 
         <p className="mt-4 text-xs text-gray-500">
-          Payment will be processed as a direct USDC transfer to the creator's wallet.
+          Payment will be processed as a direct {USDC_SYMBOL} transfer on {BASE_CHAIN_NAME}.
         </p>
       </div>
     </div>

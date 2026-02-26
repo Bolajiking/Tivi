@@ -7,6 +7,7 @@
 export interface SupabaseStream {
   id?: string; // UUID primary key (auto-generated)
   playbackId: string;
+  isActive?: boolean | null;
   viewMode: 'free' | 'one-time' | 'monthly';
   description: string | null;
   amount: number | null;
@@ -63,6 +64,34 @@ export interface SupabaseUser {
   created_at?: string; // ISO timestamp
 }
 
+// Creator invite code table types
+export interface CreatorInviteCode {
+  id?: string; // UUID primary key (auto-generated)
+  code: string; // Unique invite code (recommended uppercase)
+  is_active?: boolean | null;
+  max_uses?: number | null;
+  used_count?: number | null;
+  expires_at?: string | null; // ISO timestamp
+  created_at?: string; // ISO timestamp
+}
+
+// Creator access grant table types
+export interface CreatorAccessGrant {
+  creator_id: string; // Wallet address
+  invite_code: string; // Invite code used to unlock creator access
+  granted_at?: string; // ISO timestamp
+  created_at?: string; // ISO timestamp
+}
+
+// Channel chat group mapping table (optional migration-backed table)
+export interface ChannelChatGroup {
+  playback_id: string;
+  creator_id: string;
+  xmtp_group_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // Video table types (inferred from code usage)
 export interface SupabaseVideo {
   id?: string; // UUID primary key (auto-generated)
@@ -89,9 +118,9 @@ export interface SupabaseVideo {
 // Chat table types (inferred from code usage)
 export interface SupabaseChat {
   id?: string; // UUID primary key (auto-generated)
-  streamId: string; // playbackId
+  stream_id: string; // playbackId
   sender: string; // Shortened wallet address
-  walletAddress: string; // Full wallet address
+  wallet_address: string; // Full wallet address
   message: string;
   timestamp?: string; // ISO timestamp
   created_at?: string; // ISO timestamp
@@ -104,8 +133,14 @@ export type StreamUpdate = Partial<Omit<SupabaseStream, 'id' | 'playbackId' | 'c
 export type UserInsert = Omit<SupabaseUser, 'id' | 'created_at'>;
 export type UserUpdate = Partial<Omit<SupabaseUser, 'id' | 'creatorId' | 'created_at'>>;
 
+export type CreatorInviteCodeInsert = Omit<CreatorInviteCode, 'id' | 'created_at'>;
+export type CreatorInviteCodeUpdate = Partial<Omit<CreatorInviteCode, 'id' | 'code' | 'created_at'>>;
+
+export type CreatorAccessGrantInsert = Omit<CreatorAccessGrant, 'granted_at' | 'created_at'> & {
+  granted_at?: string;
+};
+
 export type VideoInsert = Omit<SupabaseVideo, 'id' | 'created_at'>;
 export type VideoUpdate = Partial<Omit<SupabaseVideo, 'id' | 'playbackId' | 'created_at'>>;
 
 export type ChatInsert = Omit<SupabaseChat, 'id' | 'created_at' | 'timestamp'>;
-

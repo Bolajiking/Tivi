@@ -14,6 +14,7 @@ function HeroHeader() {
           alt="TVinBio"
           width={140}
           height={40}
+          style={{ width: 'auto', height: 'auto' }}
           className="h-8 md:h-10 w-auto"
         />
       </div>

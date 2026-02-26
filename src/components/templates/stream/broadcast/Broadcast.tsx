@@ -36,8 +36,12 @@ import { Bars } from 'react-loader-spinner';
 import { RootState } from '@/store/store';
 import { useSelector } from 'react-redux';
 import { sendChatMessage, fetchChatMessages } from '@/features/chatAPI';
+import { addIncomingMessage } from '@/features/chatSlice';
 import { useDispatch } from 'react-redux';
 import type { AppDispatch } from '@/store/store';
+import { BroadcastStatusSync } from './BroadcastStatusSync';
+import { getAllStreams } from '@/features/streamAPI';
+import { setStreamActiveStatus, subscribeToChatMessages } from '@/lib/supabase-service';
 
 interface Streams {
   streamKey: string;
@@ -49,19 +53,19 @@ interface Streams {
 
 export function BroadcastWithControls({ streamName, streamKey, playbackId }: Streams) {
   const { user } = usePrivy();
-  const solanaWalletAddress = useSelector((state: RootState) => state.user.solanaWalletAddress);
+  const walletAddress = useSelector((state: RootState) => state.user.walletAddress);
   const creatorId = user?.wallet?.chainType === 'solana' && user?.wallet?.address
     ? user.wallet.address
-    : solanaWalletAddress;
+    : walletAddress;
   const dispatch = useDispatch<AppDispatch>();
 
   // console.log('creatorId', creatorId);
   const host = process.env.NEXT_PUBLIC_BASE_URL;
   const playbackUrl =
     host && playbackId
-      ? `${host.includes('localhost') ? 'http' : 'https'}://${host}/view/${playbackId}` +
-        `?streamName=${encodeURIComponent(streamName)}` +
-        `&id=${encodeURIComponent(creatorId || '')}`
+      ? `${host.includes('localhost') ? 'http' : 'https'}://${host}/creator/${encodeURIComponent(
+          creatorId || '',
+        )}/live/${encodeURIComponent(playbackId)}`
       : null;
   const router = useRouter();
 
@@ -111,6 +115,7 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
   const startTimeRef = useRef<number>(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [timerStarted, setTimerStarted] = useState(false);
+  const lastLiveStateRef = useRef<boolean | null>(null);
 
   // Session timer
   useEffect(() => {
@@ -151,7 +156,24 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
     }
   };
 
-  const handleStartStream = () => setTimerStarted(true);
+  const handleStartStream = async () => {
+    setTimerStarted(true);
+    try {
+      await setStreamActiveStatus(playbackId, true);
+      dispatch(getAllStreams());
+    } catch (error) {
+      console.error('Failed to set stream active:', error);
+    }
+  };
+  const handleEndStream = useCallback(async () => {
+    setTimerStarted(false);
+    try {
+      await setStreamActiveStatus(playbackId, false);
+      dispatch(getAllStreams());
+    } catch (error) {
+      console.error('Failed to set stream inactive:', error);
+    }
+  }, [dispatch, playbackId]);
   const toggleSidebar = () => setSidebarCollapsed((sidebar) => !sidebar);
   const toggleMobileMenu = () => setMobileMenuOpen((menu) => !menu);
   const toggleChat = () => {
@@ -202,34 +224,40 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
 
   useEffect(() => {
     if (!playbackId) return;
+    const unsubscribe = subscribeToChatMessages(playbackId, (message) => {
+      const incomingMessage = message as any;
+      dispatch(
+        addIncomingMessage({
+          id: incomingMessage.id || '',
+          sender: incomingMessage.sender,
+          message: incomingMessage.message,
+          timestamp: incomingMessage.timestamp
+            ? new Date(incomingMessage.timestamp)
+            : new Date(incomingMessage.created_at || Date.now()),
+          streamId: incomingMessage.stream_id || incomingMessage.streamId,
+          walletAddress: incomingMessage.wallet_address || incomingMessage.walletAddress,
+        }),
+      );
+    });
 
-    let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
+    return () => unsubscribe();
+  }, [dispatch, playbackId]);
 
-    const tick = async () => {
-      if (document.visibilityState === 'visible' && !isCustomizeOpen) {
-        await dispatch(fetchChatMessages(playbackId));
+  const handleBroadcastStatusChange = useCallback(
+    async (status: string) => {
+      const isLive = status === 'live' || status === 'pending';
+      if (lastLiveStateRef.current === isLive) return;
+      lastLiveStateRef.current = isLive;
+
+      try {
+        await setStreamActiveStatus(playbackId, isLive);
+        dispatch(getAllStreams());
+      } catch (error) {
+        console.error(`Failed to sync broadcast status (${status}) for ${playbackId}:`, error);
       }
-      if (!cancelled) {
-        timer = setTimeout(tick, 5000);
-      }
-    };
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible' && !isCustomizeOpen) {
-        dispatch(fetchChatMessages(playbackId));
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    tick();
-
-    return () => {
-      cancelled = true;
-      if (timer) clearTimeout(timer);
-      document.removeEventListener('visibilitychange', handleVisibility);
-    };
-  }, [dispatch, playbackId, isCustomizeOpen]);
+    },
+    [dispatch, playbackId],
+  );
 
   if (detailsLoading) {
     return (
@@ -252,6 +280,7 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
       aspectRatio={16 / 9}
       ingestUrl={getIngest(streamKey)}
     >
+      <BroadcastStatusSync onStatusChange={handleBroadcastStatusChange} />
       <div className="flex flex-1 h-screen w-full overflow-hidden">
         {/* Mobile Sidebar */}
         {mobileMenuOpen && (
@@ -348,7 +377,7 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
                             <p className="text-black font-medium text-sm">Cancel</p>
                           </DropdownMenu.Item>
                           <DropdownMenu.Item
-                            onClick={() => setTimerStarted(false)}
+                            onClick={handleEndStream}
                             className="flex items-center cursor-pointer px-6 py-3 bg-red-500 h-[40px] rounded-md text-black justify-center"
                           >
                             <p className="text-black font-medium text-sm">End Stream</p>

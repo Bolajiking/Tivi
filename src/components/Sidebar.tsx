@@ -40,14 +40,17 @@ interface SidebarProps {
   isInstallable?: boolean;
   onInstallClick?: () => void;
   isMobileView?: boolean;
-  onChannelOptionsClick?: (channel: SupabaseStream) => void;
+  onChannelOptionsClick?: (
+    channel: SupabaseStream,
+    options?: { isOwned?: boolean; profileIdentifier?: string },
+  ) => void;
 }
 
 const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView = false, onChannelOptionsClick }: SidebarProps) => {
   const pathname = usePathname();
   const router = useRouter();
   const { user, authenticated, ready } = usePrivy();
-  const { setSelectedChannelId } = useChannel();
+  const { selectedChannelId, setSelectedChannelId } = useChannel();
   // Check if we're in the dashboard context
   const isInDashboard = pathname?.startsWith('/dashboard');
   const [subscribedChannels, setSubscribedChannels] = useState<SupabaseStream[]>([]);
@@ -56,6 +59,7 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
   const [loadingOwnedChannels, setLoadingOwnedChannels] = useState(false);
   const [showSignupModal, setShowSignupModal] = useState(false);
   const [creatorIdToUsername, setCreatorIdToUsername] = useState<Record<string, string>>({});
+  const [currentUsername, setCurrentUsername] = useState<string>('');
   const [showAddChannelModal, setShowAddChannelModal] = useState(false);
   const [channelUrl, setChannelUrl] = useState('');
   const [isValidatingUrl, setIsValidatingUrl] = useState(false);
@@ -123,7 +127,22 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
 
   // Handle share channel
   const handleShareChannel = async (channel: SupabaseStream, profileIdentifier: string) => {
-    const channelUrl = `${window.location.origin}/creator/${encodeURIComponent(profileIdentifier)}`;
+    let creatorRouteId = profileIdentifier;
+    if (!creatorRouteId || creatorRouteId === channel.creatorId) {
+      try {
+        const profile = await getUserProfile(channel.creatorId);
+        creatorRouteId = profile?.displayName?.trim() || '';
+      } catch (error) {
+        console.error('Error resolving creator username for share:', error);
+      }
+    }
+
+    if (!creatorRouteId) {
+      toast.error('Creator username unavailable for this channel.');
+      return;
+    }
+
+    const channelUrl = `${window.location.origin}/creator/${encodeURIComponent(creatorRouteId)}`;
     const channelName = channel.title || channel.streamName || 'Channel';
 
     if (navigator.share) {
@@ -147,6 +166,18 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
     setSelectedChannelForOptions(null);
   };
 
+  const handleChannelSettings = (channel: SupabaseStream) => {
+    if (channel.playbackId) {
+      setSelectedChannelId(channel.playbackId);
+    }
+
+    router.push(
+      channel.playbackId
+        ? `/dashboard/settings?channelId=${encodeURIComponent(channel.playbackId)}`
+        : '/dashboard/settings',
+    );
+  };
+
   // Get current user's wallet address
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
   const currentUserAddress = useMemo(() => {
@@ -168,6 +199,25 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
   }, [user?.linkedAccounts]);
 
   const isLoggedIn = authenticated && ready && !!currentUserAddress;
+
+  useEffect(() => {
+    const fetchCurrentUsername = async () => {
+      if (!isLoggedIn || !currentUserAddress) {
+        setCurrentUsername('');
+        return;
+      }
+
+      try {
+        const profile = await getUserProfile(currentUserAddress);
+        setCurrentUsername(profile?.displayName?.trim() || '');
+      } catch (error) {
+        console.error('Failed to fetch current username:', error);
+        setCurrentUsername('');
+      }
+    };
+
+    fetchCurrentUsername();
+  }, [isLoggedIn, currentUserAddress]);
 
   // Fetch subscribed channels
   useEffect(() => {
@@ -389,41 +439,146 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
 
   return (
     <>
-      {/* Subscribed Channels Section */}
+      {/* Owned Channels Section */}
       {!sidebarCollapsed && (
-        <div className="w-full mt-4 backdrop-blur-sm border border-white/20 rounded-lg p-2">
-          <div className="flex items-center justify-between mb-2 px-2">
-            <h3 className="text-white font-bold text-sm">Subscribed Channels</h3>
+        <div className="w-full mt-3 backdrop-blur-sm border border-white/15 rounded-lg p-1.5 bg-gradient-to-b from-white/10 to-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
+          <div className="flex items-center justify-between mb-1.5 px-1.5">
+            <h3 className="text-gray-200 font-semibold text-[10px] uppercase tracking-[0.14em]">Owned Channels</h3>
+            {isLoggedIn && ownedChannels.length > 0 && (
+              <span className="rounded-full border border-white/20 bg-white/10 px-1.5 py-0.5 text-[9px] text-gray-300">
+                {ownedChannels.length}
+              </span>
+            )}
           </div>
-          <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
-            {loadingChannels ? (
-              <div className="text-gray-400 text-sm px-2 py-2">Loading...</div>
+          <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto">
+            {loadingOwnedChannels ? (
+              <div className="text-gray-400 text-xs px-1.5 py-1.5">Loading...</div>
             ) : !isLoggedIn ? (
-              <div className="text-gray-400 text-sm px-2 py-2">Sign in to see channels</div>
-            ) : subscribedChannels.length === 0 ? (
-              <div className="text-gray-400 text-sm px-2 py-2">No subscribed channels</div>
+              <div className="text-gray-400 text-xs px-1.5 py-1.5">Sign in to see channels</div>
+            ) : ownedChannels.length === 0 ? (
+              <div className="text-gray-400 text-xs px-1.5 py-1.5">No owned channels</div>
             ) : (
-              subscribedChannels.map((channel) => {
-                // Use username if available, otherwise fallback to creatorId (wallet address)
-                const profileIdentifier = creatorIdToUsername[channel.creatorId] || channel.creatorId;
+              ownedChannels.map((channel) => {
+                const profileIdentifier = currentUsername || creatorIdToUsername[channel.creatorId] || '';
                 return (
-                <div key={channel.creatorId} className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/10 transition-colors group">
-                  <Link
-                    href={`/creator/${encodeURIComponent(profileIdentifier)}`}
-                    className="flex items-center gap-2 flex-1 min-w-0"
+                <div
+                  key={channel.playbackId}
+                  className={clsx(
+                    'flex items-center gap-1.5 px-1.5 py-1.5 rounded-md transition-colors group border',
+                    selectedChannelId === channel.playbackId
+                      ? 'bg-gradient-to-r from-yellow-500/20 to-teal-500/20 border-yellow-400/30'
+                      : 'border-transparent hover:border-white/10 hover:bg-white/10',
+                  )}
+                >
+                  <button
+                    onClick={() => {
+                      if (channel.playbackId) {
+                        if (isInDashboard) {
+                          // If in dashboard, use context to update state
+                          setSelectedChannelId(channel.playbackId);
+                        } else {
+                          // If outside dashboard, navigate to dashboard with channelId
+                          const dashboardRouteId = currentUsername || creatorIdToUsername[channel.creatorId] || '';
+                          if (!dashboardRouteId) {
+                            toast.error('Set a username in profile settings to open channel dashboard URLs.');
+                            return;
+                          }
+                          router.push(`/dashboard/${encodeURIComponent(dashboardRouteId)}?channelId=${channel.playbackId}`);
+                        }
+                      } else {
+                        if (isInDashboard) {
+                          setSelectedChannelId(null);
+                        } else {
+                          router.push('/dashboard');
+                        }
+                      }
+                    }}
+                    className="flex items-center gap-1.5 flex-1 min-w-0 text-left"
                   >
                     {channel.logo ? (
                       <img
                         src={channel.logo}
                         alt={channel.title || channel.streamName || 'Channel'}
-                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
+                        className="w-7 h-7 rounded-full object-cover flex-shrink-0"
                       />
                     ) : (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-[10px] font-bold flex-shrink-0">
+                        {(channel.title || channel.streamName || channel.creatorId?.slice(0, 2) || 'CH').toUpperCase().slice(0, 2)}
+                      </div>
+                    )}
+                    <span className="text-gray-300 text-xs truncate flex-1">
+                      {channel.title || channel.streamName || channel.creatorId?.slice(0, 8) + '...' || 'Untitled Channel'}
+                    </span>
+                  </button>
+                  {/* Three-dot options menu - always visible on mobile, hover on desktop */}
+                  {isMobileView ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onChannelOptionsClick?.(channel, { isOwned: true, profileIdentifier });
+                      }}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/20 transition-colors touch-manipulation"
+                      aria-label="Open owned channel options"
+                    >
+                      <HiDotsVertical className="w-4 h-4 text-gray-300" />
+                    </button>
+                  ) : (
+                    <ChannelOptionsMenu
+                      channel={channel}
+                      profileIdentifier={profileIdentifier}
+                      onSettings={handleChannelSettings}
+                      onInstall={handleInstallPWA}
+                      onShare={handleShareChannel}
+                    />
+                  )}
+                </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Subscribed Channels Section */}
+      {!sidebarCollapsed && (
+        <div className="w-full mt-3 backdrop-blur-sm border border-white/15 rounded-lg p-1.5 bg-gradient-to-b from-white/10 to-white/5 shadow-[0_8px_24px_rgba(0,0,0,0.25)]">
+          <div className="flex items-center justify-between mb-1.5 px-1.5">
+            <h3 className="text-gray-200 font-semibold text-[10px] uppercase tracking-[0.14em]">Subscribed Channels</h3>
+            {isLoggedIn && subscribedChannels.length > 0 && (
+              <span className="rounded-full border border-white/20 bg-white/10 px-1.5 py-0.5 text-[9px] text-gray-300">
+                {subscribedChannels.length}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col gap-1.5 max-h-56 overflow-y-auto">
+            {loadingChannels ? (
+              <div className="text-gray-400 text-xs px-1.5 py-1.5">Loading...</div>
+            ) : !isLoggedIn ? (
+              <div className="text-gray-400 text-xs px-1.5 py-1.5">Sign in to see channels</div>
+            ) : subscribedChannels.length === 0 ? (
+              <div className="text-gray-400 text-xs px-1.5 py-1.5">No subscribed channels</div>
+            ) : (
+              subscribedChannels.map((channel) => {
+                const profileIdentifier = creatorIdToUsername[channel.creatorId];
+                if (!profileIdentifier) return null;
+                return (
+                <div key={channel.creatorId} className="flex items-center gap-1.5 px-1.5 py-1.5 rounded-md hover:bg-white/10 transition-colors group border border-transparent hover:border-white/10">
+                  <Link
+                    href={`/creator/${encodeURIComponent(profileIdentifier)}`}
+                    className="flex items-center gap-1.5 flex-1 min-w-0"
+                  >
+                    {channel.logo ? (
+                      <img
+                        src={channel.logo}
+                        alt={channel.title || channel.streamName || 'Channel'}
+                        className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-[10px] font-bold flex-shrink-0">
                         {((channel.title || channel.streamName || channel.creatorId)?.slice(0, 2) || '??').toUpperCase()}
                       </div>
                     )}
-                    <span className="text-gray-300 text-sm truncate flex-1">
+                    <span className="text-gray-300 text-xs truncate flex-1">
                       {channel.title || channel.streamName || (channel.creatorId?.slice(0, 8) + '...') || 'Untitled Channel'}
                     </span>
                   </Link>
@@ -432,11 +587,12 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onChannelOptionsClick?.(channel);
+                        onChannelOptionsClick?.(channel, { isOwned: false, profileIdentifier });
                       }}
-                      className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full hover:bg-white/20 transition-colors touch-manipulation"
+                      aria-label="Open subscribed channel options"
                     >
-                      <HiDotsVertical className="w-5 h-5 text-gray-300" />
+                      <HiDotsVertical className="w-4 h-4 text-gray-300" />
                     </button>
                   ) : (
                     <ChannelOptionsMenu
@@ -453,155 +609,42 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
           </div>
           <button
             onClick={handleAddChannel}
-            className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-md transition-all duration-200 text-sm font-semibold"
+            className="w-full mt-1.5 flex items-center justify-center gap-1.5 px-2.5 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-md transition-all duration-200 text-xs font-semibold"
           >
-            <HiPlus className="w-4 h-4" />
+            <HiPlus className="w-3.5 h-3.5" />
             Add Channel
           </button>
-        </div>
-      )}
-
-      {/* Owned Channels Section */}
-      {!sidebarCollapsed && (
-        <div className="w-full mt-12 backdrop-blur-sm border border-white/20 rounded-lg p-2">
-          <div className="flex items-center justify-between mb-2 px-2">
-            <h3 className="text-white font-bold text-sm">Owned Channels</h3>
-          </div>
-          <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">
-            {loadingOwnedChannels ? (
-              <div className="text-gray-400 text-sm px-2 py-2">Loading...</div>
-            ) : !isLoggedIn ? (
-              <div className="text-gray-400 text-sm px-2 py-2">Sign in to see channels</div>
-            ) : ownedChannels.length === 0 ? (
-              <div className="text-gray-400 text-sm px-2 py-2">No owned channels</div>
-            ) : (
-              ownedChannels.map((channel) => {
-                const profileIdentifier = currentUserAddress;
-                return (
-                <div key={channel.playbackId} className="flex items-center gap-2 px-2 py-2 rounded-md hover:bg-white/10 transition-colors group">
-                  <button
-                    onClick={() => {
-                      if (channel.playbackId) {
-                        if (isInDashboard) {
-                          // If in dashboard, use context to update state
-                          setSelectedChannelId(channel.playbackId);
-                        } else {
-                          // If outside dashboard, navigate to dashboard with channelId
-                          router.push(`/dashboard?channelId=${channel.playbackId}`);
-                        }
-                      } else {
-                        if (isInDashboard) {
-                          setSelectedChannelId(null);
-                        } else {
-                          router.push('/dashboard');
-                        }
-                      }
-                    }}
-                    className="flex items-center gap-2 flex-1 min-w-0 text-left"
-                  >
-                    {channel.logo ? (
-                      <img
-                        src={channel.logo}
-                        alt={channel.title || channel.streamName || 'Channel'}
-                        className="w-8 h-8 rounded-full object-cover flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold flex-shrink-0">
-                        {(channel.title || channel.streamName || channel.creatorId?.slice(0, 2) || 'CH').toUpperCase().slice(0, 2)}
-                      </div>
-                    )}
-                    <span className="text-gray-300 text-sm truncate flex-1">
-                      {channel.title || channel.streamName || channel.creatorId?.slice(0, 8) + '...' || 'Untitled Channel'}
-                    </span>
-                  </button>
-                  {/* Three-dot options menu - always visible on mobile, hover on desktop */}
-                  {isMobileView ? (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onChannelOptionsClick?.(channel);
-                      }}
-                      className="p-1.5 rounded-full hover:bg-white/20 transition-colors"
-                    >
-                      <HiDotsVertical className="w-5 h-5 text-gray-300" />
-                    </button>
-                  ) : (
-                    <ChannelOptionsMenu
-                      channel={channel}
-                      profileIdentifier={profileIdentifier}
-                      onInstall={handleInstallPWA}
-                      onShare={handleShareChannel}
-                    />
-                  )}
-                </div>
-                );
-              })
-            )}
-          </div>
         </div>
       )}
 
 
       {/* Collapsed Channel Icons (PC and Mobile) */}
       {sidebarCollapsed && (
-        <div className="w-full mt-4 flex flex-col items-center gap-3">
-          {/* Subscribed Channels Icons */}
-          {loadingChannels ? (
-            <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
-          ) : subscribedChannels.length > 0 && (
-            <>
-              <div className="w-full border-b border-white/20 pb-2 mb-1">
-                <p className="text-[10px] text-gray-400 text-center">Subscribed</p>
-              </div>
-              {subscribedChannels.map((channel) => {
-                const profileIdentifier = creatorIdToUsername[channel.creatorId] || channel.creatorId;
-                return (
-                  <Link
-                    key={channel.creatorId}
-                    href={`/creator/${encodeURIComponent(profileIdentifier)}`}
-                    className="group relative"
-                    title={channel.title || channel.streamName || 'Channel'}
-                  >
-                    {channel.logo ? (
-                      <img
-                        src={channel.logo}
-                        alt={channel.title || channel.streamName || 'Channel'}
-                        className="w-10 h-10 rounded-full object-cover border-2 border-transparent hover:border-yellow-500 transition-all"
-                      />
-                    ) : (
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold border-2 border-transparent hover:border-white transition-all">
-                        {((channel.title || channel.streamName || channel.creatorId)?.slice(0, 2) || '??').toUpperCase()}
-                      </div>
-                    )}
-                    {/* Tooltip */}
-                    <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-black/90 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-                      {channel.title || channel.streamName || 'Channel'}
-                    </div>
-                  </Link>
-                );
-              })}
-            </>
-          )}
-
+        <div className="w-full mt-3 flex flex-col items-center gap-2 rounded-lg border border-white/10 bg-white/5 py-2.5">
           {/* Owned Channels Icons */}
           {loadingOwnedChannels ? (
-            <div className="w-10 h-10 rounded-full bg-white/10 animate-pulse" />
+            <div className="w-9 h-9 rounded-full bg-white/10 animate-pulse" />
           ) : ownedChannels.length > 0 && (
             <>
-              <div className="w-full border-b border-white/20 pb-2 mb-1 mt-2">
-                <p className="text-[10px] text-gray-400 text-center">Owned</p>
+              <div className="w-full border-b border-white/20 pb-1.5 mb-1">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 text-center">Owned</p>
               </div>
               {ownedChannels.map((channel) => (
                 <button
                   key={channel.playbackId}
                   onClick={() => {
-                    if (channel.playbackId) {
-                      if (isInDashboard) {
-                        setSelectedChannelId(channel.playbackId);
+                      if (channel.playbackId) {
+                        if (isInDashboard) {
+                          setSelectedChannelId(channel.playbackId);
+                        } else {
+                          const dashboardRouteId = currentUsername || creatorIdToUsername[channel.creatorId] || '';
+                          if (!dashboardRouteId) {
+                            toast.error('Set a username in profile settings to open channel dashboard URLs.');
+                            return;
+                          }
+                          router.push(`/dashboard/${encodeURIComponent(dashboardRouteId)}?channelId=${channel.playbackId}`);
+                        }
                       } else {
-                        router.push(`/dashboard?channelId=${channel.playbackId}`);
-                      }
-                    } else {
                       if (isInDashboard) {
                         setSelectedChannelId(null);
                       } else {
@@ -616,10 +659,10 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
                     <img
                       src={channel.logo}
                       alt={channel.title || channel.streamName || 'Channel'}
-                      className="w-10 h-10 rounded-full object-cover border-2 border-transparent hover:border-yellow-500 transition-all"
+                      className="w-9 h-9 rounded-full object-cover border-2 border-transparent hover:border-yellow-500 transition-all"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-xs font-bold border-2 border-transparent hover:border-white transition-all">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-[10px] font-bold border-2 border-transparent hover:border-white transition-all">
                       {(channel.title || channel.streamName || channel.creatorId?.slice(0, 2) || 'CH').toUpperCase().slice(0, 2)}
                     </div>
                   )}
@@ -632,13 +675,52 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
             </>
           )}
 
+          {/* Subscribed Channels Icons */}
+          {loadingChannels ? (
+            <div className="w-9 h-9 rounded-full bg-white/10 animate-pulse" />
+          ) : subscribedChannels.length > 0 && (
+            <>
+              <div className="w-full border-b border-white/20 pb-1.5 mb-1 mt-1.5">
+                <p className="text-[10px] uppercase tracking-widest text-gray-400 text-center">Subscribed</p>
+              </div>
+              {subscribedChannels.map((channel) => {
+                const profileIdentifier = creatorIdToUsername[channel.creatorId];
+                if (!profileIdentifier) return null;
+                return (
+                  <Link
+                    key={channel.creatorId}
+                    href={`/creator/${encodeURIComponent(profileIdentifier)}`}
+                    className="group relative"
+                    title={channel.title || channel.streamName || 'Channel'}
+                  >
+                    {channel.logo ? (
+                      <img
+                        src={channel.logo}
+                        alt={channel.title || channel.streamName || 'Channel'}
+                        className="w-9 h-9 rounded-full object-cover border-2 border-transparent hover:border-yellow-500 transition-all"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black text-[10px] font-bold border-2 border-transparent hover:border-white transition-all">
+                        {((channel.title || channel.streamName || channel.creatorId)?.slice(0, 2) || '??').toUpperCase()}
+                      </div>
+                    )}
+                    {/* Tooltip */}
+                    <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-2 py-1 bg-black/90 text-white text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                      {channel.title || channel.streamName || 'Channel'}
+                    </div>
+                  </Link>
+                );
+              })}
+            </>
+          )}
+
           {/* Add Channel Button */}
           <button
             onClick={handleAddChannel}
-            className="w-10 h-10 flex items-center justify-center bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-full transition-all duration-200 mt-2"
+            className="w-9 h-9 flex items-center justify-center bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-full transition-all duration-200 mt-1.5"
             title="Add Channel"
           >
-            <HiPlus className="w-5 h-5" />
+            <HiPlus className="w-4 h-4" />
           </button>
         </div>
       )}

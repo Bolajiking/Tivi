@@ -3,10 +3,8 @@ import Sidebar from '@/components/Sidebar';
 import SidebarBottomLinks from '@/components/SidebarBottomLinks';
 import AuthGuard from '@/components/AuthGuard';
 import React, { useEffect, useState } from 'react';
-import { FaTimes } from 'react-icons/fa';
 import { LuArrowLeftFromLine, LuArrowRightFromLine } from 'react-icons/lu';
 import clsx from 'clsx';
-import { X } from 'lucide-react';
 import Logo from '@/components/Logo';
 import { ChannelProvider } from '@/context/ChannelContext';
 
@@ -61,26 +59,30 @@ const DashboardLayout = ({
 
         <aside
           className={clsx(
-            'md:relative z-20 h-full md:block px-4 gap-y-4 transition-all duration-300 ease-in-out border-r border-white/20 flex flex-col bg-white/10 backdrop-blur-sm',
+            'md:relative z-20 h-full md:block px-2.5 py-2 gap-y-2.5 transition-all duration-300 ease-in-out border-r border-white/20 flex flex-col bg-white/10 backdrop-blur-sm',
             {
-              'w-[100px]': sidebarCollapsed && !isMobile, // Collapsed sidebar for desktop
-              'w-72 p-4': !sidebarCollapsed && !isMobile, // Expanded sidebar for desktop
+              'w-[80px]': sidebarCollapsed && !isMobile, // Collapsed sidebar for desktop
+              'w-[240px]': !sidebarCollapsed && !isMobile, // Expanded sidebar for desktop
               hidden: isMobile && !mobileMenuOpen,
               block: isMobile && mobileMenuOpen,
             },
           )}
         >
-          <div className="flex items-center justify-between py-4 border-b border-white/20">
+          <div className="flex items-start justify-between pb-2 border-b border-white/20">
             {!sidebarCollapsed && (
-              <div className="">
-               <Logo size="lg" />
+              <div className="pt-0.5">
+               <Logo size="sm" />
               </div>
             )}
-            <button onClick={toggleSidebar} className="ml-auto text-gray-300 hover:text-white transition-colors">
+            <button
+              onClick={toggleSidebar}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/15 bg-white/5 text-gray-300 hover:text-white hover:bg-white/15 transition-colors"
+              aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            >
               {sidebarCollapsed ? (
-                <LuArrowRightFromLine className="h-5 w-5" />
+                <LuArrowRightFromLine className="h-4 w-4" />
               ) : (
-                <LuArrowLeftFromLine className="h-5 w-5" />
+                <LuArrowLeftFromLine className="h-4 w-4" />
               )}
             </button>
           </div>
@@ -90,8 +92,8 @@ const DashboardLayout = ({
           <div className={clsx(
             'fixed bottom-0 left-0 z-30  backdrop-blur-lg border-t border-white/20 transition-all duration-300',
             {
-              'w-[100px]': sidebarCollapsed && !isMobile,
-              'w-72': !sidebarCollapsed && !isMobile,
+              'w-[80px]': sidebarCollapsed && !isMobile,
+              'w-[240px]': !sidebarCollapsed && !isMobile,
               'hidden': isMobile,
             }
           )}>

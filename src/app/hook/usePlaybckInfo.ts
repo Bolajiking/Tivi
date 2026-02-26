@@ -1,8 +1,23 @@
 import { useState, useEffect } from 'react';
 import type { Src } from '@livepeer/react';
-import { getSrc } from '@livepeer/react/external';
-import { Livepeer } from 'livepeer';
 import api from '@/utils/api';
+
+const isHlsSource = (source: any): boolean => {
+  const src = String(source?.src || source?.url || '').toLowerCase();
+  const type = String(source?.type || '').toLowerCase();
+  const mime = String(source?.mime || '').toLowerCase();
+  return src.includes('.m3u8') || type.includes('hls') || mime.includes('mpegurl');
+};
+
+const isRawMp4Source = (source: any): boolean => {
+  const src = String(source?.src || source?.url || '').toLowerCase();
+  return src.includes('/raw/') || src.includes('.mp4');
+};
+
+const isRawHlsSource = (source: any): boolean => {
+  const src = String(source?.src || source?.url || '').toLowerCase();
+  return src.includes('/raw/') && src.includes('.m3u8');
+};
 
 export function usePlaybackInfo(playbackId: string | null) {
   const [src, setSrc] = useState<Src[] | null>(null);
@@ -10,25 +25,77 @@ export function usePlaybackInfo(playbackId: string | null) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!playbackId) return;
+    if (!playbackId) {
+      setSrc(null);
+      setLoading(false);
+      setError(null);
+      return;
+    }
 
-    const livepeer = new Livepeer({
-      apiKey: process.env.NEXT_PUBLIC_STUDIO_API_KEY ?? '',
-    });
+    let cancelled = false;
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
     const fetchData = async () => {
       setLoading(true);
+      setError(null);
       try {
-        const playbackInfo = await livepeer.playback.get(playbackId);
-        const srcData = getSrc(playbackInfo.playbackInfo);
-        setSrc(srcData);
+        const maxAttempts = 18; // ~90s of retry for just-uploaded assets to finish processing
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          if (cancelled) return;
+
+          const response = await fetch(`/api/playback/${playbackId}`, {
+            method: 'GET',
+            cache: 'no-store',
+          });
+
+          if (response.ok) {
+            const payload = await response.json();
+            const allSources = (payload?.sources || []) as Src[];
+            const nonRawHlsSources = allSources.filter(
+              (source) => isHlsSource(source) && !isRawHlsSource(source),
+            );
+            const nonRawSources = allSources.filter((source) => !isRawMp4Source(source));
+            const hlsSources = allSources.filter((source) => isHlsSource(source));
+
+            const srcData =
+              nonRawHlsSources.length > 0
+                ? nonRawHlsSources
+                : nonRawSources.length > 0
+                ? nonRawSources
+                : hlsSources.length > 0
+                ? hlsSources
+                : allSources;
+
+            if (srcData.length > 0) {
+              setSrc(srcData);
+              setError(null);
+              return;
+            }
+          } else if (response.status >= 400 && response.status < 500 && response.status !== 202) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload?.error || 'Playback asset is unavailable.');
+          }
+
+          if (attempt < maxAttempts) {
+            await sleep(5000);
+          }
+        }
+
+        throw new Error('Video is still processing. Please retry in a moment.');
       } catch (err: any) {
+        if (cancelled) return;
+        setSrc(null);
         setError(err.message || 'Error fetching playback info');
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
     fetchData();
+
+    return () => {
+      cancelled = true;
+    };
   }, [playbackId]);
 
   return { src, loading, error };

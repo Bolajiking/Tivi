@@ -71,8 +71,8 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
   const { thumbnailUrl, loading } = useFetchStreamPlaybackId(playb);
   const { viewerMetrics: viewstream } = useViewMetrics({ playbackId: playb });
   return (
-    <div className="w-full h-full flex flex-col group">
-      <div className="w-full bg-gray rounded-md overflow-hidden relative">
+    <div className="w-full h-full flex flex-col group rounded-xl border border-white/15 bg-white/5 p-2">
+      <div className="w-full bg-gray rounded-lg overflow-hidden relative">
         {loading ? (
           <div className="flex items-center w-full max-sm:h-[220px] h-[300px] lg:h-[200px] justify-center">
             <p className="text-white">Loading</p>
@@ -81,15 +81,15 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
           <Image
             src={logo || thumbnailUrl || image}
             alt={title}
-            className="rounded-md w-full max-sm:h-[220px] h-[300px] lg:h-[200px] object-cover"
+            className="rounded-lg w-full max-sm:h-[220px] h-[300px] lg:h-[200px] object-cover"
             width={400}
             height={180}
           />
         )}
-        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded">
+        <div className="absolute bottom-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded-md">
           {viewstream?.viewCount} views
         </div>
-        <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 rounded flex items-center gap-1">
+        <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 rounded-md flex items-center gap-1">
           {status ? (
             <>
               <div className="bg-[#04EB2A] h-[6px] w-[6px] rounded-full" />
@@ -104,7 +104,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
         </div>
       </div>
 
-      <div className="flex justify-between items-center mt-2">
+      <div className="flex justify-between items-center mt-2 px-1">
         <div>
           <h3 className="font-bold text-white text-lg capitalize pt-2 break-words">{title}</h3>
         </div>
@@ -112,12 +112,12 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
           {streamId && playbackId && <Popup streamId={streamId} playbackId={playbackId} />}
         </div>
       </div>
-      <div>
+      <div className="px-1">
         <div className="text-sm text-gray-300">Last Active {lastSeen ? lastSeen.toDateString() : ''}</div>
       </div>
-      <div className="flex justify-start mt-auto">
+      <div className="flex justify-start mt-auto px-1">
         <button
-          className="mt-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 cursor-pointer text-white py-2 text-sm font-bold px-4 rounded-[6px] transition-all duration-200"
+          className="mt-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 cursor-pointer text-black py-2 text-sm font-semibold px-4 rounded-md transition-all duration-200"
           onClick={goLive}
         >
           Go Live
@@ -131,6 +131,11 @@ export const VideoCard: React.FC<VideoCardProps> = ({ title, imageUrl, createdAt
   // const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { views: videocount } = usePlaybackMetrics(playbackId || '');
   const { thumbnailUrl, loading } = useFetchPlaybackId(assetData.playbackId);
+  const viewMode = String(assetData.viewMode || 'free').toLowerCase();
+  const amount = Number(assetData.amount || 0);
+  const isPaid = viewMode !== 'free' && amount > 0;
+  const isMonthly = viewMode === 'monthly';
+  const description = String(assetData.description || '').trim();
   
   // Handle clicks - if onPlayClick is provided, use it; otherwise open in new tab
   const handleClick = (e: React.MouseEvent) => {
@@ -145,14 +150,16 @@ export const VideoCard: React.FC<VideoCardProps> = ({ title, imageUrl, createdAt
     
     // Otherwise, default behavior: open in new tab
     if (assetData.playbackId) {
-      window.open(`/player/${assetData.playbackId}?id=${encodeURIComponent(assetData.id)}`, '_blank');
+      const creatorId = assetData?.creatorId?.value || assetData?.creatorWalletAddress || '';
+      const query = creatorId ? `?id=${encodeURIComponent(creatorId)}` : '';
+      window.open(`/player/${assetData.playbackId}${query}`, '_blank');
     }
   };
 
   return (
-    <div className="w-full h-full flex flex-col group">
+    <div className="w-full h-full flex flex-col group rounded-xl border border-white/15 bg-white/5 p-2">
       <div 
-        className={`w-full bg-gray-200 rounded-md overflow-hidden relative ${onPlayClick ? 'cursor-pointer' : ''}`}
+        className={`w-full bg-gray-200 rounded-lg overflow-hidden relative ${onPlayClick ? 'cursor-pointer' : ''}`}
         onClick={handleClick}
         onMouseDown={(e) => {
           // Prevent any default behavior on mouse down
@@ -169,7 +176,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ title, imageUrl, createdAt
           <Image
             src={thumbnailUrl || imageUrl}
             alt={assetData.name}
-            className="rounded-md w-full max-sm:h-[220px] h-[300px] lg:h-[200px] object-cover pointer-events-none"
+            className="rounded-lg w-full max-sm:h-[220px] h-[300px] lg:h-[200px] object-cover pointer-events-none"
             width={400}
             height={180}
             draggable={false}
@@ -188,7 +195,7 @@ export const VideoCard: React.FC<VideoCardProps> = ({ title, imageUrl, createdAt
           </button>
         </div>
       </div>
-      <div className="flex justify-between items-center mt-2">
+      <div className="flex justify-between items-center mt-2 px-1">
         <div>
           <h2 className="font-bold text-white text-lg capitalize pt-2 break-words">
             {title}
@@ -199,9 +206,24 @@ export const VideoCard: React.FC<VideoCardProps> = ({ title, imageUrl, createdAt
           <AssetPopup asset={assetData} />
         </div>
       </div>
-      <div className="flex justify-start">
+      <div className="flex justify-start px-1">
         <p className="text-sm text-gray-300">{createdAt ? createdAt.toDateString() : ''}</p>
       </div>
+      <div className="flex flex-wrap gap-1.5 px-1 pt-1">
+        <span
+          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+            isPaid ? 'bg-yellow-500/25 text-yellow-200 border border-yellow-500/30' : 'bg-emerald-500/20 text-emerald-200 border border-emerald-500/30'
+          }`}
+        >
+          {isPaid ? (isMonthly ? 'Monthly' : 'One-Time') : 'Free'}
+        </span>
+        {isPaid && (
+          <span className="rounded-full border border-teal-400/30 bg-teal-500/20 px-2 py-0.5 text-[10px] font-semibold text-teal-100">
+            ${amount.toFixed(2)}
+          </span>
+        )}
+      </div>
+      {description && <p className="px-1 pt-1 text-xs text-gray-400 line-clamp-2">{description}</p>}
     </div>
   );
 };
@@ -219,9 +241,9 @@ export const VideoStreamCard: React.FC<VideoStreamCardProps> = ({
   const host = process.env.NEXT_PUBLIC_BASE_URL;
 
   const playbackUrl = host
-    ? `${host.includes('localhost') ? 'http' : 'https'}://${host}/view/${playbackId}?streamName=${encodeURIComponent(
-        streamName || '',
-      )}&id=${encodeURIComponent(creatorId || '')}`
+    ? `${host.includes('localhost') ? 'http' : 'https'}://${host}/creator/${encodeURIComponent(
+        creatorId || '',
+      )}/live/${encodeURIComponent(playbackId)}`
     : null;
 
   const handlePlayClick = () => {
@@ -291,7 +313,9 @@ export const StreamVideoCard: React.FC<VideoCardProps> = ({ title, imageUrl, cre
   const isGated = !hasAccess && video?.viewMode !== 'free';
   const handlePlayClick = () => {
     if (assetData.playbackId) {
-      window.open(`/player/${assetData.playbackId}?id=${encodeURIComponent(assetData.id)}`, '_blank');
+      const creatorId = assetData?.creatorId?.value || assetData?.creatorWalletAddress || '';
+      const query = creatorId ? `?id=${encodeURIComponent(creatorId)}` : '';
+      window.open(`/player/${assetData.playbackId}${query}`, '_blank');
     }
   };
   return (

@@ -8,6 +8,7 @@ import { SupabaseStream } from '@/lib/supabase-types';
 interface ChannelOptionsMenuProps {
   channel: SupabaseStream;
   profileIdentifier: string;
+  onSettings?: (channel: SupabaseStream) => void;
   onInstall: (channel: SupabaseStream) => void;
   onShare: (channel: SupabaseStream, profileIdentifier: string) => void;
 }
@@ -15,6 +16,7 @@ interface ChannelOptionsMenuProps {
 export default function ChannelOptionsMenu({
   channel,
   profileIdentifier,
+  onSettings,
   onInstall,
   onShare,
 }: ChannelOptionsMenuProps) {
@@ -36,6 +38,21 @@ export default function ChannelOptionsMenu({
           sideOffset={5}
           align="end"
         >
+          {onSettings ? (
+            <DropdownMenu.Item
+              onClick={() => {
+                onSettings(channel);
+                setOpen(false);
+              }}
+              className="flex items-center gap-2 px-3 py-2 text-sm text-white hover:bg-white/10 rounded-md cursor-pointer outline-none"
+            >
+              <svg className="w-4 h-4 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317a1 1 0 011.35-.936l1.175.47a1 1 0 00.95 0l1.175-.47a1 1 0 011.35.936l.176 1.268a1 1 0 00.57.757l1.13.565a1 1 0 01.447 1.341l-.56 1.121a1 1 0 000 .894l.56 1.121a1 1 0 01-.447 1.341l-1.13.565a1 1 0 00-.57.757l-.176 1.268a1 1 0 01-1.35.936l-1.175-.47a1 1 0 00-.95 0l-1.175.47a1 1 0 01-1.35-.936l-.176-1.268a1 1 0 00-.57-.757l-1.13-.565a1 1 0 01-.447-1.341l.56-1.121a1 1 0 000-.894l-.56-1.121a1 1 0 01.447-1.341l1.13-.565a1 1 0 00.57-.757l.176-1.268z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
+              </svg>
+              Settings
+            </DropdownMenu.Item>
+          ) : null}
           <DropdownMenu.Item
             onClick={() => {
               onInstall(channel);

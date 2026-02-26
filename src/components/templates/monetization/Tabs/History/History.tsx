@@ -90,7 +90,7 @@ const History = () => {
 
   return (
     <div className="w-full max-w-[1200px] mx-auto px-4 sm:px-6">
-      <h1 className="text-2xl font-bold mb-6">Transaction History</h1>
+      <h1 className="text-2xl font-bold mb-6 text-white">Transaction History</h1>
 
       {/* Filter Buttons */}
       <div className="flex justify-beween mb-6 space-x-3">
@@ -122,7 +122,7 @@ const History = () => {
       {/* Transaction List */}
       <div className="space-y-4 mb-8">
         {filteredTransactions.map((transaction) => (
-          <div key={transaction.id} className="border rounded-lg p-4 flex justify-between items-center">
+          <div key={transaction.id} className="border border-white/20 bg-white/5 rounded-xl p-4 flex justify-between items-center">
             <div className="flex items-center">
               <div
                 className={`w-12 h-12 rounded-full flex items-center justify-center mr-4 ${
@@ -136,13 +136,13 @@ const History = () => {
                 )}
               </div>
               <div>
-                <p className="font-medium text-lg">
+                <p className="font-medium text-lg text-white">
                   {transaction.type === 'Donation' && `Donation from ${transaction.user}`}
                   {transaction.type === 'Withdrawal' && `Withdrawal ${transaction.description}`}
                   {transaction.type === 'Store' && `Store ${transaction.description}`}
                   {transaction.type === 'Subscription' && `Subscription from ${transaction.user}`}
                 </p>
-                <p className="text-gray-500 text-sm">{transaction.date}</p>
+                <p className="text-gray-400 text-sm">{transaction.date}</p>
               </div>
             </div>
             <div>
@@ -178,7 +178,7 @@ const FilterButton = ({ label, active, onClick }: { label: string; active: boole
     <button
       onClick={onClick}
       className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
-        active ? 'bg-white border border-gray-200' : 'text-gray-600 hover:bg-gray-50'
+        active ? 'bg-white/20 border border-white/30 text-white' : 'text-gray-300 hover:bg-white/10'
       }`}
     >
       {label}

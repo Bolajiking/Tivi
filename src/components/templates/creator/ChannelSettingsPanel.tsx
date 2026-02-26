@@ -165,7 +165,7 @@ export function ChannelSettingsPanel({ creatorId, onClose }: ChannelSettingsPane
   ].filter(Boolean);
 
   // Fetch aggregated metrics
-  const { viewMetrics, loading: metricsLoading } = useViewerMetrics(allPlaybackIds);
+  const { viewMetrics, loading: metricsLoading } = useViewerMetrics({ filter: 'all' });
 
   // Fetch streams and assets on mount
   useEffect(() => {

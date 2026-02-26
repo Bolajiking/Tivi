@@ -8,7 +8,14 @@ import { Copy, ExternalLink } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { AppDispatch } from '@/store/store';
-import { uploadImage, getStreamsByCreator, updateStream, getUserProfile } from '@/lib/supabase-service';
+import {
+  uploadImage,
+  getStreamsByCreator,
+  updateStream,
+  getUserProfile,
+  hasCreatorInviteAccess,
+  redeemCreatorInviteCode,
+} from '@/lib/supabase-service';
 import { createLivestream } from '@/features/streamAPI';
 import { clsx } from 'clsx';
 
@@ -46,6 +53,10 @@ export function ProfileCustomization() {
   const [existingStream, setExistingStream] = useState<any>(null);
   const [loadingStream, setLoadingStream] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [hasCreatorAccess, setHasCreatorAccess] = useState(false);
+  const [creatorAccessLoading, setCreatorAccessLoading] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [redeemingCode, setRedeemingCode] = useState(false);
 
   // Get creator address (wallet address)
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
@@ -119,15 +130,20 @@ export function ProfileCustomization() {
   // Fetch existing stream data and load it into form
   useEffect(() => {
     const fetchExistingStream = async () => {
-      if (!creatorAddress) return;
+      if (!creatorAddress) {
+        setHasCreatorAccess(false);
+        return;
+      }
       
       try {
         setLoadingStream(true);
+        setCreatorAccessLoading(true);
         const streams = await getStreamsByCreator(creatorAddress);
         if (streams && streams.length > 0) {
           // Use the first stream (or you could use the most recent one)
           const stream = streams[0];
           setExistingStream(stream);
+          setHasCreatorAccess(true);
           
           // Load stream data into form fields
           setProfileData({
@@ -138,8 +154,8 @@ export function ProfileCustomization() {
           });
           
           setStreamData({
-            viewMode: stream.viewMode || 'free',
-            amount: stream.amount || 0,
+            viewMode: stream.streamMode || stream.viewMode || 'free',
+            amount: stream.streamAmount ?? stream.amount ?? 0,
             bgcolor: stream.bgcolor || '#ffffff',
             color: stream.color || '#000000',
             fontSize: stream.fontSize?.toString() || '16',
@@ -147,12 +163,18 @@ export function ProfileCustomization() {
             record: false, // Default to false (NO) - not stored in stream table
             donations: stream.donations || [0, 0, 0, 0],
           });
+        } else {
+          setExistingStream(null);
+          const access = await hasCreatorInviteAccess(creatorAddress);
+          setHasCreatorAccess(access);
         }
       } catch (error: any) {
         console.error('Error fetching stream:', error);
-        // Don't show error toast - stream might not exist yet
+        toast.error(error?.message || 'Failed to verify creator access');
+        setHasCreatorAccess(false);
       } finally {
         setLoadingStream(false);
+        setCreatorAccessLoading(false);
       }
     };
 
@@ -181,10 +203,8 @@ export function ProfileCustomization() {
       const host = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
       // Use username (displayName) in the URL
       setProfileUrl(`${host}/creator/${encodeURIComponent(userProfile.displayName)}`);
-    } else if (creatorAddress) {
-      // Fallback to wallet address if username not available yet
-      const host = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
-      setProfileUrl(`${host}/creator/${creatorAddress}`);
+    } else {
+      setProfileUrl('');
     }
   }, [creatorAddress, userProfile?.displayName]);
 
@@ -235,6 +255,18 @@ export function ProfileCustomization() {
     }));
   };
 
+  const isPaidLivestreamMode = streamData.viewMode !== 'free';
+
+  const handleLivestreamModeToggle = (mode: 'free' | 'paid') => {
+    if (mode === 'free') {
+      handleViewModeChange('free');
+      return;
+    }
+
+    const nextMode: ViewMode = streamData.viewMode === 'free' ? 'one-time' : streamData.viewMode;
+    handleViewModeChange(nextMode);
+  };
+
   const handleDonationChange = (index: number, value: string) => {
     const newDonations = [...streamData.donations];
     newDonations[index] = parseFloat(value) || 0;
@@ -272,6 +304,35 @@ export function ProfileCustomization() {
     }
   };
 
+  const handleRedeemInviteCode = async () => {
+    if (!creatorAddress) {
+      toast.error('Wallet not connected');
+      return;
+    }
+
+    if (!inviteCode.trim()) {
+      toast.error('Enter an invite code');
+      return;
+    }
+
+    try {
+      setRedeemingCode(true);
+      const result = await redeemCreatorInviteCode(creatorAddress, inviteCode);
+      setHasCreatorAccess(true);
+      setInviteCode('');
+      if (result.alreadyGranted) {
+        toast.success('Creator access already granted on this wallet.');
+      } else {
+        toast.success('Invite code redeemed. Creator access granted.');
+      }
+    } catch (error: any) {
+      console.error('Invite code redemption failed:', error);
+      toast.error(error?.message || 'Failed to redeem invite code');
+    } finally {
+      setRedeemingCode(false);
+    }
+  };
+
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
     
@@ -302,6 +363,11 @@ export function ProfileCustomization() {
       return;
     }
 
+    if (!existingStream && !hasCreatorAccess) {
+      toast.error('Creator invite access is required before creating a channel.');
+      return;
+    }
+
     if (!validateForm()) {
       toast.error('Please fill in all required fields');
       return;
@@ -309,17 +375,23 @@ export function ProfileCustomization() {
 
     try {
       setSaving(true);
-      
+
+      // Re-check from source of truth to prevent accidental duplicate stream creation.
+      const creatorStreams = await getStreamsByCreator(creatorAddress);
+      const activeStream = existingStream || creatorStreams?.[0] || null;
+
       // Handle Stream Creation/Update (only updating stream table, not users table)
-      if (existingStream) {
+      if (activeStream) {
         // Update existing stream
-        await updateStream(existingStream.playbackId, {
+        await updateStream(activeStream.playbackId, {
           title: profileData.displayName,
           streamName: profileData.displayName, // Keep streamName for backward compatibility
           description: profileData.bio,
           logo: profileData.avatar,
           viewMode: streamData.viewMode,
+          streamMode: streamData.viewMode,
           amount: streamData.viewMode !== 'free' ? streamData.amount : null,
+          streamAmount: streamData.viewMode !== 'free' ? streamData.amount : null,
           bgcolor: streamData.bgcolor,
           color: streamData.color,
           fontSize: parseInt(streamData.fontSize) || null,
@@ -327,6 +399,7 @@ export function ProfileCustomization() {
           socialLinks: stringifySocialLinks(profileData.socialLinks),
           donations: streamData.donations,
         });
+        setExistingStream(activeStream);
         toast.success('Channel updated successfully!');
       } else {
         // Create new stream on first save
@@ -365,6 +438,10 @@ export function ProfileCustomization() {
   };
 
   const handleCopyUrl = async () => {
+    if (!profileUrl) {
+      toast.error('Username is required to generate a creator URL.');
+      return;
+    }
     try {
       await navigator.clipboard.writeText(profileUrl);
       toast.success('Profile URL copied to clipboard!');
@@ -374,6 +451,10 @@ export function ProfileCustomization() {
   };
 
   const handlePreview = () => {
+    if (!profileUrl) {
+      toast.error('Username is required to preview your creator page.');
+      return;
+    }
     window.open(profileUrl, '_blank');
   };
 
@@ -393,6 +474,42 @@ export function ProfileCustomization() {
         <h3 className="text-xl font-bold mb-2 text-white">Channel Profile</h3>
         <p className="text-gray-300">Customize your Channel profile that viewers will see</p>
       </div>
+
+      {!existingStream && (
+        <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm p-4">
+          <h4 className="text-white font-semibold">Creator Invite Access</h4>
+          {creatorAccessLoading ? (
+            <p className="text-sm text-gray-300 mt-2">Checking creator access...</p>
+          ) : hasCreatorAccess ? (
+            <p className="text-sm text-emerald-300 mt-2">
+              Access granted. You can create your channel by completing the profile and clicking Save.
+            </p>
+          ) : (
+            <>
+              <p className="text-sm text-gray-300 mt-2">
+                Creator accounts are invite-only. Redeem an invite code to unlock channel creation.
+              </p>
+              <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                <InputField
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  placeholder="Enter invite code"
+                  className="w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400"
+                />
+                <button
+                  type="button"
+                  onClick={handleRedeemInviteCode}
+                  disabled={redeemingCode}
+                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-teal-500 text-black font-semibold hover:from-yellow-600 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {redeemingCode ? 'Redeeming...' : 'Redeem'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Profile URL Section - only show if required fields are filled */}
       {hasRequiredFields && (
@@ -423,7 +540,52 @@ export function ProfileCustomization() {
         </div>
       )}
 
+      <div className="rounded-xl border border-white/20 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-4">
+        <p className="text-xs uppercase tracking-[0.18em] text-gray-400 mb-3">Live Preview</p>
+        <div
+          className="rounded-xl border border-white/20 p-4"
+          style={{ backgroundColor: streamData.bgcolor || '#111827' }}
+        >
+          <div className="flex items-center gap-3">
+            {profileData.avatar ? (
+              <img src={profileData.avatar} alt="Preview Avatar" className="w-14 h-14 rounded-full object-cover" />
+            ) : (
+              <div className="w-14 h-14 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black font-bold">
+                {(profileData.displayName || 'TV').slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <h4
+                className="font-bold"
+                style={{
+                  color: streamData.color || '#ffffff',
+                  fontSize: `${Math.max(parseInt(streamData.fontSize || '16'), 14)}px`,
+                  fontFamily: streamData.fontFamily || 'Arial',
+                }}
+              >
+                {profileData.displayName || 'Your Channel Name'}
+              </h4>
+              <p className="text-xs" style={{ color: streamData.color || '#d1d5db' }}>
+                {streamData.viewMode === 'free'
+                  ? 'Free Access'
+                  : `Paid Access • $${(streamData.amount || 0).toFixed(2)} USDC`}
+              </p>
+            </div>
+          </div>
+          <p
+            className="mt-3 text-sm line-clamp-3"
+            style={{
+              color: streamData.color || '#e5e7eb',
+              fontFamily: streamData.fontFamily || 'Arial',
+            }}
+          >
+            {profileData.bio || 'Your channel description will appear here...'}
+          </p>
+        </div>
+      </div>
+
       {/* Basic Information */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       <div className="space-y-4">
         <h4 className="font-semibold text-white">Channel Information</h4>
         
@@ -537,60 +699,70 @@ export function ProfileCustomization() {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium mb-2 text-white">View Mode</label>
-          <div className="flex gap-2 flex-wrap">
-            {(['free', 'one-time', 'monthly'] as ViewMode[]).map((option) => (
-              <button
-                key={option}
-                type="button"
-                onClick={() => handleViewModeChange(option)}
-                className={clsx(
-                  'px-4 py-2 border capitalize text-sm rounded transition-colors',
-                  streamData.viewMode === option 
-                    ? 'bg-gradient-to-r from-yellow-500 to-teal-500 text-black border-transparent' 
-                    : 'bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20'
-                )}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {streamData.viewMode !== 'free' && (
-          <div>
-            <label className="block text-sm font-medium mb-1 text-white">
-              Amount (USDC) <span className="text-red-400">*</span>
-            </label>
-            <InputField
-              type="number"
-              step="any"
-              min="0"
-              value={streamData.amount === 0 ? '' : streamData.amount}
-              onChange={(e) => {
-                const value = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
-                handleStreamChange('amount', value);
-              }}
-              placeholder="0.00"
-              className={`w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400 ${errors.amount ? 'border-red-400' : ''}`}
-            />
-            {errors.amount && (
-              <p className="text-red-400 text-xs mt-1">{errors.amount}</p>
-            )}
-          </div>
-        )}
-
+      </div>
       </div>
 
       {/* Stream Customization */}
       <div className="space-y-4">
         <h4 className="font-semibold text-white">Stream & Video Settings</h4>
-        
-        {/* View Mode */}
-      
-        {/* Amount */}
-      
+
+        <div className="rounded-lg border border-white/20 bg-white/5 p-4 space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2 text-white">Livestream Mode</label>
+            <p className="text-xs text-gray-300 mb-3">
+              Select whether livestreams are open to everyone or paid access only.
+            </p>
+            <div className="inline-flex rounded-lg border border-white/20 bg-white/10 p-1">
+              <button
+                type="button"
+                onClick={() => handleLivestreamModeToggle('free')}
+                className={clsx(
+                  'min-w-[96px] rounded-md px-4 py-2 text-sm font-semibold transition-colors',
+                  !isPaidLivestreamMode
+                    ? 'bg-gradient-to-r from-yellow-500 to-teal-500 text-black'
+                    : 'text-white hover:bg-white/10'
+                )}
+              >
+                Free
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLivestreamModeToggle('paid')}
+                className={clsx(
+                  'min-w-[96px] rounded-md px-4 py-2 text-sm font-semibold transition-colors',
+                  isPaidLivestreamMode
+                    ? 'bg-gradient-to-r from-yellow-500 to-teal-500 text-black'
+                    : 'text-white hover:bg-white/10'
+                )}
+              >
+                Paid
+              </button>
+            </div>
+          </div>
+
+          {isPaidLivestreamMode && (
+            <div>
+              <label className="block text-sm font-medium mb-1 text-white">
+                Livestream Price (USDC) <span className="text-red-400">*</span>
+              </label>
+              <InputField
+                type="number"
+                step="any"
+                min="0"
+                value={streamData.amount === 0 ? '' : streamData.amount}
+                onChange={(e) => {
+                  const value = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                  handleStreamChange('amount', value);
+                }}
+                placeholder="0.00"
+                className={`w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400 ${errors.amount ? 'border-red-400' : ''}`}
+              />
+              {errors.amount && (
+                <p className="text-red-400 text-xs mt-1">{errors.amount}</p>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Record Option */}
         {/* <div>
@@ -724,7 +896,7 @@ export function ProfileCustomization() {
       <div className="flex justify-end pt-4 border-t border-white/20">
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || (!existingStream && !hasCreatorAccess)}
           className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {saving ? (
@@ -732,6 +904,8 @@ export function ProfileCustomization() {
               <Bars width={16} height={16} color="#ffffff" />
               <span>Saving...</span>
             </div>
+          ) : !existingStream && !hasCreatorAccess ? (
+            'Invite Required'
           ) : (
             'Save'
           )}

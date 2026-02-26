@@ -11,7 +11,7 @@ import { createLivestream, getAllStreams } from '@/features/streamAPI';
 import { resetStreamStatus } from '@/features/streamSlice';
 import Image from 'next/image';
 import { AppDispatch, RootState } from '@/store/store';
-import { uploadImage } from '@/lib/supabase-service';
+import { hasCreatorInviteAccess, uploadImage } from '@/lib/supabase-service';
 
 /**
  * Extend formData with customization fields
@@ -25,12 +25,12 @@ type viewMode = 'free' | 'one-time' | 'monthly';
 export function CreateLivestream({ close }: { close: () => void }) {
   const { user } = usePrivy();
   const dispatch = useDispatch<AppDispatch>();
-  const solanaWalletAddress = useSelector((state: RootState) => state.user.solanaWalletAddress);
+  const walletAddress = useSelector((state: RootState) => state.user.walletAddress);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     streamName: '',
     record: false,
-    creatorId: user?.wallet?.chainType === 'solana' ? user.wallet.address : solanaWalletAddress || '',
+    creatorId: user?.wallet?.chainType === 'solana' ? user.wallet.address : walletAddress || '',
     viewMode: 'free' as viewMode,
     amount: 0,
     channelDescription: '',
@@ -44,9 +44,9 @@ export function CreateLivestream({ close }: { close: () => void }) {
   const [presetValues, setPresetValues] = useState<number[]>([0, 0, 0, 0]);
   // keep creatorId in sync
   useEffect(() => {
-    const newCreatorId = user?.wallet?.chainType === 'solana' ? user.wallet.address : solanaWalletAddress || '';
+    const newCreatorId = user?.wallet?.chainType === 'solana' ? user.wallet.address : walletAddress || '';
     setFormData((prev) => ({ ...prev, creatorId: newCreatorId }));
-  }, [user?.wallet, solanaWalletAddress]);
+  }, [user?.wallet, walletAddress]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -138,6 +138,12 @@ export function CreateLivestream({ close }: { close: () => void }) {
     setIsSubmitting(true);
     console.log('formData', formData);
     try {
+      const canCreateCreatorChannel = await hasCreatorInviteAccess(formData.creatorId);
+      if (!canCreateCreatorChannel) {
+        toast.error('Creator access invite required. Redeem a code in Settings first.');
+        return;
+      }
+
       const payload = {
         streamName: formData.streamName,
         title: formData.streamName,

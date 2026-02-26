@@ -1,22 +1,22 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface UserState {
-  solanaWalletAddress: string | null;
+  walletAddress: string | null;
 }
 
 const initialState: UserState = {
-  solanaWalletAddress: null,
+  walletAddress: null,
 };
 
 const userSlice = createSlice({
   name: 'user',
   initialState,
   reducers: {
-    setSolanaWalletAddress: (state, action: PayloadAction<string>) => {
-      state.solanaWalletAddress = action.payload;
+    setWalletAddress: (state, action: PayloadAction<string>) => {
+      state.walletAddress = action.payload;
     },
   },
 });
 
-export const { setSolanaWalletAddress } = userSlice.actions;
-export default userSlice.reducer; 
+export const { setWalletAddress } = userSlice.actions;
+export default userSlice.reducer;

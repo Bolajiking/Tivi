@@ -1,48 +1,20 @@
-import { getPlaybackInfo } from '@/lib/livepeer';
-import { getSrc } from '@livepeer/react/external';
-import { PlayerLoading } from '@/components/templates/player/player/Player';
 import PlayerWithChat from './PlayerWithChat';
-import { PrivyProvider } from '@privy-io/react-auth';
+import { redirect } from 'next/navigation';
 
-export default async function PlayerPage({
+export default function PlayerPage({
   params,
   searchParams,
 }: {
   params: { playbackId: string };
-  searchParams: { streamName?: string; id: string };
+  searchParams: { streamName?: string; id?: string | string[] };
 }) {
   const { playbackId } = params;
-  const { streamName, id } = searchParams;
+  const { streamName } = searchParams;
+  const idParam = Array.isArray(searchParams.id) ? searchParams.id[0] : searchParams.id;
 
-  // Now you have both playbackId and streamId (and streamName) available!
-  const inputSource = await getPlaybackInfo(playbackId);
-  const src = getSrc(inputSource);
+  if (idParam) {
+    redirect(`/creator/${encodeURIComponent(idParam)}/live/${encodeURIComponent(playbackId)}`);
+  }
 
-  return src ? (
-    // <PrivyProvider
-    //   appId={process.env.NEXT_PUBLIC_USER_PRIVY_ENVIRONMENT_ID ?? ''}
-    //   config={{
-    //     appearance: {
-    //       landingHeader: '',
-    //       loginMessage: 'Welcome to Chainfren TV',
-    //       theme: 'light',
-    //       accentColor: '#3351FF',
-    //       showWalletLoginFirst: false,
-    //       logo: 'https://res.cloudinary.com/dbkthd6ck/image/upload/v1737309623/chainfren_logo_eey39b.png',
-    //     },
-    //     loginMethods: ['email', 'google'],
-    //     embeddedWallets: {
-    //       createOnLogin: 'all-users',
-    //     },
-    //   }}
-    // >
-    <PlayerWithChat src={src} title={streamName ?? 'Live Stream'} playbackId={playbackId} id={id} />
-  ) : (
-    <PlayerLoading>
-      <div className="absolute flex flex-col bg-black-secondary-text inset-0 justify-center items-center">
-        <span className="text-sm text-white">Video is not available.</span>
-        <span className="text-sm text-white">Please try refreshing the page in a few seconds.</span>
-      </div>
-    </PlayerLoading>
-  );
+  return <PlayerWithChat title={streamName ?? 'Live Stream'} playbackId={playbackId} id={idParam || ''} />;
 }

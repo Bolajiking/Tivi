@@ -37,6 +37,7 @@ export async function GET(
     }
 
     const displayName = creatorProfile.displayName || 'Creator Profile';
+    const creatorRouteId = creatorProfile.displayName || creatorId;
     const avatar = creatorProfile.avatar || '';
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
                     (request.headers.get('origin') || 'https://chainfrentv.com');
@@ -46,62 +47,62 @@ export async function GET(
       name: `${displayName} - ChainfrenTV`,
       short_name: displayName.length > 12 ? displayName.substring(0, 12) : displayName,
       description: `Follow ${displayName} on ChainfrenTV - Live Streaming on Ethereum`,
-      start_url: `/creator/${encodeURIComponent(creatorId)}`,
+      start_url: `/creator/${encodeURIComponent(creatorRouteId)}`,
       display: 'standalone',
       background_color: '#000000',
       theme_color: '#facc15',
       orientation: 'portrait-primary',
       icons: [
         {
-          src: `/api/icon/${encodeURIComponent(creatorId)}?size=72`,
+          src: `/api/icon/${encodeURIComponent(creatorRouteId)}?size=72`,
           sizes: '72x72',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: `/api/icon/${encodeURIComponent(creatorId)}?size=96`,
+          src: `/api/icon/${encodeURIComponent(creatorRouteId)}?size=96`,
           sizes: '96x96',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: `/api/icon/${encodeURIComponent(creatorId)}?size=128`,
+          src: `/api/icon/${encodeURIComponent(creatorRouteId)}?size=128`,
           sizes: '128x128',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: `/api/icon/${encodeURIComponent(creatorId)}?size=144`,
+          src: `/api/icon/${encodeURIComponent(creatorRouteId)}?size=144`,
           sizes: '144x144',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: `/api/icon/${encodeURIComponent(creatorId)}?size=152`,
+          src: `/api/icon/${encodeURIComponent(creatorRouteId)}?size=152`,
           sizes: '152x152',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: `/api/icon/${encodeURIComponent(creatorId)}?size=192`,
+          src: `/api/icon/${encodeURIComponent(creatorRouteId)}?size=192`,
           sizes: '192x192',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: `/api/icon/${encodeURIComponent(creatorId)}?size=384`,
+          src: `/api/icon/${encodeURIComponent(creatorRouteId)}?size=384`,
           sizes: '384x384',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: `/api/icon/${encodeURIComponent(creatorId)}?size=512`,
+          src: `/api/icon/${encodeURIComponent(creatorRouteId)}?size=512`,
           sizes: '512x512',
           type: 'image/png',
           purpose: 'any'
         },
         {
-          src: `/api/icon/${encodeURIComponent(creatorId)}?size=512`,
+          src: `/api/icon/${encodeURIComponent(creatorRouteId)}?size=512`,
           sizes: '512x512',
           type: 'image/png',
           purpose: 'maskable'
@@ -110,9 +111,14 @@ export async function GET(
       categories: ['entertainment', 'video', 'social'],
       screenshots: [],
       share_target: {
-        action: `/creator/${encodeURIComponent(creatorId)}`,
+        action: `/creator/${encodeURIComponent(creatorRouteId)}`,
         method: 'GET',
-        enctype: 'application/x-www-form-urlencoded'
+        enctype: 'application/x-www-form-urlencoded',
+        params: {
+          title: 'title',
+          text: 'text',
+          url: 'url',
+        },
       },
       scope: '/',
       display_override: ['standalone', 'fullscreen']
@@ -132,4 +138,3 @@ export async function GET(
     );
   }
 }
-

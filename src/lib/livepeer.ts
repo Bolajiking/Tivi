@@ -1,13 +1,19 @@
 import { Livepeer } from 'livepeer';
 import type { ClipPayload, NewStreamPayload } from 'livepeer/models/components';
 import { unstable_cache } from 'next/cache';
-import { cache } from 'react';
 
-const livepeer = new Livepeer({
-  apiKey: process.env.NEXT_PUBLIC_STUDIO_API_KEY ?? '',
-});
+const livepeerApiKey = process.env.LIVEPEER_API_KEY;
+const livepeer = livepeerApiKey
+  ? new Livepeer({
+      apiKey: livepeerApiKey,
+    })
+  : null;
 
-export const getPlaybackInfoUncached = cache(async (playbackId: string) => {
+export const getPlaybackInfoUncached = async (playbackId: string) => {
+  if (!livepeer) {
+    console.error('LIVEPEER_API_KEY is missing on server. Playback info lookup is unavailable.');
+    return null;
+  }
   try {
     const playbackInfo = await livepeer.playback.get(playbackId);
 
@@ -21,7 +27,7 @@ export const getPlaybackInfoUncached = cache(async (playbackId: string) => {
     console.error(e);
     return null;
   }
-});
+};
 
 export const getPlaybackInfo = unstable_cache(
   async (playbackId: string) => getPlaybackInfoUncached(playbackId),
@@ -32,6 +38,9 @@ export const getPlaybackInfo = unstable_cache(
 );
 
 export const createStreamClip = async (opts: ClipPayload) => {
+  if (!livepeer) {
+    throw new Error('LIVEPEER_API_KEY is missing on server.');
+  }
   const result = await livepeer.stream.createClip(opts);
   return result;
 };

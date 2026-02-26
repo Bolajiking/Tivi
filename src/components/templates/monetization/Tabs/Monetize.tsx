@@ -28,8 +28,8 @@ const Monetize = () => {
   return (
     <div>
       <div className=" max-sm:flex flex-col md:grid md:grid-cols-8   md:gap-x-5">
-        <div className="bg-white shadow-lg md:p-6 p-4 rounded-lg border border-[#DFE0E1] md:col-span-3 w-full">
-          <div className="bg-black flex flex-col text-white h-[170px] justify-around p-4 rounded-lg">
+        <div className="bg-white/5 shadow-lg md:p-6 p-4 rounded-xl border border-white/20 md:col-span-3 w-full">
+          <div className="bg-gradient-to-br from-black via-gray-900 to-black flex flex-col text-white h-[170px] justify-around p-4 rounded-lg border border-white/10">
             <div className="flex justify-between items-center pb-4 pt-2 px-3">
               <p className="text-xl font-normal">Wallet Balance</p>
               <button className="text-gray-400 text-sm">History</button>
@@ -55,7 +55,7 @@ const Monetize = () => {
                 placeholder="withdrawal Amount ETH"
                 value={withdrawalAmount}
                 onChange={(e) => setWithdrawalAmount(e.target.value)}
-                className="w-full p-2 mt-2 border-2 border-[#DFE0E1] rounded-md focus:outline-none"
+                className="w-full p-2 mt-2 border border-white/20 bg-white/10 rounded-md text-white placeholder-gray-400 focus:outline-none"
               />
 
               <label className="font-semibold mt-[10px] text-[#9EAAB6] flex gap-2 items-center">
@@ -66,7 +66,7 @@ const Monetize = () => {
                 placeholder="Wallet address"
                 value={withdrawalAddress}
                 onChange={(e) => setWithdrawalAddress(e.target.value)}
-                className="w-full p-2 mt-2 border-2 border-[#DFE0E1] rounded-md focus:outline-none"
+                className="w-full p-2 mt-2 border border-white/20 bg-white/10 rounded-md text-white placeholder-gray-400 focus:outline-none"
               />
 
               <SendTransaction sendTransaction={send} sendAddress={withdrawalAddress} amount={withdrawalAmount} />
@@ -86,7 +86,7 @@ const Monetize = () => {
                   <Image src={Tranzak} alt="Tranzak" layout="fill" objectFit="contain" />
                 </div>
               </div>
-              <div className="bg-[#E4E6E8] flex rounded-md gap-3 p-2 mt-[20px]">
+              <div className="bg-white/10 border border-white/20 flex rounded-md gap-3 p-2 mt-[20px] text-gray-200">
                 <AiOutlineExclamationCircle className="flex text-4xl text-[#5D7285]" />
                 <p className="text-sm">
                   Funds may be irrecoverable if you enter an incorrect wallet address. It is crucial to ensure the
@@ -99,9 +99,9 @@ const Monetize = () => {
         <div className="w-full mt-4 md:mt-0 md:col-span-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {dummyData.map(({ id, name, balance }) => (
-              <div key={id} className="border border-[#DFE0E1] rounded-lg p-4">
-                <h3 className="font-bold text-xl text-[#0E0E0F] pb-3">{name}</h3>
-                <p className="text-2xl font-bold text-[#0E0E0F]">{balance}</p>
+              <div key={id} className="border border-white/20 bg-white/5 rounded-xl p-4">
+                <h3 className="font-bold text-xl text-white pb-3">{name}</h3>
+                <p className="text-2xl font-bold text-white">{balance}</p>
               </div>
             ))}
           </div>

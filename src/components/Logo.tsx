@@ -14,7 +14,7 @@ export default function Logo({ className = '', href = '/', size = 'md' }: LogoPr
   const isHome = pathname === '/';
 
   const sizeClasses = {
-    sm: 'h-6',
+    sm: 'h-5',
     md: 'h-8',
     lg: 'h-10',
   };
@@ -26,6 +26,7 @@ export default function Logo({ className = '', href = '/', size = 'md' }: LogoPr
         alt="TVinBio"
         width={140}
         height={40}
+        style={{ width: 'auto', height: 'auto' }}
         className={`${sizeClasses[size]} w-auto`}
       />
     </div>

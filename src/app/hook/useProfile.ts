@@ -11,12 +11,12 @@ import { fetchProfile } from '@/features/profileAPI';
 export function useProfile() {
   const { user } = usePrivy();
   const dispatch = useDispatch<AppDispatch>();
-  const solanaWalletAddress = useSelector((state: RootState) => state.user.solanaWalletAddress);
+  const walletAddress = useSelector((state: RootState) => state.user.walletAddress);
   const { profile, loading, error, lastFetchedAddress } = useSelector((state: RootState) => state.profile);
 
   const creatorAddress = useMemo(
-    () => (user?.wallet?.chainType === 'solana' ? user.wallet.address : solanaWalletAddress),
-    [user?.wallet?.address, solanaWalletAddress]
+    () => (user?.wallet?.chainType === 'solana' ? user.wallet.address : walletAddress),
+    [user?.wallet?.address, walletAddress]
   );
 
   // Automatically fetch profile if not already loaded for this address
@@ -37,4 +37,3 @@ export function useProfile() {
     creatorAddress,
   };
 }
-

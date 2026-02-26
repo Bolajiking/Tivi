@@ -41,12 +41,12 @@ export function StreamGateModal({ open, onClose, title = 'This is a gated stream
         {/* dimmed backdrop - allow clicks through for wallet modal */}
         <Dialog.Overlay 
           ref={overlayRef}
-          className="fixed inset-0 bg-black/20 backdrop-blur-md z-40"
+          className="fixed inset-0 bg-black/70 backdrop-blur-md z-40"
         />
 
         {/* center‑screen container */}
-        <Dialog.Content 
-          className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none"
+        <Dialog.Content
+          className="fixed left-1/2 top-1/2 w-[92vw] max-w-2xl -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none"
           onPointerDownOutside={(e) => {
             // Don't close if clicking wallet modal
             const target = e.target as HTMLElement;
@@ -55,9 +55,12 @@ export function StreamGateModal({ open, onClose, title = 'This is a gated stream
             }
           }}
         >
-          <div className="bg-white w-full max-w-[70vw] max-h-[80vh] rounded-lg shadow-xl flex flex-col overflow-hidden relative pointer-events-auto">
+          <div className="w-full max-h-[84vh] rounded-xl border border-white/20 bg-gradient-to-br from-gray-900 via-black to-gray-900 shadow-2xl flex flex-col overflow-hidden relative pointer-events-auto">
+            <div className="border-b border-white/10 px-5 py-3">
+              <Dialog.Title className="text-sm font-semibold tracking-wide text-white">{title}</Dialog.Title>
+            </div>
             {/* scrollable body */}
-            <div className="flex-1 w-[70vw] overflow-y-auto px-6 py-4 bg-white">{children}</div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

@@ -16,7 +16,10 @@ export async function GET(
 ) {
   try {
     const creatorId = decodeURIComponent(params.creatorId);
-    const size = parseInt(request.nextUrl.searchParams.get('size') || '192');
+    const requestedSize = parseInt(request.nextUrl.searchParams.get('size') || '192', 10);
+    const size = Number.isFinite(requestedSize)
+      ? Math.max(64, Math.min(requestedSize, 1024))
+      : 192;
     const format = request.nextUrl.searchParams.get('format') || 'png';
     
     if (!creatorId) {
@@ -79,7 +82,10 @@ export async function GET(
     // Fallback to SVG if Sharp fails
     try {
       const creatorId = decodeURIComponent(params.creatorId);
-      const size = parseInt(request.nextUrl.searchParams.get('size') || '192');
+      const requestedSize = parseInt(request.nextUrl.searchParams.get('size') || '192', 10);
+      const size = Number.isFinite(requestedSize)
+        ? Math.max(64, Math.min(requestedSize, 1024))
+        : 192;
       let creatorProfile = await getUserProfileByUsername(creatorId);
       if (!creatorProfile) {
         creatorProfile = await getUserProfile(creatorId);
@@ -110,10 +116,26 @@ function generateIconSVG(name: string, avatarUrl: string, size: number): string 
     .map(word => word[0])
     .join('')
     .toUpperCase()
-    .substring(0, 2);
+    .replace(/[^A-Z0-9]/g, '')
+    .substring(0, 2) || 'TV';
+
+  const sanitizeAvatarUrl = (value: string): string => {
+    const candidate = String(value || '').trim();
+    if (!candidate) return '';
+    try {
+      const parsed = new URL(candidate);
+      if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+        return '';
+      }
+      return parsed.toString();
+    } catch {
+      return '';
+    }
+  };
   
   // Escape the avatar URL for use in SVG
-  const escapedAvatarUrl = avatarUrl ? avatarUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
+  const safeAvatarUrl = sanitizeAvatarUrl(avatarUrl);
+  const escapedAvatarUrl = safeAvatarUrl ? safeAvatarUrl.replace(/&/g, '&amp;').replace(/"/g, '&quot;') : '';
   
   // If avatar exists, use it as background, otherwise use gradient
   const background = escapedAvatarUrl 
@@ -123,7 +145,7 @@ function generateIconSVG(name: string, avatarUrl: string, size: number): string 
          </clipPath>
        </defs>
        <rect width="${size}" height="${size}" fill="url(#grad)" rx="${size * 0.2}"/>
-       <image href="${escapedAvatarUrl}" x="0" y="0" width="${size}" height="${size}" preserveAspectRatio="xMidYMid slice" clip-path="url(#circle)" onerror="this.style.display='none'"/>
+       <image href="${escapedAvatarUrl}" x="0" y="0" width="${size}" height="${size}" preserveAspectRatio="xMidYMid slice" clip-path="url(#circle)"/>
        <circle cx="${size/2}" cy="${size/2}" r="${size/2}" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="2"/>`
     : `<defs>
          <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -142,4 +164,3 @@ function generateIconSVG(name: string, avatarUrl: string, size: number): string 
   ${escapedAvatarUrl ? `<g opacity="0.9">${initialsText}</g>` : initialsText}
 </svg>`;
 }
-

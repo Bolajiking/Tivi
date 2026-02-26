@@ -15,6 +15,8 @@ import { useViewerMetrics } from '@/app/hook/useViewerMetrics';
 import { usePlaybackMetrics } from '@/app/hook/usePlaybackView';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
+import { getSubscribers } from '@/lib/supabase-service';
+import type { SupabaseUser } from '@/lib/supabase-types';
 
 // Analytics Card Component
 const AnalyticCard = ({
@@ -146,10 +148,13 @@ const Settings: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'analytics'>('settings');
+  const [showSubscribers, setShowSubscribers] = useState(false);
   const { user, authenticated, ready } = usePrivy();
   const dispatch = useDispatch<AppDispatch>();
   const { streams } = useSelector((state: RootState) => state.streams);
   const { assets } = useSelector((state: RootState) => state.assets);
+  const [subscribers, setSubscribers] = useState<SupabaseUser[]>([]);
+  const [subscribersLoading, setSubscribersLoading] = useState(false);
 
   // Get current user's wallet address (creatorId)
   const creatorId = useMemo(() => {
@@ -174,13 +179,35 @@ const Settings: React.FC = () => {
   ].filter(Boolean);
 
   // Fetch aggregated metrics
-  const { viewMetrics, loading: metricsLoading } = useViewerMetrics(allPlaybackIds);
+  const { viewMetrics, loading: metricsLoading } = useViewerMetrics({ filter: 'all' });
 
   // Fetch streams and assets on mount
   useEffect(() => {
     dispatch(getAllStreams());
     dispatch(getAssets());
   }, [dispatch]);
+
+  useEffect(() => {
+    const fetchSubscribers = async () => {
+      if (!creatorId) {
+        setSubscribers([]);
+        return;
+      }
+
+      try {
+        setSubscribersLoading(true);
+        const data = await getSubscribers(creatorId);
+        setSubscribers(data);
+      } catch (error) {
+        console.error('Failed to load subscribers:', error);
+        setSubscribers([]);
+      } finally {
+        setSubscribersLoading(false);
+      }
+    };
+
+    fetchSubscribers();
+  }, [creatorId]);
 
   // Summary data for analytics
   const insightsData = [
@@ -256,6 +283,51 @@ const Settings: React.FC = () => {
                   {insightsData.map((item) => (
                     <AnalyticCard key={item.title} title={item.title} value={item.value} />
                   ))}
+                </div>
+
+                {/* Subscribers List */}
+                <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-white font-semibold text-lg">Subscribers ({subscribers.length})</h3>
+                      <p className="text-gray-400 text-sm mt-1">Users currently subscribed to your channel.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowSubscribers((prev) => !prev)}
+                      className="rounded-md bg-gradient-to-r from-yellow-500 to-teal-500 px-4 py-2 text-sm font-semibold text-black hover:opacity-90 transition-opacity"
+                    >
+                      {showSubscribers ? 'Hide Subscribers' : 'View Subscribers'}
+                    </button>
+                  </div>
+
+                  {showSubscribers && (
+                    subscribersLoading ? (
+                      <div className="space-y-2 mt-4">
+                        {[1, 2, 3].map((i) => (
+                          <Skeleton key={i} className="h-10 w-full bg-white/20" />
+                        ))}
+                      </div>
+                    ) : subscribers.length === 0 ? (
+                      <p className="text-gray-400 text-sm mt-4">No subscribers yet.</p>
+                    ) : (
+                      <div className="mt-4 max-h-64 overflow-y-auto space-y-2">
+                        {subscribers.map((subscriber) => (
+                          <div
+                            key={subscriber.creatorId}
+                            className="flex items-center justify-between rounded-md border border-white/10 bg-white/5 px-3 py-2"
+                          >
+                            <div>
+                              <p className="text-white text-sm font-medium">
+                                {subscriber.displayName || 'Unnamed subscriber'}
+                              </p>
+                              <p className="text-gray-400 text-xs">{subscriber.creatorId}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  )}
                 </div>
 
                 {/* Stream Metrics */}

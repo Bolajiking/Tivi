@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 
 interface ChannelContextType {
   selectedChannelId: string | null;
@@ -8,12 +8,29 @@ interface ChannelContextType {
 }
 
 const ChannelContext = createContext<ChannelContextType | undefined>(undefined);
+const CHANNEL_STORAGE_KEY = 'selectedChannelId';
 
 export const ChannelProvider = ({ children }: { children: ReactNode }) => {
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
 
+  useEffect(() => {
+    const savedChannelId = localStorage.getItem(CHANNEL_STORAGE_KEY);
+    if (savedChannelId) {
+      setSelectedChannelId(savedChannelId);
+    }
+  }, []);
+
+  const handleSetSelectedChannelId = (channelId: string | null) => {
+    setSelectedChannelId(channelId);
+    if (channelId) {
+      localStorage.setItem(CHANNEL_STORAGE_KEY, channelId);
+    } else {
+      localStorage.removeItem(CHANNEL_STORAGE_KEY);
+    }
+  };
+
   return (
-    <ChannelContext.Provider value={{ selectedChannelId, setSelectedChannelId }}>
+    <ChannelContext.Provider value={{ selectedChannelId, setSelectedChannelId: handleSetSelectedChannelId }}>
       {children}
     </ChannelContext.Provider>
   );
@@ -33,4 +50,3 @@ export const useChannel = () => {
   }
   return context;
 };
-

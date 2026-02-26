@@ -130,7 +130,8 @@ export default function StreamsShowcase({ streams, loading }: StreamsShowcasePro
       ) : filteredCreatorsWithChannels && filteredCreatorsWithChannels.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredCreatorsWithChannels.map(({ creator, channel }) => {
-            const profileIdentifier = creator.displayName || creator.creatorId;
+            const profileIdentifier = creator.displayName?.trim();
+            if (!profileIdentifier) return null;
             // Use channel logo if available, otherwise fallback to creator avatar
             const displayLogo = channel.logo || creator.avatar;
             // Use channel title/streamName if available

@@ -15,7 +15,7 @@ import type { Src } from '@livepeer/react';
 const VideoWithControl = ({ src }: { src: Src[] }) => {
   return (
     <div>
-      <Player.Root autoPlay src={src}>
+      <Player.Root autoPlay src={src} timeout={20000}>
         <Player.Container className="relative h-full w-full overflow-hidden rounded-md bg-gray-950 outline outline-1 outline-white/50 data-[playing=true]:outline-white/80 data-[playing=true]:outline-2 data-[fullscreen=true]:outline-none data-[fullscreen=true]:rounded-none transition-all">
           <Player.Video title="ads" className="h-full w-full object-fit capitalize" />
 

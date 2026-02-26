@@ -1,6 +1,6 @@
 'use client';
-import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import React, { useEffect, useMemo } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'sonner';
 import { getAssets } from '@/features/assetsAPI';
@@ -10,38 +10,29 @@ import { StreamVideoCard, VideoStreamCard } from '@/components/Card/Card'; // Yo
 import type { Asset, Stream } from '@/interfaces';
 import { VideoPlayer } from '@/components/templates/dashboard/VideoPlayer';
 import { usePrivy } from '@privy-io/react-auth';
-import { Bars, ColorRing } from 'react-loader-spinner';
-import { getAllStreams, getStreamById } from '@/features/streamAPI';
+import { Bars } from 'react-loader-spinner';
+import { getAllStreams } from '@/features/streamAPI';
 import { useGetAssetGate } from '@/app/hook/useAssetGate';
-import { StreamGateModal } from '@/components/templates/player/player/StreamGateModal';
-// import { StreamPayment } from '@/components/templates/player/player/StreamPayment';
-import Image from 'next/image';
+import { VideoPaymentGate } from '@/components/VideoPaymentGate';
+import { useSendTransaction } from '@privy-io/react-auth';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
+import { BASE_CHAIN_NAME, USDC_SYMBOL, sendBaseUsdcPayment } from '@/lib/base-usdc-payment';
+import { addNotificationToVideo } from '@/lib/supabase-service';
+import type { Notification } from '@/lib/supabase-types';
 
 const PlayerPage = () => {
   const { user } = usePrivy();
   const params = useParams();
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const streamId = searchParams.get('id');
   const dispatch = useDispatch<AppDispatch>();
   const playbackId = params?.playbackId as string;
   const { assets, error } = useSelector((state: RootState) => state.assets);
   const { streams } = useSelector((state: RootState) => state.streams);
-  const solanaWalletAddress = useSelector((state: RootState) => state.user.solanaWalletAddress);
-  const {
-    video: details,
-    loading: detailsLoading,
-    error: detailsError,
-    hasAccess,
-    setHasAccess,
-    markPaid,
-  } = useGetAssetGate(playbackId);
-  // console.log(details, detailsLoading, detailsError, hasAccess, setHasAccess, markPaid);
-  // State for products
-  const [products, setProducts] = useState<any[]>([]);
-  const [productsLoading, setProductsLoading] = useState<boolean>(false);
-  const [productsError, setProductsError] = useState<string | null>(null);
-
+  const reduxWalletAddress = useSelector((state: RootState) => state.user.walletAddress);
+  const { video: details, loading: detailsLoading, error: detailsError } = useGetAssetGate(playbackId);
+  const { sendTransaction } = useSendTransaction();
+  const { walletAddress: payerWalletAddress } = useWalletAddress();
+  const [donatingAmount, setDonatingAmount] = React.useState<number | null>(null);
   // Fetch assets for video details
   useEffect(() => {
     // console.log("user",user)
@@ -50,13 +41,6 @@ const PlayerPage = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    if (streamId) {
-      dispatch(getStreamById(streamId));
-    }
-  }, [streamId, dispatch]);
-  // console.log('streamj', stream);
-  console.log("user",user)
-  useEffect(() => {
     if (error) {
       toast.error('Failed to fetch assets: ' + error);
     }
@@ -64,7 +48,57 @@ const PlayerPage = () => {
 
   const creatorId = user?.wallet?.chainType === 'solana' && user?.wallet?.address
     ? user.wallet.address
-    : solanaWalletAddress;
+    : reduxWalletAddress;
+
+  const handleDonate = async (amount: number) => {
+    if (!payerWalletAddress) {
+      toast.error('Connect a wallet to donate.');
+      return;
+    }
+
+    if (!details?.creatorId) {
+      toast.error('Creator wallet not found for this video.');
+      return;
+    }
+
+    if (!amount || amount <= 0) {
+      toast.error('Invalid donation amount.');
+      return;
+    }
+
+    setDonatingAmount(amount);
+    try {
+      const txHash = await sendBaseUsdcPayment({
+        sendTransaction: sendTransaction as any,
+        payerAddress: payerWalletAddress,
+        recipientAddress: details.creatorId,
+        amountUsd: amount,
+      });
+
+      const notification: Notification = {
+        type: 'donation',
+        title: 'New Donation Received',
+        message: `${payerWalletAddress.slice(0, 6)}...${payerWalletAddress.slice(-4)} donated $${amount.toFixed(2)} ${USDC_SYMBOL} on ${BASE_CHAIN_NAME}`,
+        walletAddress: payerWalletAddress,
+        txHash,
+        amount,
+        createdAt: new Date().toISOString(),
+        read: false,
+      };
+
+      try {
+        await addNotificationToVideo(playbackId, notification);
+      } catch (error) {
+        console.error('Donation notification save failed:', error);
+      }
+
+      toast.success(`Donated $${amount.toFixed(2)} ${USDC_SYMBOL} successfully.`);
+    } catch (error: any) {
+      toast.error(error?.message || 'Donation failed. Please try again.');
+    } finally {
+      setDonatingAmount(null);
+    }
+  };
   // Find the main asset (video) that matches the playbackId from the URL
   const mainAsset = useMemo(() => assets.find((asset) => asset.playbackId === playbackId), [assets, playbackId]);
 
@@ -73,13 +107,20 @@ const PlayerPage = () => {
     return assets.filter((asset: Asset) => !!asset.playbackId && asset.creatorId?.value === mainAsset.creatorId?.value);
   }, [assets, mainAsset]);
 
+  const pageCreatorId = useMemo(() => {
+    return mainAsset?.creatorId?.value || details?.creatorId || creatorId || '';
+  }, [mainAsset, details?.creatorId, creatorId]);
+
   const filteredStreams = useMemo(() => {
-    return streams.filter((stream: Stream) => !!stream.playbackId && stream.creatorId?.value === creatorId);
-  }, [streams, creatorId]);
+    return streams.filter((stream: Stream) => !!stream.playbackId && stream.creatorId?.value === pageCreatorId);
+  }, [streams, pageCreatorId]);
 
   // When a video in the list is clicked, navigate to that video.
   const handleSelectVideo = (pbId: string) => {
-    router.push(`/player/${pbId}`);
+    const selectedAsset = assets.find((asset) => asset.playbackId === pbId);
+    const selectedCreatorId = selectedAsset?.creatorId?.value || pageCreatorId;
+    const query = selectedCreatorId ? `?id=${encodeURIComponent(selectedCreatorId)}` : '';
+    router.push(`/player/${pbId}${query}`);
   };
 
   // Fetch products based on the creator's ID (from the main asset)
@@ -183,28 +224,37 @@ const PlayerPage = () => {
           {/* Main Player Area */}
           <main className="col-span-12 lg:col-span-6 flex flex-col space-y-4">
             {/* Video Player Component */}
-            <VideoPlayer playbackId={playbackId} />
-            <h2 className="mt-4 text-xl font-semibold">{details?.assetName}</h2>
+            <VideoPaymentGate
+              playbackId={playbackId}
+              creatorId={pageCreatorId}
+              enforceAccess
+            >
+              <div>
+                <VideoPlayer playbackId={playbackId} />
+                <h2 className="mt-4 text-xl font-semibold">{details?.assetName}</h2>
 
-            <div className="mt-3">
-              <h3 className="font-medium mb-2">Donate</h3>
-              <div className="flex space-x-4">
-                {details?.donation?.map((amt, i) => {
-                  const colors = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-yellow-500'];
-                  return (
-                    <button
-                      key={i}
-                      className={`${colors[i] || 'bg-main-blue'} text-white px-4 py-2 rounded-md
-                         hover:opacity-90 transition-transform transform hover:scale-110 animate-bounce`}
-                      style={{ animationDelay: `${i * 0.2}s` }}
-                      onClick={() => alert(`You donated $${amt}!`)}
-                    >
-                      ${amt}
-                    </button>
-                  );
-                })}
+                <div className="mt-3">
+                  <h3 className="font-medium mb-2">Donate</h3>
+                  <div className="flex space-x-4">
+                    {details?.donation?.map((amt, i) => {
+                      const colors = ['bg-green-500', 'bg-blue-500', 'bg-purple-500', 'bg-yellow-500'];
+                      return (
+                        <button
+                          key={i}
+                          disabled={donatingAmount === amt}
+                          className={`${colors[i] || 'bg-main-blue'} text-white px-4 py-2 rounded-md
+                             hover:opacity-90 transition-transform transform hover:scale-110 animate-bounce disabled:opacity-60 disabled:cursor-not-allowed`}
+                          style={{ animationDelay: `${i * 0.2}s` }}
+                          onClick={() => handleDonate(amt)}
+                        >
+                          {donatingAmount === amt ? 'Processing...' : `$${amt}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
+            </VideoPaymentGate>
             {/* Product Section */}
             {/* <div className="p-4 border rounded-md">
               <h3 className="text-lg font-semibold mb-2">Products</h3>

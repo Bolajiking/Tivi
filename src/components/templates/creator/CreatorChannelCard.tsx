@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import Image, { StaticImageData } from 'next/image';
 import { FaTwitter, FaInstagram, FaYoutube } from 'react-icons/fa';
 import { HiUsers, HiGlobeAlt, HiDotsVertical } from 'react-icons/hi';
+import { Copy } from 'lucide-react';
 import { getSubscriberCount } from '@/lib/supabase-service';
 import { toast } from 'sonner';
 
@@ -20,6 +21,10 @@ interface CreatorChannelCardProps {
   defaultImage: StaticImageData;
   isActive?: boolean;
   creatorId?: string;
+  creatorRouteId?: string;
+  compact?: boolean;
+  chatCompact?: boolean;
+  actionSlot?: React.ReactNode;
   showOptionsMenu?: boolean; // Show three-dot menu for viewers
 }
 
@@ -31,6 +36,10 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
   defaultImage,
   isActive = false,
   creatorId,
+  creatorRouteId,
+  compact = false,
+  chatCompact = false,
+  actionSlot,
   showOptionsMenu = false,
 }) => {
   const [subscriberCount, setSubscriberCount] = useState<number>(0);
@@ -88,7 +97,11 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
   const handleShare = async () => {
     setMenuOpen(false);
     setShowMobileSheet(false);
-    const channelUrl = creatorId ? `${window.location.origin}/creator/${creatorId}` : window.location.href;
+    if (!creatorRouteId) {
+      toast.error('Creator username unavailable for sharing.');
+      return;
+    }
+    const channelUrl = `${window.location.origin}/creator/${encodeURIComponent(creatorRouteId)}`;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -138,6 +151,10 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
   const useRegularImg = typeof imageSrc === 'string' && isLivepeerCDN(imageSrc);
 
   const hasSocialLinks = Object.values(socialLinks).some((link) => link && link.trim() !== '');
+  const isCompact = compact || chatCompact;
+  const creatorProfileUrl = creatorRouteId && typeof window !== 'undefined'
+    ? `${window.location.origin}/creator/${encodeURIComponent(creatorRouteId)}`
+    : '';
 
   // Format subscriber count
   const formatCount = (count: number): string => {
@@ -147,6 +164,19 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
       return (count / 1000).toFixed(1) + 'K';
     }
     return count.toString();
+  };
+
+  const handleCopyCreatorUrl = async () => {
+    if (!creatorProfileUrl) {
+      toast.error('Creator URL unavailable');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(creatorProfileUrl);
+      toast.success('Creator profile URL copied');
+    } catch (error) {
+      toast.error('Failed to copy creator URL');
+    }
   };
 
   return (
@@ -202,14 +232,30 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
         )}
 
         {/* Content */}
-        <div className="relative z-10 p-4 md:p-6">
+        <div
+          className={
+            chatCompact
+              ? 'relative z-10 p-2.5 md:p-3'
+              : compact
+              ? 'relative z-10 p-3 md:p-4'
+              : 'relative z-10 p-4 md:p-6'
+          }
+        >
           {/* Mobile Layout */}
           <div className="flex flex-col md:hidden">
             {/* Top Row: Avatar + Info */}
-            <div className="flex items-start gap-4 mb-4">
+            <div className={isCompact ? 'flex items-start gap-3 mb-2' : 'flex items-start gap-4 mb-4'}>
               {/* Avatar */}
               <div className="relative flex-shrink-0">
-                <div className="w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10">
+                <div
+                  className={
+                    chatCompact
+                      ? 'w-12 h-12 rounded-xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10'
+                      : compact
+                      ? 'w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10'
+                      : 'w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10'
+                  }
+                >
                   {useRegularImg ? (
                     <img
                       src={imageSrc as string}
@@ -237,25 +283,49 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
 
               {/* Title + Stats */}
               <div className="flex-1 min-w-0">
-                <h2 className="text-white font-bold text-lg leading-tight mb-2 truncate">{title}</h2>
+                <h2
+                  className={
+                    chatCompact
+                      ? 'text-white font-bold text-sm leading-tight mb-1 truncate'
+                      : compact
+                      ? 'text-white font-bold text-base leading-tight mb-2 truncate'
+                      : 'text-white font-bold text-lg leading-tight mb-2 truncate'
+                  }
+                >
+                  {title}
+                </h2>
 
                 {/* Subscriber Count */}
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-full border border-white/10">
+                <div className={chatCompact ? 'flex items-center gap-2 mb-1' : 'flex items-center gap-2 mb-3'}>
+                  <div
+                    className={
+                      chatCompact
+                        ? 'flex items-center gap-1 px-2 py-1 bg-white/5 rounded-full border border-white/10'
+                        : 'flex items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-full border border-white/10'
+                    }
+                  >
                     <HiUsers className="w-4 h-4 text-yellow-400" />
-                    <span className="text-white text-sm font-medium">
+                    <span
+                      className={
+                        chatCompact
+                          ? 'text-white text-[11px] font-medium'
+                          : compact
+                          ? 'text-white text-xs font-medium'
+                          : 'text-white text-sm font-medium'
+                      }
+                    >
                       {loadingCount ? (
                         <span className="inline-block w-8 h-4 bg-white/10 rounded animate-pulse" />
                       ) : (
                         formatCount(subscriberCount)
                       )}
                     </span>
-                    <span className="text-gray-400 text-xs">subscribers</span>
+                    <span className={compact ? 'text-gray-400 text-[11px]' : 'text-gray-400 text-xs'}>subscribers</span>
                   </div>
                 </div>
 
                 {/* Social Links - Horizontal on mobile */}
-                {hasSocialLinks && (
+                {!chatCompact && hasSocialLinks && (
                   <div className="flex items-center gap-2 flex-wrap">
                     {socialLinks.twitter && (
                       <a
@@ -307,18 +377,62 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
             </div>
 
             {/* Bio Section - Full width on mobile */}
-            {bio && (
+            {bio && !chatCompact && (
               <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/5">
                 <p className="text-gray-300 text-sm leading-relaxed line-clamp-3">{bio}</p>
               </div>
             )}
+
+            {/* One-click Share URL */}
+            {creatorProfileUrl ? (
+              <div className={chatCompact ? 'mt-1.5 flex items-center gap-1.5' : 'mt-2 flex items-center gap-2'}>
+                <div
+                  className={
+                    chatCompact
+                      ? 'inline-flex w-fit max-w-[210px] items-center gap-1 rounded-full border border-white/15 bg-black/35 px-1.5 py-0.5 shadow-[0_8px_22px_rgba(0,0,0,0.3)]'
+                      : 'inline-flex w-fit max-w-[230px] items-center gap-1.5 rounded-full border border-white/15 bg-black/35 px-2 py-1 shadow-[0_8px_22px_rgba(0,0,0,0.3)]'
+                  }
+                >
+                  <span className="text-[9px] uppercase tracking-[0.16em] text-gray-400">
+                    {chatCompact ? 'URL' : 'Share'}
+                  </span>
+                  <p className={chatCompact ? 'max-w-[120px] truncate text-[9px] text-gray-200' : 'max-w-[140px] truncate text-[10px] text-gray-200'}>
+                    {creatorProfileUrl}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleCopyCreatorUrl}
+                    className={
+                      chatCompact
+                        ? 'inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-0.5 text-white hover:bg-white/20 transition-colors'
+                        : 'inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-1 text-white hover:bg-white/20 transition-colors'
+                    }
+                    aria-label="Copy creator profile URL"
+                    title="Copy URL"
+                  >
+                    <Copy className={chatCompact ? 'w-2.5 h-2.5' : 'w-3 h-3'} />
+                  </button>
+                </div>
+                {actionSlot ? <div className="shrink-0">{actionSlot}</div> : null}
+              </div>
+            ) : actionSlot ? (
+              <div className="mt-2">{actionSlot}</div>
+            ) : null}
           </div>
 
           {/* Desktop Layout */}
-          <div className="hidden md:flex items-center gap-6">
-            {/* Left: Avatar */}
-            <div className="relative flex-shrink-0">
-              <div className="w-28 h-28 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-4 ring-offset-gray-900 shadow-xl shadow-yellow-500/10">
+            <div className={isCompact ? 'hidden md:flex items-center gap-3' : 'hidden md:flex items-center gap-6'}>
+              {/* Left: Avatar */}
+              <div className="relative flex-shrink-0">
+                <div
+                  className={
+                    chatCompact
+                      ? 'w-16 h-16 rounded-xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-xl shadow-yellow-500/10'
+                      : compact
+                      ? 'w-24 h-24 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-3 ring-offset-gray-900 shadow-xl shadow-yellow-500/10'
+                      : 'w-28 h-28 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-4 ring-offset-gray-900 shadow-xl shadow-yellow-500/10'
+                  }
+                >
                 {useRegularImg ? (
                   <img
                     src={imageSrc as string}
@@ -344,14 +458,14 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
               )}
             </div>
 
-            {/* Center: Title, Stats, and Bio */}
-            <div className="flex-1 min-w-0">
-              {/* Title Row */}
-              <div className="flex items-center gap-4 mb-3">
-                <h2 className="text-white font-bold text-2xl truncate">{title}</h2>
+              {/* Center: Title, Stats, and Bio */}
+              <div className="flex-1 min-w-0">
+                {/* Title Row */}
+                <div className={chatCompact ? 'flex items-center gap-2 mb-1.5' : compact ? 'flex items-center gap-3 mb-2.5' : 'flex items-center gap-4 mb-3'}>
+                <h2 className={chatCompact ? 'text-white font-bold text-base truncate' : compact ? 'text-white font-bold text-xl truncate' : 'text-white font-bold text-2xl truncate'}>{title}</h2>
 
                 {/* Subscriber Count Badge */}
-                <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500/10 to-teal-500/10 rounded-full border border-yellow-500/20">
+                <div className={chatCompact ? 'flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-yellow-500/10 to-teal-500/10 rounded-full border border-yellow-500/20' : compact ? 'flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-yellow-500/10 to-teal-500/10 rounded-full border border-yellow-500/20' : 'flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500/10 to-teal-500/10 rounded-full border border-yellow-500/20'}>
                   <HiUsers className="w-5 h-5 text-yellow-400" />
                   <span className="text-white font-semibold">
                     {loadingCount ? (
@@ -360,19 +474,51 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                       formatCount(subscriberCount)
                     )}
                   </span>
-                  <span className="text-gray-400 text-sm">subscribers</span>
+                  <span className={chatCompact ? 'text-gray-400 text-[11px]' : compact ? 'text-gray-400 text-xs' : 'text-gray-400 text-sm'}>subscribers</span>
                 </div>
               </div>
 
               {/* Bio */}
-              {bio && (
+              {bio && !chatCompact && (
                 <div className="mb-4">
                   <p className="text-gray-300 text-sm leading-relaxed line-clamp-2">{bio}</p>
                 </div>
               )}
 
+              {/* One-click Share URL */}
+              {creatorProfileUrl ? (
+                <div className={chatCompact ? 'mb-1.5 flex items-center gap-2' : 'mb-3 flex items-center gap-2'}>
+                  <div
+                    className={
+                      chatCompact
+                        ? 'inline-flex w-fit max-w-[360px] items-center gap-1.5 rounded-full border border-white/15 bg-black/35 px-2 py-1 shadow-[0_10px_28px_rgba(0,0,0,0.28)]'
+                        : 'inline-flex w-fit max-w-[460px] items-center gap-2 rounded-full border border-white/15 bg-black/35 px-2.5 py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.28)]'
+                    }
+                  >
+                    <span className="text-[9px] uppercase tracking-[0.16em] text-gray-400">
+                      {chatCompact ? 'URL' : 'Share'}
+                    </span>
+                    <p className={chatCompact ? 'max-w-[250px] truncate text-[10px] text-gray-200' : 'max-w-[320px] truncate text-[11px] text-gray-200'}>
+                      {creatorProfileUrl}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleCopyCreatorUrl}
+                      className={chatCompact ? 'inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-1 text-white hover:bg-white/20 transition-colors' : 'inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-1.5 text-white hover:bg-white/20 transition-colors'}
+                      aria-label="Copy creator profile URL"
+                      title="Copy URL"
+                    >
+                      <Copy className={chatCompact ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
+                    </button>
+                  </div>
+                  {actionSlot ? <div className="shrink-0">{actionSlot}</div> : null}
+                </div>
+              ) : actionSlot ? (
+                <div className="mb-3">{actionSlot}</div>
+              ) : null}
+
               {/* Social Links Row */}
-              {hasSocialLinks && (
+              {!chatCompact && hasSocialLinks && (
                 <div className="flex items-center gap-2">
                   <span className="text-gray-500 text-xs uppercase tracking-wider mr-2">Connect</span>
                   {socialLinks.twitter && (
@@ -427,7 +573,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
               )}
 
               {/* No social links message */}
-              {!hasSocialLinks && (
+              {!chatCompact && !hasSocialLinks && (
                 <div className="flex items-center gap-2 text-gray-500 text-sm">
                   <HiGlobeAlt className="w-4 h-4" />
                   <span>No social links available</span>

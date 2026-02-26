@@ -1,52 +1,55 @@
-// // import { ethers } from 'ethers';
-// import { useRouter } from 'next/navigation';
-// import React from 'react';
-// import { toast } from 'sonner';
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { isAddress, parseEther, toHex } from 'viem';
+import { toast } from 'sonner';
 
-// type Props = {
-//   sendTransaction: any;
-//   amount: string;
-//   sendAddress: string;
-// };
+type SendTransactionFn = (tx: { to: `0x${string}`; value: `0x${string}` }, options?: { address?: string }) => Promise<any>;
 
-// function SendTransaction({ sendTransaction, amount, sendAddress }: Props) {
-//   const router = useRouter();
-//   const sendTx = async () => {
-//     try {
-//       if (!sendAddress) return;
-//       const etherAmount = amount || '';
-//       const weiValue = ethers.utils.parseEther(etherAmount);
-//       const hexWeiValue = ethers.utils.hexlify(weiValue);
+type Props = {
+  sendTransaction: SendTransactionFn;
+  amount: string;
+  sendAddress: string;
+};
 
-//       const unsignedTx = {
-//         to: sendAddress,
-//         chainId: 11155111,
-//         value: hexWeiValue,
-//       };
+function SendTransaction({ sendTransaction, amount, sendAddress }: Props) {
+  const router = useRouter();
 
-//       const txUiConfig = {
-//         header: 'Send Transaction',
-//         description: `Send ${amount} ETH to ${sendAddress}`,
-//         buttonText: 'Send',
-//       };
+  const sendTx = async () => {
+    try {
+      if (!amount || Number(amount) <= 0) {
+        toast.error('Enter a valid amount.');
+        return;
+      }
 
-//       await sendTransaction(unsignedTx, txUiConfig);
-//       toast.success('Transaction sent successfully!');
-//       router.push('/dashboard/monetization');
-//     } catch (error: any) {
-//       toast.error('Transaction failed: ' + error.message);
-//     }
-//   };
+      if (!isAddress(sendAddress)) {
+        toast.error('Enter a valid wallet address.');
+        return;
+      }
 
-//   return (
-//     <button
-//       onClick={sendTx}
-//       disabled={!sendAddress}
-//       className="w-full mt-4 bg-main-blue text-white py-2 rounded-md font-semibold hover:bg-blue-600 "
-//     >
-//       {amount ? `Withdraw ${amount} ETH` : 'Withdraw'}
-//     </button>
-//   );
-// }
+      const weiValue = parseEther(amount);
+      const unsignedTx = {
+        to: sendAddress as `0x${string}`,
+        value: toHex(weiValue),
+      };
 
-// export default SendTransaction;
+      await sendTransaction(unsignedTx);
+      toast.success('Transaction sent successfully!');
+      router.push('/dashboard/monetization');
+    } catch (error: any) {
+      toast.error(error?.message || 'Transaction failed. Please try again.');
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={sendTx}
+      disabled={!sendAddress || !amount}
+      className="w-full mt-4 rounded-md bg-gradient-to-r from-yellow-500 to-teal-500 px-4 py-2 font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {amount ? `Withdraw ${amount} ETH` : 'Withdraw'}
+    </button>
+  );
+}
+
+export default SendTransaction;
