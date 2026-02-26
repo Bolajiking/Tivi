@@ -174,7 +174,10 @@ const SidebarBottomLinks = ({ sidebarCollapsed, onCreateChannel }: SidebarBottom
       <Dialog.Root open={inviteModalOpen} onOpenChange={setInviteModalOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 z-[121] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/20 bg-gray-900/95 p-6 shadow-2xl">
+          <Dialog.Content
+            data-sidebar-dialog="true"
+            className="fixed left-1/2 top-1/2 z-[121] w-[92vw] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/20 bg-gray-900/95 p-6 shadow-2xl"
+          >
             <Dialog.Title className="text-lg font-bold text-white">Creator Invite Required</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-gray-300">
               Enter your invite code to unlock channel creation.

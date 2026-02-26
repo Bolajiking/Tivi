@@ -42,7 +42,11 @@ export default function MobileSidebar({
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as HTMLElement;
-      if (mobileMenuOpen && !target.closest('[data-sidebar="true"]') && !target.closest('[data-bottom-sheet="true"]')) {
+      const isInsideSidebar = Boolean(target.closest('[data-sidebar="true"]'));
+      const isInsideBottomSheet = Boolean(target.closest('[data-bottom-sheet="true"]'));
+      const isInsideSidebarDialog = Boolean(target.closest('[data-sidebar-dialog="true"]'));
+
+      if (mobileMenuOpen && !isInsideSidebar && !isInsideBottomSheet && !isInsideSidebarDialog) {
         setMobileMenuOpen(false);
         setBottomSheetChannel(null);
       }
