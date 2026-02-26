@@ -2,6 +2,7 @@
 
 import { LuArrowLeftFromLine, LuArrowRightFromLine } from 'react-icons/lu';
 import Sidebar from './Sidebar';
+import SidebarBottomLinks from './SidebarBottomLinks';
 import { useEffect, useState } from 'react';
 import clsx from 'clsx';
 import { SupabaseStream } from '@/lib/supabase-types';
@@ -114,6 +115,10 @@ export default function MobileSidebar({
               })
             }
           />
+        </div>
+
+        <div className="shrink-0 border-t border-white/20 bg-white/5 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+          <SidebarBottomLinks sidebarCollapsed={!mobileExpanded} />
         </div>
       </aside>
 
