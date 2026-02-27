@@ -41,8 +41,13 @@ export function useWalletAddress() {
       }
     }
 
+    const userWalletAddress = (user as any)?.wallet?.address;
+    if (typeof userWalletAddress === 'string' && userWalletAddress.trim()) {
+      return userWalletAddress;
+    }
+
     return null;
-  }, [wallets, user?.linkedAccounts]);
+  }, [wallets, user?.linkedAccounts, (user as any)?.wallet?.address]);
 
   return { walletAddress, wallets };
 }

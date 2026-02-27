@@ -25,6 +25,11 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const privyAppId =
+    process.env.NEXT_PUBLIC_PRIVY_ENVIRONMENT_ID ||
+    process.env.NEXT_PUBLIC_PRIVY_APP_ID ||
+    '';
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -38,7 +43,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased" suppressHydrationWarning>
           <PrivyProvider
-      appId={process.env.NEXT_PUBLIC_PRIVY_ENVIRONMENT_ID ?? ''}
+      appId={privyAppId}
       config={{
         embeddedWallets: {
           ethereum: {

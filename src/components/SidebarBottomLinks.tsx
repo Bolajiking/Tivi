@@ -14,6 +14,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { IoMdClose } from 'react-icons/io';
 import { hasCreatorInviteAccess, redeemCreatorInviteCode } from '@/lib/supabase-service';
 import { toast } from 'sonner';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 interface SidebarBottomLinksProps {
   sidebarCollapsed?: boolean;
@@ -24,7 +25,8 @@ const SidebarBottomLinks = ({ sidebarCollapsed, onCreateChannel }: SidebarBottom
   const router = useRouter();
   const pathname = usePathname();
   const dispatch = useDispatch<AppDispatch>();
-  const { user, authenticated, ready } = usePrivy();
+  const { authenticated, ready } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const { streams } = useSelector((state: RootState) => state.streams);
   const isDashboard = pathname === '/dashboard';
   const [hasCreatorAccess, setHasCreatorAccess] = useState(false);
@@ -32,25 +34,7 @@ const SidebarBottomLinks = ({ sidebarCollapsed, onCreateChannel }: SidebarBottom
   const [inviteCode, setInviteCode] = useState('');
   const [redeemingCode, setRedeemingCode] = useState(false);
 
-  // Get creator address (wallet address)
-  // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
-  const creatorAddress = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return null;
-    
-    // Check if primary login method is a wallet
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-    
-    // Find a wallet from linked accounts
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-    
-    return null;
-  }, [user?.linkedAccounts]);
+  const creatorAddress = useMemo(() => walletAddress || null, [walletAddress]);
 
   const isLoggedIn = authenticated && ready && !!creatorAddress;
 

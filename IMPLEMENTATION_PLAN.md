@@ -756,6 +756,60 @@ Phase 5 (Polish) ← Final pass after all phases
   - `src/components/templates/dashboard/Dashboard.tsx`
   - `src/components/templates/creator/CreatorProfile.tsx`
 
+44. **Privy migration compatibility for channel creation**
+- Added environment fallback so `PrivyProvider` supports both `NEXT_PUBLIC_PRIVY_ENVIRONMENT_ID` and `NEXT_PUBLIC_PRIVY_APP_ID`.
+- Hardened wallet address resolution to include `user.wallet.address` fallback (in addition to linked wallets/accounts) for newer Privy onboarding shapes.
+- Unified creator address resolution in channel access/setup flows to use shared `useWalletAddress()` hook.
+- This prevents false "wallet not connected" / blocked create-channel flows after rotating to a fresh Privy app key.
+- Files:
+  - `src/app/layout.tsx`
+  - `src/app/hook/useWalletAddress.ts`
+  - `src/components/SidebarBottomLinks.tsx`
+  - `src/components/templates/settings/ProfileCustomization.tsx`
+
+45. **Privy wallet compatibility rollout across core app flows**
+- Replaced remaining `linkedAccounts`-only wallet derivation with shared `useWalletAddress()` in primary navigation, dashboard, creator/profile, setup, and settings paths.
+- Updated wallet-dependent creator flows (channel setup, stream creation, upload metadata save, viewer/creator route resolution) to avoid breaking when Privy account shape differs after key/app migration.
+- Preserved existing video/livestream/chat logic and behavior while hardening wallet identity resolution.
+- Files:
+  - `src/components/Sidebar.tsx`
+  - `src/components/BottomNav.tsx`
+  - `src/components/templates/dashboard/Dashboard.tsx`
+  - `src/components/UserSetupModal.tsx`
+  - `src/components/templates/settings/settings.tsx`
+  - `src/components/UploadVideoAsset.tsx`
+  - `src/components/Header.tsx`
+  - `src/components/templates/creator/CreatorProfile.tsx`
+  - `src/components/templates/dashboard/ProfileColumn.tsx`
+  - `src/app/dashboard/profile/page.tsx`
+  - `src/app/dashboard/order-history/page.tsx`
+  - `src/components/templates/analytics/Analytics.tsx`
+  - `src/components/CreateLivestream.tsx`
+  - `src/components/templates/stream/broadcast/Broadcast.tsx`
+
+46. **Creator invite access hardening for mixed-case wallets**
+- Fixed invite-access checks to avoid false denials caused by mixed-case wallet IDs across old/new Privy account states.
+- Updated creator invite verification to:
+  - canonicalize wallet IDs,
+  - keep RPC checks,
+  - fallback to case-insensitive grant lookup when RPC returns false for legacy-cased rows.
+- Updated invite redemption to persist canonicalized creator IDs consistently.
+- Improved livestream creation error surfacing so API 4xx reasons are shown directly in the UI.
+- Files:
+  - `src/lib/supabase-service.ts`
+  - `src/features/streamAPI.ts`
+  - `src/components/CreateLivestream.tsx`
+
+47. **Dev UI rendering stability hardening (stale chunk/cache mitigation)**
+- Fixed service worker behavior to prevent stale app shell/chunk caching from breaking localhost rendering.
+- New behavior:
+  - In development: `/api/sw` returns a self-unregistering worker that clears caches and disables SW persistence.
+  - In production: SW caches only selected static assets; it explicitly bypasses `/_next/*` and `/api/*` requests.
+- Hardened Livepeer proxy route with network error handling to return structured `502` responses instead of uncaught exceptions during upstream timeouts.
+- Files:
+  - `src/app/api/sw/route.ts`
+  - `src/app/api/livepeer/[...path]/route.ts`
+
 ### Current Open Work / Next Handover Targets
 
 1. **Formal E2E validation sweep**

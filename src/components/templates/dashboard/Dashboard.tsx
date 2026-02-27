@@ -38,6 +38,7 @@ import { StreamSetupModal } from '@/components/StreamSetupModal';
 import { VideoPaymentGate } from '@/components/VideoPaymentGate';
 import { Clapperboard, Radio, Sparkles } from 'lucide-react';
 import { ChannelChatExperience } from '@/components/templates/chat/ChannelChatExperience';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 interface DashboardProps {
   initialLivePlaybackId?: string;
@@ -46,7 +47,8 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView }: DashboardProps) => {
-  const { user, ready, authenticated } = usePrivy();
+  const { ready, authenticated } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const navigate = useRouter();
   const pathname = usePathname();
   const params = useParams();
@@ -75,23 +77,7 @@ const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView 
   
   // Get creator address (wallet address)
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
-  const creatorAddress = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return null;
-    
-    // Check if primary login method is a wallet
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-    
-    // Find a wallet from linked accounts
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-    
-    return null;
-  }, [user?.linkedAccounts]);
+  const creatorAddress = useMemo(() => walletAddress || null, [walletAddress]);
   const [isDialogOpen2, setIsDialogOpen2] = useState(false);
   const [videoUploadNotice, setVideoUploadNotice] = useState<(VideoUploadNotice & { minimized: boolean }) | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);

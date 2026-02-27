@@ -206,7 +206,14 @@ export const createLivestream = createAsyncThunk(
       return response.data;
     } catch (error: any) {
       console.log('Error creating livestream:', error);
-      return rejectWithValue(error.response?.data || error.message);
+      const responseData = error?.response?.data;
+      const errorMessage =
+        (typeof responseData === 'string' && responseData) ||
+        responseData?.error ||
+        responseData?.message ||
+        error?.message ||
+        'Failed to create livestream';
+      return rejectWithValue(errorMessage);
     }
   },
 );

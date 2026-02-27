@@ -10,34 +10,20 @@ import { IoChatbubbleEllipsesOutline } from 'react-icons/io5';
 import { X } from 'lucide-react';
 import { getUserProfile } from '@/lib/supabase-service';
 import { useChannel } from '@/context/ChannelContext';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 const BottomNav = () => {
   const pathname = usePathname();
   const params = useParams();
   const searchParams = useSearchParams();
   const { selectedChannelId } = useChannel();
-  const { user, authenticated, ready } = usePrivy();
+  const { authenticated, ready } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const [showShopModal, setShowShopModal] = useState(false);
   const [ownCreatorRouteId, setOwnCreatorRouteId] = useState<string>('');
 
   // Get current user's wallet address
-  const currentUserAddress = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return '';
-    
-    // Check if primary login method is a wallet
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-    
-    // Find a wallet from linked accounts
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-    
-    return '';
-  }, [user?.linkedAccounts]);
+  const currentUserAddress = useMemo(() => walletAddress || '', [walletAddress]);
 
   const isLoggedIn = authenticated && ready && !!currentUserAddress;
 

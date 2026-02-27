@@ -17,21 +17,19 @@ import { usePlaybackMetrics } from "@/app/hook/usePlaybackView"
 import { ChevronRight } from "lucide-react"
 import Performance from "../analytics/Performance"
 import BottomNav from "@/components/BottomNav"
+import { useWalletAddress } from "@/app/hook/useWalletAddress"
 
 const Analytics = () => {
-  const { user, ready, authenticated } = usePrivy()
+  const { ready, authenticated } = usePrivy()
+  const { walletAddress } = useWalletAddress()
   const dispatch = useDispatch<AppDispatch>()
   const { streams, loading: streamsLoading } = useSelector((state: RootState) => state.streams)
   const { assets, loading: assetsLoading, error: assetsError } = useSelector((state: RootState) => state.assets)
-  const walletAddress = useSelector((state: RootState) => state.user.walletAddress)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const { viewMetrics, loading } = useViewerMetrics({ filter: "all" }) // Fetch view metrics
 
-  // Get the correct wallet address using the same logic as CreateLivestream
-  const creatorAddress = useMemo(() => {
-    return user?.wallet?.chainType === 'solana' ? user.wallet.address : walletAddress
-  }, [user?.wallet?.address, walletAddress])
+  const creatorAddress = useMemo(() => walletAddress || '', [walletAddress])
 
   const insightsData = [
     {

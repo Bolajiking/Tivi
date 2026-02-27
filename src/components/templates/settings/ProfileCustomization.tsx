@@ -1,6 +1,5 @@
 'use client';
 import React, { useState, useEffect ,useMemo} from 'react';
-import { usePrivy } from '@privy-io/react-auth';
 import { toast } from 'sonner';
 import { Bars } from 'react-loader-spinner';
 import InputField from '@/components/ui/InputField';
@@ -18,9 +17,10 @@ import {
 } from '@/lib/supabase-service';
 import { createLivestream } from '@/features/streamAPI';
 import { clsx } from 'clsx';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 export function ProfileCustomization() {
-  const { user } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
   const [profileData, setProfileData] = useState({
@@ -58,25 +58,7 @@ export function ProfileCustomization() {
   const [inviteCode, setInviteCode] = useState('');
   const [redeemingCode, setRedeemingCode] = useState(false);
 
-  // Get creator address (wallet address)
-  // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
-  const creatorAddress = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return null;
-    
-    // Check if primary login method is a wallet
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-    
-    // Find a wallet from linked accounts
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-    
-    return null;
-  }, [user?.linkedAccounts]);
+  const creatorAddress = useMemo(() => walletAddress || null, [walletAddress]);
 
   // Helper function to convert socialLinks from array of JSON strings to object format
   const parseSocialLinks = (socialLinksArray: string[] | null | undefined): { twitter?: string; instagram?: string; youtube?: string; website?: string } => {

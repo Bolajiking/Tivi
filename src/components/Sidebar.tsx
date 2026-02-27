@@ -14,6 +14,7 @@ import React, { useEffect, useState, useMemo, useRef } from 'react';
 import { getSubscribedChannels, getStreamsByCreator, getUserProfile, getUserProfileByUsername, subscribeToCreator } from '@/lib/supabase-service';
 import { SupabaseStream, SupabaseUser } from '@/lib/supabase-types';
 import { useChannel } from '@/context/ChannelContext';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,7 +50,8 @@ interface SidebarProps {
 const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView = false, onChannelOptionsClick }: SidebarProps) => {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, authenticated, ready } = usePrivy();
+  const { authenticated, ready } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const { selectedChannelId, setSelectedChannelId } = useChannel();
   // Check if we're in the dashboard context
   const isInDashboard = pathname?.startsWith('/dashboard');
@@ -180,23 +182,7 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
 
   // Get current user's wallet address
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
-  const currentUserAddress = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return '';
-    
-    // Check if primary login method is a wallet
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-    
-    // Find a wallet from linked accounts
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-    
-    return '';
-  }, [user?.linkedAccounts]);
+  const currentUserAddress = useMemo(() => walletAddress || '', [walletAddress]);
 
   const isLoggedIn = authenticated && ready && !!currentUserAddress;
 

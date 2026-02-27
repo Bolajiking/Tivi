@@ -11,6 +11,7 @@ import { getAssets } from '@/features/assetsAPI';
 import { AppDispatch } from '@/store/store';
 import { createVideo, updateVideo } from '@/lib/supabase-service';
 import InputField from './ui/InputField';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 type viewMode = 'free' | 'one-time' | 'monthly';
 export type VideoUploadNotice = {
@@ -27,7 +28,7 @@ export default function UploadVideoAsset({
   onClose: () => void;
   onStatusChange?: (status: VideoUploadNotice | null) => void;
 }) {
-  const { user } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [viewMode, setviewMode] = useState<viewMode>('free');
@@ -60,23 +61,7 @@ export default function UploadVideoAsset({
   
   // Get creator address (wallet address)
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
-  const creatorAddress = React.useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return null;
-    
-    // Check if primary login method is a wallet
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-    
-    // Find a wallet from linked accounts
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-    
-    return null;
-  }, [user?.linkedAccounts]);
+  const creatorAddress = React.useMemo(() => walletAddress || null, [walletAddress]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) setFile(e.target.files[0]);

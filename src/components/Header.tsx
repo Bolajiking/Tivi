@@ -1,7 +1,7 @@
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import { MdOutlineLogout } from 'react-icons/md';
 import { useRouter } from 'next/navigation';
-import { useLogout, usePrivy, useWallets } from '@privy-io/react-auth';
+import { useLogout, usePrivy } from '@privy-io/react-auth';
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { FaRegUserCircle, FaShoppingBag } from 'react-icons/fa';
 import { IoSettingsOutline } from 'react-icons/io5';
@@ -14,11 +14,12 @@ import { setWalletAddress } from '@/features/userSlice';
 import { getUserProfile } from '@/lib/supabase-service';
 import type { SupabaseUser } from '@/lib/supabase-types';
 import Image from 'next/image';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen: boolean; title?: string }) => {
   const navigate = useRouter();
   const { user, ready, login, authenticated } = usePrivy();
-  const { wallets } = useWallets();
+  const { walletAddress: resolvedWalletAddress, wallets } = useWalletAddress();
   const [walletAddress, setLocalWalletAddress] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'profile' | 'wallet'>('profile');
   const [topUpAmount, setTopUpAmount] = useState<string>('');
@@ -30,39 +31,14 @@ const Header = ({ toggleMenu, mobileOpen }: { toggleMenu: () => void; mobileOpen
   const dispatch = useDispatch();
 
   // Get creator address from linked accounts
-  const creatorAddress = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return null;
-
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-
-    return null;
-  }, [user?.linkedAccounts]);
+  const creatorAddress = useMemo(() => resolvedWalletAddress || null, [resolvedWalletAddress]);
 
   // Get existing Ethereum wallet on login/ready (no creation - Privy handles that automatically)
   useEffect(() => {
-    if (!ready || !user) return;
-
-    // Find existing embedded wallet or any Ethereum wallet
-    const walletObj: any = wallets.find((wallet: any) =>
-      wallet.walletClientType === 'privy' || wallet.clientType === 'privy'
-    ) || wallets[0]; // Fallback to first wallet if no embedded wallet found
-
-    if (walletObj) {
-      const address = walletObj?.address ?? walletObj?.wallet?.address;
-      if (address) {
-        setLocalWalletAddress(address);
-        dispatch(setWalletAddress(address));
-      }
-    }
-  }, [ready, wallets, user, dispatch]);
+    if (!ready || !resolvedWalletAddress) return;
+    setLocalWalletAddress(resolvedWalletAddress);
+    dispatch(setWalletAddress(resolvedWalletAddress));
+  }, [ready, resolvedWalletAddress, dispatch]);
 
   // Fetch user profile from Supabase
   useEffect(() => {

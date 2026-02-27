@@ -10,9 +10,11 @@ import Image from 'next/image';
 import { toast } from 'sonner';
 import { getUserProfile, uploadImage, updateUserProfile, createUserProfile } from '@/lib/supabase-service';
 import type { SupabaseUser } from '@/lib/supabase-types';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 const ProfilePage: React.FC = () => {
   const { user, authenticated, ready } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
@@ -70,23 +72,7 @@ const ProfilePage: React.FC = () => {
 
   // Get creator address (wallet address)
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
-  const creatorAddress = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return null;
-    
-    // Check if primary login method is a wallet
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-    
-    // Find a wallet from linked accounts
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-    
-    return null;
-  }, [user?.linkedAccounts]);
+  const creatorAddress = useMemo(() => walletAddress || null, [walletAddress]);
 
   // Fetch user profile from Supabase
   useEffect(() => {
@@ -427,4 +413,3 @@ const ProfilePage: React.FC = () => {
 };
 
 export default ProfilePage;
-

@@ -20,27 +20,10 @@ interface Transaction {
 }
 
 const OrderHistory = () => {
-  const { user, ready, authenticated } = usePrivy()
+  const { ready, authenticated } = usePrivy()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState<"all" | "purchases" | "downloads" | "subscriptions">("all")
-
-  // Get current user's wallet address
-  const currentUserAddress = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return ""
-
-    const firstAccount = user.linkedAccounts[0]
-    if (firstAccount.type === "wallet" && "address" in firstAccount && firstAccount.address) {
-      return firstAccount.address
-    }
-
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === "wallet" && "address" in account && account.address)
-    if (walletAccount && "address" in walletAccount && walletAccount.address) {
-      return walletAccount.address
-    }
-
-    return ""
-  }, [user?.linkedAccounts])
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed)

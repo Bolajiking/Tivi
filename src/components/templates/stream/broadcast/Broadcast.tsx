@@ -30,18 +30,16 @@ import MobileSidebar from '@/components/MobileSidebar';
 import { useViewMetrics } from '@/app/hook/useViewerMetrics';
 import { UploadAdsAsset } from '@/components/UploadVideoAsset';
 import { IoMdClose } from 'react-icons/io';
-import { usePrivy } from '@privy-io/react-auth';
 import { useGetStreamDetails } from '@/app/hook/useStreamGate';
 import { Bars } from 'react-loader-spinner';
-import { RootState } from '@/store/store';
-import { useSelector } from 'react-redux';
 import { sendChatMessage, fetchChatMessages } from '@/features/chatAPI';
 import { addIncomingMessage } from '@/features/chatSlice';
-import { useDispatch } from 'react-redux';
-import type { AppDispatch } from '@/store/store';
+import { useDispatch, useSelector } from 'react-redux';
+import type { AppDispatch, RootState } from '@/store/store';
 import { BroadcastStatusSync } from './BroadcastStatusSync';
 import { getAllStreams } from '@/features/streamAPI';
 import { setStreamActiveStatus, subscribeToChatMessages } from '@/lib/supabase-service';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 interface Streams {
   streamKey: string;
@@ -52,11 +50,8 @@ interface Streams {
 }
 
 export function BroadcastWithControls({ streamName, streamKey, playbackId }: Streams) {
-  const { user } = usePrivy();
-  const walletAddress = useSelector((state: RootState) => state.user.walletAddress);
-  const creatorId = user?.wallet?.chainType === 'solana' && user?.wallet?.address
-    ? user.wallet.address
-    : walletAddress;
+  const { walletAddress } = useWalletAddress();
+  const creatorId = walletAddress || '';
   const dispatch = useDispatch<AppDispatch>();
 
   // console.log('creatorId', creatorId);

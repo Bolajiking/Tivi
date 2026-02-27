@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { usePrivy } from '@privy-io/react-auth';
 import { toast } from 'sonner';
 import { Bars } from 'react-loader-spinner';
 import { uploadImage, getUserProfile, upsertUserProfile, isDisplayNameUnique } from '@/lib/supabase-service';
@@ -9,6 +8,7 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { IoMdClose } from 'react-icons/io';
 import InputField from '@/components/ui/InputField';
 import { useMemo } from 'react';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 interface UserSetupModalProps {
   open: boolean;
@@ -18,7 +18,7 @@ interface UserSetupModalProps {
 }
 
 export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }: UserSetupModalProps) {
-  const { user } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const [displayName, setDisplayName] = useState('');
   const [avatar, setAvatar] = useState('');
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
@@ -38,21 +38,7 @@ export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }
   }, [open]);
 
   // Get creator address (wallet address)
-  const creatorAddress = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return null;
-    
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-    
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-    
-    return null;
-  }, [user?.linkedAccounts]);
+  const creatorAddress = useMemo(() => walletAddress || null, [walletAddress]);
 
   const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -313,4 +299,3 @@ export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }
     </Dialog.Root>
   );
 }
-

@@ -4,14 +4,14 @@ import React, { useState, useEffect } from 'react';
 import InputField from '@/components/ui/InputField';
 import { RiVideoAddLine } from 'react-icons/ri';
 import { RotatingLines } from 'react-loader-spinner';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { toast } from 'sonner';
-import { usePrivy } from '@privy-io/react-auth';
 import { createLivestream, getAllStreams } from '@/features/streamAPI';
 import { resetStreamStatus } from '@/features/streamSlice';
 import Image from 'next/image';
-import { AppDispatch, RootState } from '@/store/store';
+import { AppDispatch } from '@/store/store';
 import { hasCreatorInviteAccess, uploadImage } from '@/lib/supabase-service';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 /**
  * Extend formData with customization fields
@@ -23,14 +23,13 @@ type viewMode = 'free' | 'one-time' | 'monthly';
 // }
 
 export function CreateLivestream({ close }: { close: () => void }) {
-  const { user } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const dispatch = useDispatch<AppDispatch>();
-  const walletAddress = useSelector((state: RootState) => state.user.walletAddress);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     streamName: '',
     record: false,
-    creatorId: user?.wallet?.chainType === 'solana' ? user.wallet.address : walletAddress || '',
+    creatorId: walletAddress || '',
     viewMode: 'free' as viewMode,
     amount: 0,
     channelDescription: '',
@@ -44,9 +43,9 @@ export function CreateLivestream({ close }: { close: () => void }) {
   const [presetValues, setPresetValues] = useState<number[]>([0, 0, 0, 0]);
   // keep creatorId in sync
   useEffect(() => {
-    const newCreatorId = user?.wallet?.chainType === 'solana' ? user.wallet.address : walletAddress || '';
+    const newCreatorId = walletAddress || '';
     setFormData((prev) => ({ ...prev, creatorId: newCreatorId }));
-  }, [user?.wallet, walletAddress]);
+  }, [walletAddress]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -168,7 +167,12 @@ export function CreateLivestream({ close }: { close: () => void }) {
       close();
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || 'Failed to create stream');
+      const message =
+        (typeof err === 'string' && err) ||
+        err?.message ||
+        err?.error ||
+        'Failed to create stream';
+      toast.error(message);
       dispatch(resetStreamStatus());
     } finally {
       setIsSubmitting(false);

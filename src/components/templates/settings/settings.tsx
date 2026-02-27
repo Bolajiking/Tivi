@@ -17,6 +17,7 @@ import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { getSubscribers } from '@/lib/supabase-service';
 import type { SupabaseUser } from '@/lib/supabase-types';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 // Analytics Card Component
 const AnalyticCard = ({
@@ -149,7 +150,8 @@ const Settings: React.FC = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<'settings' | 'analytics'>('settings');
   const [showSubscribers, setShowSubscribers] = useState(false);
-  const { user, authenticated, ready } = usePrivy();
+  const { authenticated, ready } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const dispatch = useDispatch<AppDispatch>();
   const { streams } = useSelector((state: RootState) => state.streams);
   const { assets } = useSelector((state: RootState) => state.assets);
@@ -157,18 +159,7 @@ const Settings: React.FC = () => {
   const [subscribersLoading, setSubscribersLoading] = useState(false);
 
   // Get current user's wallet address (creatorId)
-  const creatorId = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return '';
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-    return '';
-  }, [user?.linkedAccounts]);
+  const creatorId = useMemo(() => walletAddress || '', [walletAddress]);
 
   // Get all playback IDs for this creator
   const creatorStreams = streams.filter((stream: any) => stream.creatorId?.value === creatorId && !!stream.playbackId);

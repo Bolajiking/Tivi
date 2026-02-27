@@ -301,12 +301,23 @@ const proxy = async (request: Request, path: string[]) => {
     headers.set('Content-Type', 'application/json');
   }
 
-  const response = await fetch(upstreamUrl, {
-    method,
-    headers,
-    cache: 'no-store',
-    body: requestBody,
-  });
+  let response: Response;
+  try {
+    response = await fetch(upstreamUrl, {
+      method,
+      headers,
+      cache: 'no-store',
+      body: requestBody,
+    });
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        error: 'Livepeer upstream request failed',
+        details: error?.message || 'Unknown network error',
+      },
+      { status: 502 },
+    );
+  }
 
   if (response.status === 204) {
     return new NextResponse(null, { status: 204 });

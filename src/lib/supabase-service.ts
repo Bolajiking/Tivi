@@ -471,22 +471,28 @@ const isMissingInviteRpcError = (error: any): boolean => {
  */
 export async function hasCreatorInviteAccess(creatorId: string): Promise<boolean> {
   if (!creatorId) return false;
+  const normalizedCreatorId = normalizeWalletAddress(creatorId);
+  const lookupCreatorId = normalizedCreatorId || creatorId.trim();
 
   // Existing creators remain allowed without requiring a new invite redemption.
-  const existingStreams = await getStreamsByCreator(creatorId);
+  const existingStreams = await getStreamsByCreator(lookupCreatorId);
   if (existingStreams.length > 0) {
     return true;
   }
 
   const rpcAccessCheck = await supabase.rpc('has_creator_access', {
-    p_creator_id: creatorId,
+    p_creator_id: lookupCreatorId,
   });
 
   if (!rpcAccessCheck.error) {
-    return Boolean(rpcAccessCheck.data);
+    if (Boolean(rpcAccessCheck.data)) {
+      return true;
+    }
+    // RPC can return false when legacy grants were stored with mixed-case wallet ids.
+    // Fall through to a direct case-insensitive lookup.
   }
 
-  if (!isMissingInviteRpcError(rpcAccessCheck.error)) {
+  if (rpcAccessCheck.error && !isMissingInviteRpcError(rpcAccessCheck.error)) {
     if (isMissingInviteSchemaError(rpcAccessCheck.error)) {
       throw new Error(INVITE_SCHEMA_SETUP_ERROR);
     }
@@ -496,8 +502,8 @@ export async function hasCreatorInviteAccess(creatorId: string): Promise<boolean
   const { data, error } = await supabase
     .from('creator_access_grants')
     .select('creator_id')
-    .eq('creator_id', creatorId)
-    .maybeSingle();
+    .ilike('creator_id', lookupCreatorId)
+    .limit(1);
 
   if (error) {
     if (isMissingInviteSchemaError(error)) {
@@ -506,7 +512,7 @@ export async function hasCreatorInviteAccess(creatorId: string): Promise<boolean
     throw new Error(`Failed to check creator invite access: ${error.message}`);
   }
 
-  return !!data;
+  return Array.isArray(data) ? data.length > 0 : !!data;
 }
 
 /**
@@ -516,7 +522,8 @@ export async function redeemCreatorInviteCode(
   creatorId: string,
   inviteCode: string,
 ): Promise<{ alreadyGranted: boolean; grant: CreatorAccessGrant }> {
-  if (!creatorId) {
+  const normalizedCreatorId = normalizeWalletAddress(creatorId);
+  if (!normalizedCreatorId) {
     throw new Error('Wallet address is required.');
   }
 
@@ -526,7 +533,7 @@ export async function redeemCreatorInviteCode(
   }
 
   const rpcRedeemResult = await supabase.rpc('redeem_creator_invite', {
-    p_creator_id: creatorId,
+    p_creator_id: normalizedCreatorId,
     p_code: normalizedCode,
   });
 
@@ -535,7 +542,7 @@ export async function redeemCreatorInviteCode(
     return {
       alreadyGranted: Boolean(payload?.alreadyGranted ?? payload?.already_granted ?? false),
       grant: {
-        creator_id: creatorId,
+        creator_id: normalizedCreatorId,
         invite_code: String(payload?.inviteCode ?? payload?.invite_code ?? normalizedCode),
         granted_at: String(payload?.grantedAt ?? payload?.granted_at ?? new Date().toISOString()),
       },
@@ -552,8 +559,8 @@ export async function redeemCreatorInviteCode(
   const existingGrantResult = await supabase
     .from('creator_access_grants')
     .select('*')
-    .eq('creator_id', creatorId)
-    .maybeSingle();
+    .ilike('creator_id', normalizedCreatorId)
+    .limit(1);
 
   if (existingGrantResult.error) {
     if (isMissingInviteSchemaError(existingGrantResult.error)) {
@@ -562,10 +569,14 @@ export async function redeemCreatorInviteCode(
     throw new Error(`Failed to check existing creator grant: ${existingGrantResult.error.message}`);
   }
 
-  if (existingGrantResult.data) {
+  const existingGrant = Array.isArray(existingGrantResult.data)
+    ? existingGrantResult.data[0]
+    : existingGrantResult.data;
+
+  if (existingGrant) {
     return {
       alreadyGranted: true,
-      grant: existingGrantResult.data as CreatorAccessGrant,
+      grant: existingGrant as CreatorAccessGrant,
     };
   }
 
@@ -602,7 +613,7 @@ export async function redeemCreatorInviteCode(
   }
 
   const grantPayload = {
-    creator_id: creatorId,
+    creator_id: normalizedCreatorId,
     invite_code: normalizedCode,
     granted_at: new Date().toISOString(),
   };

@@ -52,6 +52,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ChannelChatExperience } from '@/components/templates/chat/ChannelChatExperience';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 interface CreatorProfileData {
   creatorId: string;
@@ -267,7 +268,8 @@ export function CreatorProfile({
   const dispatch = useDispatch<AppDispatch>();
   const { streams, loading: streamsLoading, error: streamsError } = useSelector((state: RootState) => state.streams);
   const { assets, loading: assetsLoading, error: assetsError } = useSelector((state: RootState) => state.assets);
-  const { user, authenticated, ready } = usePrivy();
+  const { authenticated, ready } = usePrivy();
+  const { walletAddress } = useWalletAddress();
   const router = useRouter();
   
   const [creatorProfile, setCreatorProfile] = useState<CreatorProfileData | null>(null);
@@ -292,23 +294,7 @@ export function CreatorProfile({
 
   // Get current user's wallet address
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
-  const currentUserAddress = useMemo(() => {
-    if (!user?.linkedAccounts || user.linkedAccounts.length === 0) return '';
-    
-    // Check if primary login method is a wallet
-    const firstAccount = user.linkedAccounts[0];
-    if (firstAccount.type === 'wallet' && 'address' in firstAccount && firstAccount.address) {
-      return firstAccount.address;
-    }
-    
-    // Find a wallet from linked accounts
-    const walletAccount = user.linkedAccounts.find((account: any) => account.type === 'wallet' && 'address' in account && account.address);
-    if (walletAccount && 'address' in walletAccount && walletAccount.address) {
-      return walletAccount.address;
-    }
-    
-    return '';
-  }, [user?.linkedAccounts]);
+  const currentUserAddress = useMemo(() => walletAddress || '', [walletAddress]);
 
   // Check if viewer is the creator
   const isCreator = useMemo(() => {
