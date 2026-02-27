@@ -201,7 +201,7 @@ export default function MobileSidebar({
                   return;
                 }
 
-                const channelUrl = `${window.location.origin}/creator/${encodeURIComponent(creatorRouteId)}`;
+                const channelUrl = `${window.location.origin}/${encodeURIComponent(creatorRouteId)}`;
                 if (navigator.share) {
                   await navigator.share({
                     title:

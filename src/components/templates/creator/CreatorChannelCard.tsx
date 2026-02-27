@@ -101,7 +101,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
       toast.error('Creator username unavailable for sharing.');
       return;
     }
-    const channelUrl = `${window.location.origin}/creator/${encodeURIComponent(creatorRouteId)}`;
+    const channelUrl = `${window.location.origin}/${encodeURIComponent(creatorRouteId)}`;
     if (navigator.share) {
       try {
         await navigator.share({
@@ -153,7 +153,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
   const hasSocialLinks = Object.values(socialLinks).some((link) => link && link.trim() !== '');
   const isCompact = compact || chatCompact;
   const creatorProfileUrl = creatorRouteId && typeof window !== 'undefined'
-    ? `${window.location.origin}/creator/${encodeURIComponent(creatorRouteId)}`
+    ? `${window.location.origin}/${encodeURIComponent(creatorRouteId)}`
     : '';
 
   // Format subscriber count

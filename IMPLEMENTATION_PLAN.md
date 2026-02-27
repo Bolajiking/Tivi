@@ -810,6 +810,28 @@ Phase 5 (Polish) ← Final pass after all phases
   - `src/app/api/sw/route.ts`
   - `src/app/api/livepeer/[...path]/route.ts`
 
+48. **Channel profile URL format migration to root username routes**
+- Updated creator profile share URL format from `/creator/[username]` to `/[username]` in:
+  - channel settings profile URL field/actions,
+  - creator channel share box and share actions,
+  - sidebar/mobile share actions.
+- Added root username alias route so shared links resolve directly:
+  - `src/app/[creatorId]/page.tsx` now renders the creator profile page.
+- Updated sidebar “Add Channel” URL parsing and helper copy to accept the new `/[username]` format while retaining support for legacy `/creator/[id]` links.
+- Files:
+  - `src/components/templates/settings/ProfileCustomization.tsx`
+  - `src/components/templates/creator/CreatorChannelCard.tsx`
+  - `src/components/Sidebar.tsx`
+  - `src/components/MobileSidebar.tsx`
+  - `src/app/[creatorId]/page.tsx`
+
+49. **Dev runtime chunk-corruption mitigation**
+- Addressed recurring incomplete UI render on localhost caused by transient missing `/_next/static/*` chunks and missing `.next/server/vendor-chunks/*` artifacts during hot reload.
+- Updated dev script to disable Next webpack cache (`NEXT_DISABLE_WEBPACK_CACHE=1`) for more stable local incremental builds.
+- Performed clean runtime reset by removing `.next` and restarting dev server from a clean compile state.
+- File:
+  - `package.json`
+
 ### Current Open Work / Next Handover Targets
 
 1. **Formal E2E validation sweep**

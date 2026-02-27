@@ -144,7 +144,7 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
       return;
     }
 
-    const channelUrl = `${window.location.origin}/creator/${encodeURIComponent(creatorRouteId)}`;
+    const channelUrl = `${window.location.origin}/${encodeURIComponent(creatorRouteId)}`;
     const channelName = channel.title || channel.streamName || 'Channel';
 
     if (navigator.share) {
@@ -282,11 +282,40 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
     try {
       // Remove any trailing slashes and whitespace
       const cleanUrl = url.trim().replace(/\/$/, '');
-      
-      // Match pattern: /creator/[id] or /creator/[id]/
-      const match = cleanUrl.match(/\/creator\/([^\/\?]+)/);
-      if (match && match[1]) {
-        return decodeURIComponent(match[1]);
+
+      const parsePath = (input: string): string => {
+        if (input.startsWith('http://') || input.startsWith('https://')) {
+          return new URL(input).pathname.replace(/\/$/, '');
+        }
+        return input;
+      };
+
+      const path = parsePath(cleanUrl);
+
+      // Legacy format: /creator/[id]
+      const legacyMatch = path.match(/^\/creator\/([^\/\?]+)/);
+      if (legacyMatch && legacyMatch[1]) {
+        return decodeURIComponent(legacyMatch[1]);
+      }
+
+      // New format: /[id]
+      const rootMatch = path.match(/^\/([^\/\?]+)$/);
+      if (rootMatch && rootMatch[1]) {
+        const candidate = decodeURIComponent(rootMatch[1]);
+        const reservedRoutes = new Set([
+          'api',
+          'auth',
+          'creator',
+          'dashboard',
+          'player',
+          'streamviews',
+          'testin',
+          'view',
+          '_next',
+        ]);
+        if (!reservedRoutes.has(candidate.toLowerCase())) {
+          return candidate;
+        }
       }
       
       // If it's just the ID without the full URL, return it
@@ -316,7 +345,7 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
       const creatorIdentifier = parseCreatorUrl(channelUrl);
       
       if (!creatorIdentifier) {
-        toast.error('Invalid URL format. Please use: /creator/[id] or https://origin/creator/[id]');
+        toast.error('Invalid URL format. Please use: /[username] or https://origin/[username]');
         setIsValidatingUrl(false);
         return;
       }
@@ -742,7 +771,7 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
             <AlertDialogDescription className="text-gray-300">
               Enter the creator profile URL to subscribe to their channel.
               <br />
-              Format: <span className="text-yellow-400">/creator/[id]</span> or <span className="text-yellow-400">https://origin/creator/[id]</span>
+              Format: <span className="text-yellow-400">/[username]</span> or <span className="text-yellow-400">https://origin/[username]</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
@@ -755,7 +784,7 @@ const Sidebar = ({ sidebarCollapsed, isInstallable, onInstallClick, isMobileView
                   handleValidateUrl();
                 }
               }}
-              placeholder="e.g., /creator/username or https://example.com/creator/username"
+              placeholder="e.g., /jammy or https://example.com/jammy"
               className="w-full px-4 py-2 bg-black/50 border border-white/20 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500"
               disabled={isValidatingUrl}
             />

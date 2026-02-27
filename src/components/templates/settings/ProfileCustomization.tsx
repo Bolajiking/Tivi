@@ -182,9 +182,15 @@ export function ProfileCustomization() {
   // Generate profile URL using username
   useEffect(() => {
     if (creatorAddress && userProfile?.displayName) {
-      const host = process.env.NEXT_PUBLIC_BASE_URL || window.location.origin;
-      // Use username (displayName) in the URL
-      setProfileUrl(`${host}/creator/${encodeURIComponent(userProfile.displayName)}`);
+      const configuredBase = process.env.NEXT_PUBLIC_BASE_URL?.trim();
+      const baseUrl = configuredBase
+        ? configuredBase.startsWith('http')
+          ? configuredBase
+          : `https://${configuredBase}`
+        : window.location.origin;
+      setProfileUrl(
+        `${baseUrl.replace(/\/$/, '')}/${encodeURIComponent(userProfile.displayName)}`,
+      );
     } else {
       setProfileUrl('');
     }
