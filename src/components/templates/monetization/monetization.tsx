@@ -20,7 +20,7 @@ const Monetization: React.FC = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-black via-gray-950 to-black">
+    <div className="flex h-screen overflow-hidden bg-[#080808]">
       {/* Mobile Sidebar */}
       {mobileMenuOpen && (
         <MobileSidebar
@@ -34,36 +34,31 @@ const Monetization: React.FC = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen h-full">
         <Header toggleMenu={toggleMobileMenu} mobileOpen={mobileMenuOpen} />
-        <div className="m-2 border border-white/20 rounded-xl min-h-[85vh] overflow-auto bg-white/5 backdrop-blur-sm pb-4 px-4 md:px-6">
-          <Tabs defaultValue="overview" className="w-full  mx-auto">
-            <TabsList className="justify-start items-center flex flex-wrap h-full shadow-none rounded-lg my-5 bg-white/5 border border-white/10 p-1 gap-2">
+        <div className="mx-auto w-full max-w-[1200px] mt-14 md:mt-4 border border-white/[0.07] rounded-xl min-h-[85vh] overflow-auto bg-[#0f0f0f] pb-6 px-3 md:px-6">
+          <Tabs defaultValue="overview" className="w-full mx-auto">
+            <TabsList className="justify-start items-center flex flex-wrap h-full shadow-none rounded-none my-5 bg-transparent border-b border-white/[0.07] p-0 gap-2">
               <TabsTrigger
                 value="overview"
-                className="text-gray-300 font-semibold md:text-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-teal-500 data-[state=active]:text-black data-[state=active]:shadow-none"
+                className="text-[#888] font-normal md:text-sm data-[state=active]:text-white data-[state=active]:font-bold data-[state=active]:border-b-2 data-[state=active]:border-[#facc15] data-[state=active]:shadow-none rounded-none pb-3"
               >
                 Overview
               </TabsTrigger>
-              {/* <TabsTrigger
-                value="subcription"
-                className=" text-black font-semibold md:text-lg   data-[state=active]:border-b-[3px]  data-[state=active]:bg-transparent data-[state=active]:shadow-none data-[state=active]:border-b-main-blue data-[state=active]:text-main-blue "
-              >
-                Subcriptions
-              </TabsTrigger> */}
+              {/* <TabsTrigger value="subcription">Subcriptions</TabsTrigger> */}
               <TabsTrigger
                 value="donations"
-                className="text-gray-300 font-semibold md:text-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-teal-500 data-[state=active]:text-black data-[state=active]:shadow-none"
+                className="text-[#888] font-normal md:text-sm data-[state=active]:text-white data-[state=active]:font-bold data-[state=active]:border-b-2 data-[state=active]:border-[#facc15] data-[state=active]:shadow-none rounded-none pb-3"
               >
                 Donations
               </TabsTrigger>
               <TabsTrigger
                 value="store"
-                className="text-gray-300 font-semibold md:text-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-teal-500 data-[state=active]:text-black data-[state=active]:shadow-none"
+                className="text-[#888] font-normal md:text-sm data-[state=active]:text-white data-[state=active]:font-bold data-[state=active]:border-b-2 data-[state=active]:border-[#facc15] data-[state=active]:shadow-none rounded-none pb-3"
               >
                 Store
               </TabsTrigger>
               <TabsTrigger
                 value="history"
-                className="text-gray-300 font-semibold md:text-lg data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-teal-500 data-[state=active]:text-black data-[state=active]:shadow-none"
+                className="text-[#888] font-normal md:text-sm data-[state=active]:text-white data-[state=active]:font-bold data-[state=active]:border-b-2 data-[state=active]:border-[#facc15] data-[state=active]:shadow-none rounded-none pb-3"
               >
                 History
               </TabsTrigger>

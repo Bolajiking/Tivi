@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
 import { Bars } from 'react-loader-spinner';
-import { ArrowLeft, Send, Sparkles, Users, Shield, MessageCircleHeart, Trash2, ImagePlus } from 'lucide-react';
+import { ArrowLeft, Send, Sparkles, Shield, MessageCircleHeart, Trash2, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   clearChannelChatHistory,
   getChatMessages,
   getChannelChatClearedAt,
+  getStreamByPlaybackId,
   getUserProfile,
   getChannelChatEligibleAddresses,
   getChannelChatGroupMapping,
@@ -145,7 +146,6 @@ export function ChannelChatExperience({
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
   const [clearingHistory, setClearingHistory] = useState(false);
-  const [memberCount, setMemberCount] = useState(0);
   const [senderLabels, setSenderLabels] = useState<Record<string, string>>({});
 
   const conversationRef = useRef<any>(null);
@@ -184,9 +184,39 @@ export function ChannelChatExperience({
   }, [wallets]);
 
   const walletAddress = String(wallet?.address || '').toLowerCase();
-  const creatorAddressRaw = String(creatorId || '');
-  const normalizedCreatorId = creatorAddressRaw.toLowerCase();
-  const isCreator = Boolean(walletAddress && normalizedCreatorId && walletAddress === normalizedCreatorId);
+  const [resolvedCreatorId, setResolvedCreatorId] = useState(() =>
+    String(creatorId || '').trim().toLowerCase(),
+  );
+  const channelCreatorId = useMemo(
+    () => String(resolvedCreatorId || creatorId || '').trim().toLowerCase(),
+    [creatorId, resolvedCreatorId],
+  );
+  const isChannelAdmin = Boolean(walletAddress && channelCreatorId && walletAddress === channelCreatorId);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveChannelCreator = async () => {
+      if (!playbackId) return;
+      try {
+        const stream = await getStreamByPlaybackId(playbackId);
+        if (cancelled) return;
+        const streamCreator = String(stream?.creatorId || '').trim().toLowerCase();
+        if (streamCreator) {
+          setResolvedCreatorId(streamCreator);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Failed to resolve channel creator for chat admin role:', error);
+        }
+      }
+    };
+
+    void resolveChannelCreator();
+    return () => {
+      cancelled = true;
+    };
+  }, [playbackId]);
 
   useEffect(() => {
     walletRef.current = wallet;
@@ -359,9 +389,9 @@ export function ChannelChatExperience({
 
   const refreshKnownMemberSenderMappings = useCallback(async () => {
     const client = xmtpClientRef.current;
-    if (!client || !playbackId || !creatorAddressRaw) return;
+    if (!client || !playbackId || !channelCreatorId) return;
 
-    const eligibleAddresses = await getChannelChatEligibleAddresses(playbackId, creatorAddressRaw);
+    const eligibleAddresses = await getChannelChatEligibleAddresses(playbackId, channelCreatorId);
     if (!eligibleAddresses.length) return;
 
     const inboxToWallet = await resolveInboxIdMapForAddresses(client, eligibleAddresses);
@@ -381,7 +411,7 @@ export function ChannelChatExperience({
     if (Object.keys(updates).length > 0) {
       setSenderLabels((previous) => ({ ...previous, ...updates }));
     }
-  }, [creatorAddressRaw, playbackId, resolveDisplayNameForWallet]);
+  }, [channelCreatorId, playbackId, resolveDisplayNameForWallet]);
 
   const syncXmtpMessages = useCallback(async () => {
     const conversation = conversationRef.current;
@@ -424,7 +454,7 @@ export function ChannelChatExperience({
   );
 
   const initializeConversation = useCallback(async () => {
-    const initKey = `${playbackId}:${walletAddress}:${authenticated ? '1' : '0'}:${ready ? '1' : '0'}:${isCreator ? '1' : '0'}`;
+    const initKey = `${playbackId}:${walletAddress}:${authenticated ? '1' : '0'}:${ready ? '1' : '0'}:${isChannelAdmin ? '1' : '0'}`;
     if (initPromiseRef.current && initKeyRef.current === initKey) {
       return initPromiseRef.current;
     }
@@ -436,7 +466,7 @@ export function ChannelChatExperience({
 
       teardownStream();
 
-      if (!playbackId || !isLikelyAddress(creatorAddressRaw)) {
+      if (!playbackId || !isLikelyAddress(channelCreatorId)) {
         setChatState('error');
         setStatusMessage('Channel chat is unavailable because the channel identity is invalid.');
         return;
@@ -452,9 +482,9 @@ export function ChannelChatExperience({
       setChatState('checking-access');
       setStatusMessage('Checking channel access...');
 
-      if (!isCreator) {
+      if (!isChannelAdmin) {
         const [isFollowerSubscribed, hasPaidSubscription] = await Promise.all([
-          isUserSubscribedToCreator(walletAddress, normalizedCreatorId),
+          isUserSubscribedToCreator(walletAddress, channelCreatorId),
           hasActiveStreamSubscription(playbackId, walletAddress),
         ]);
         const hasSubscription = isFollowerSubscribed || hasPaidSubscription;
@@ -471,7 +501,7 @@ export function ChannelChatExperience({
 
       setStatusMessage('Finding channel room...');
       const mapping = await getChannelChatGroupMapping(playbackId);
-      if (!isCreator && !mapping?.xmtpGroupId) {
+      if (!isChannelAdmin && !mapping?.xmtpGroupId) {
         setChatState('connecting');
         setStatusMessage('Chat is provisioning. Waiting for room setup...');
         scheduleAccessSyncRetry();
@@ -493,7 +523,7 @@ export function ChannelChatExperience({
           : null;
       if (isStaleRun()) return;
 
-      if (!conversation && !isCreator) {
+      if (!conversation && !isChannelAdmin) {
         setStatusMessage('Finalizing your chat access...');
         for (let attempt = 0; attempt < 10 && !conversation; attempt += 1) {
           try {
@@ -507,23 +537,23 @@ export function ChannelChatExperience({
         }
       }
 
-      if (!conversation && !isCreator) {
+      if (!conversation && !isChannelAdmin) {
         setChatState('connecting');
         setStatusMessage('Syncing your chat access automatically...');
         scheduleAccessSyncRetry();
         return;
       }
 
-      if (!conversation && isCreator) {
+      if (!conversation && isChannelAdmin) {
         setStatusMessage('Creating your channel group chat...');
         const created = await createChannelConversation(client, streamNameRef.current || 'Channel', playbackId);
         if (isStaleRun()) return;
         conversation = created.conversation;
         await saveChannelChatGroupMapping({
           playbackId,
-          creatorId: creatorAddressRaw,
+          creatorId: channelCreatorId,
           xmtpGroupId: created.conversationId,
-        });
+        }, walletAddress);
         if (isStaleRun()) return;
       }
 
@@ -546,16 +576,6 @@ export function ChannelChatExperience({
       await syncXmtpMessages();
       if (isStaleRun()) return;
 
-      if (!isCreator) {
-        // If the subscriber has XMTP initialized now, try to ensure membership immediately.
-        try {
-          await syncConversationMembers(client, conversation, [walletAddress]);
-        } catch {
-          // Non-admin subscribers may not be allowed to add themselves, so ignore.
-        }
-        if (isStaleRun()) return;
-      }
-
       try {
         await refreshKnownMemberSenderMappings();
       } catch (error) {
@@ -563,10 +583,10 @@ export function ChannelChatExperience({
       }
       if (isStaleRun()) return;
 
-      if (isCreator) {
+      if (isChannelAdmin) {
         setStatusMessage('Syncing subscribers into the room...');
         try {
-          await syncSubscriberMemberships(creatorAddressRaw, playbackId);
+          await syncSubscriberMemberships(channelCreatorId, playbackId);
         } catch (error) {
           console.error('Failed to sync XMTP chat members:', error);
         }
@@ -611,16 +631,6 @@ export function ChannelChatExperience({
         appendMessage(incoming);
       });
 
-      try {
-        const members =
-          (await conversation?.members?.()) ||
-          (await conversation?.listMembers?.()) ||
-          [];
-        setMemberCount(Array.isArray(members) ? members.length : 0);
-      } catch {
-        setMemberCount(0);
-      }
-
       setChatState('ready');
       setStatusMessage('Room connected');
       if (accessSyncTimerRef.current) {
@@ -642,9 +652,8 @@ export function ChannelChatExperience({
   }, [
     appendMessage,
     authenticated,
-    creatorAddressRaw,
-    isCreator,
-    normalizedCreatorId,
+    channelCreatorId,
+    isChannelAdmin,
     playbackId,
     ready,
     scheduleAccessSyncRetry,
@@ -654,6 +663,7 @@ export function ChannelChatExperience({
     syncXmtpMessages,
     teardownStream,
     walletAddress,
+    isMessageAfterClearCutoff,
     refreshKnownMemberSenderMappings,
   ]);
 
@@ -687,16 +697,16 @@ export function ChannelChatExperience({
   }, [initializeConversation, scheduleAccessSyncRetry, teardownStream]);
 
   useEffect(() => {
-    if (!isCreator || chatState !== 'ready' || !creatorAddressRaw) return;
+    if (!isChannelAdmin || chatState !== 'ready' || !channelCreatorId) return;
 
     const intervalId = setInterval(() => {
-      syncSubscriberMemberships(creatorAddressRaw, playbackId).catch((error) => {
+      syncSubscriberMemberships(channelCreatorId, playbackId).catch((error) => {
         console.error('Background subscriber membership sync failed:', error);
       });
     }, 10000);
 
     return () => clearInterval(intervalId);
-  }, [chatState, creatorAddressRaw, isCreator, playbackId, syncSubscriberMemberships]);
+  }, [chatState, channelCreatorId, isChannelAdmin, playbackId, syncSubscriberMemberships]);
 
   useEffect(() => {
     if (!playbackId) return;
@@ -907,7 +917,7 @@ export function ChannelChatExperience({
   );
 
   const handleClearHistory = useCallback(async () => {
-    if (!isCreator || clearingHistory) return;
+    if (!isChannelAdmin || clearingHistory) return;
 
     const confirmed = window.confirm(
       'Clear channel chat history for everyone? This hides all previous messages and cannot be undone.',
@@ -916,7 +926,7 @@ export function ChannelChatExperience({
 
     setClearingHistory(true);
     try {
-      const clearedAt = await clearChannelChatHistory(playbackId, walletAddress || creatorAddressRaw);
+      const clearedAt = await clearChannelChatHistory(playbackId, walletAddress);
       const clearedAtMs = messageTimestampMs(clearedAt);
       clearedAtMsRef.current = Number.isFinite(clearedAtMs) ? clearedAtMs : Date.now();
       setMessages([]);
@@ -926,76 +936,86 @@ export function ChannelChatExperience({
     } finally {
       setClearingHistory(false);
     }
-  }, [clearingHistory, creatorAddressRaw, isCreator, playbackId, walletAddress]);
+  }, [clearingHistory, isChannelAdmin, playbackId, walletAddress]);
 
   const isReady = chatState === 'ready';
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-white/15 bg-[#070b12] shadow-[0_30px_90px_rgba(0,0,0,0.5)]">
-      <div className="pointer-events-none absolute inset-0 opacity-80">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_12%_10%,rgba(250,204,21,0.18),transparent_40%),radial-gradient(circle_at_85%_18%,rgba(20,184,166,0.20),transparent_38%),radial-gradient(circle_at_50%_100%,rgba(59,130,246,0.14),transparent_48%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0.15),rgba(0,0,0,0.62))]" />
+    <section className="relative -mt-px min-h-[calc(100dvh-248px)] overflow-hidden rounded-none border border-white/[0.07] border-t-0 bg-[#080808] md:min-h-[calc(100dvh-260px)] md:rounded-b-[22px] md:rounded-t-none">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,#080808_0%,#0b0b0d_55%,#080808_100%)]" />
+        <div className="absolute inset-0 opacity-25 bg-[radial-gradient(circle_at_18%_8%,rgba(255,255,255,0.07),transparent_36%),radial-gradient(circle_at_84%_92%,rgba(255,255,255,0.05),transparent_30%)]" />
+        <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] [background-size:26px_26px]" />
       </div>
 
-      <div className="relative z-10 flex h-[calc(100vh-215px)] min-h-[560px] flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 backdrop-blur-xl sm:px-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <button
-              onClick={onBack}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20"
-              aria-label={backLabel}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="min-w-0">
-              <p className="truncate text-[11px] uppercase tracking-[0.2em] text-cyan-200/75">Channel group chat</p>
-              <h2 className="truncate text-lg font-semibold text-white">{streamName || 'Channel Room'}</h2>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            {isCreator ? (
+      <div className="relative z-10 flex min-h-[calc(100dvh-260px)] flex-col">
+        <header className="border-b border-white/[0.07] bg-[#0f0f0f]/90 px-2.5 py-2 backdrop-blur-xl sm:px-5 sm:py-2.5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
               <button
-                type="button"
-                onClick={handleClearHistory}
-                disabled={!isReady || clearingHistory}
-                className="inline-flex items-center gap-1.5 rounded-full border border-red-300/35 bg-red-500/20 px-3 py-1.5 text-xs font-medium text-red-100 transition-colors hover:bg-red-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={onBack}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/20 bg-black/45 text-white transition-colors hover:bg-black/65 sm:h-9 sm:w-9"
+                aria-label={backLabel}
               >
-                <Trash2 className="h-3.5 w-3.5" />
-                <span>{clearingHistory ? 'Clearing...' : 'Clear history'}</span>
+                <ArrowLeft className="h-4 w-4" />
               </button>
-            ) : null}
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-black/30 px-3 py-1.5 text-xs text-gray-200">
-              <Users className="h-3.5 w-3.5 text-teal-300" />
-              <span>{memberCount > 0 ? `${memberCount} members` : 'XMTP room'}</span>
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={`inline-flex h-7 w-7 items-center justify-center rounded-full border ${
+                    isReady
+                      ? 'border-emerald-300/35 bg-emerald-500/12 text-emerald-200'
+                      : 'border-yellow-200/35 bg-yellow-400/12 text-yellow-100'
+                  }`}
+                  title={statusMessage}
+                  aria-label={statusMessage}
+                >
+                  <span className={`h-2 w-2 rounded-full ${isReady ? 'bg-emerald-300' : 'animate-pulse bg-yellow-300'}`} />
+                </span>
+                <span
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/[0.03] text-gray-100"
+                  title="Realtime chat"
+                  aria-label="Realtime chat"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                </span>
+                <span
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/20 bg-white/[0.03] text-gray-100"
+                  title={isChannelAdmin ? 'Creator admin' : 'Subscriber access'}
+                  aria-label={isChannelAdmin ? 'Creator admin' : 'Subscriber access'}
+                >
+                  <Shield className="h-3.5 w-3.5" />
+                </span>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5">
+              {isChannelAdmin ? (
+                <button
+                  type="button"
+                  onClick={handleClearHistory}
+                  disabled={!isReady || clearingHistory}
+                  className="inline-flex items-center gap-1 rounded-full border border-red-300/35 bg-red-500/15 px-2 py-0.5 text-[10px] font-medium text-red-100 transition-colors hover:bg-red-500/25 disabled:cursor-not-allowed disabled:opacity-50 sm:px-2.5 sm:py-1 sm:text-[11px]"
+                >
+                  <Trash2 className="h-3 w-3" />
+                  <span>{clearingHistory ? 'Clearing' : 'Clear'}</span>
+                </button>
+              ) : null}
             </div>
           </div>
         </header>
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-4 py-2 text-xs sm:px-6">
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-teal-300/30 bg-teal-500/15 px-2.5 py-1 text-teal-100">
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Realtime XMTP</span>
-          </div>
-          <div className="inline-flex items-center gap-1.5 rounded-full border border-yellow-300/30 bg-yellow-500/15 px-2.5 py-1 text-yellow-100">
-            <Shield className="h-3.5 w-3.5" />
-            <span>{isCreator ? 'Admin mode' : 'Subscriber room'}</span>
-          </div>
-          <div className="text-gray-300">{statusMessage}</div>
-        </div>
-
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-3 py-4 sm:px-6">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-2 pb-4 pt-2 sm:px-5 sm:pb-6 sm:pt-4">
           {isReady && messages.length === 0 ? (
-            <div className="mx-auto mt-16 max-w-sm rounded-2xl border border-white/20 bg-white/10 p-6 text-center backdrop-blur-md">
-              <MessageCircleHeart className="mx-auto mb-3 h-7 w-7 text-yellow-300" />
-              <p className="text-sm text-white">Room is live. Send the first message to start the vibe.</p>
+            <div className="mx-auto mt-14 max-w-sm rounded-3xl border border-white/[0.1] bg-[#0f0f0f]/95 p-6 text-center shadow-[0_18px_50px_rgba(0,0,0,0.4)] backdrop-blur-sm">
+              <MessageCircleHeart className="mx-auto mb-3 h-7 w-7 text-[#facc15]" />
+              <p className="text-sm font-medium text-white">Room is live. Drop the first message.</p>
             </div>
           ) : null}
 
           {!isReady && chatState !== 'blocked' && chatState !== 'error' ? (
-            <div className="mt-16 flex justify-center">
-              <div className="rounded-2xl border border-white/20 bg-white/10 px-5 py-4 backdrop-blur-md">
-                <div className="flex items-center gap-3 text-sm text-white">
+            <div className="mt-14 flex justify-center">
+              <div className="rounded-2xl border border-white/[0.1] bg-[#0f0f0f]/95 px-5 py-4 shadow-[0_16px_45px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+                <div className="flex items-center gap-3 text-sm font-medium text-white">
                   <Bars width={18} height={18} color="#facc15" />
                   <span>{statusMessage}</span>
                 </div>
@@ -1004,13 +1024,13 @@ export function ChannelChatExperience({
           ) : null}
 
           {chatState === 'blocked' ? (
-            <div className="mx-auto mt-16 max-w-md rounded-2xl border border-white/20 bg-[#111827]/80 p-6 text-center backdrop-blur-md">
+            <div className="mx-auto mt-14 max-w-md rounded-3xl border border-white/[0.1] bg-[#0f0f0f]/95 p-6 text-center shadow-[0_16px_45px_rgba(0,0,0,0.35)] backdrop-blur-sm">
               <p className="text-base font-semibold text-white">Chat access locked</p>
               <p className="mt-2 text-sm text-gray-300">{statusMessage}</p>
               {!authenticated ? (
                 <button
                   onClick={login}
-                  className="mt-4 rounded-lg bg-gradient-to-r from-yellow-500 to-teal-500 px-4 py-2 text-sm font-semibold text-black"
+                  className="mt-4 rounded-full bg-gradient-to-r from-yellow-400 to-teal-500 px-4 py-2 text-sm font-semibold text-black"
                 >
                   Connect wallet
                 </button>
@@ -1019,12 +1039,12 @@ export function ChannelChatExperience({
           ) : null}
 
           {chatState === 'error' ? (
-            <div className="mx-auto mt-16 max-w-md rounded-2xl border border-red-300/40 bg-red-900/20 p-6 text-center backdrop-blur-md">
-              <p className="text-base font-semibold text-red-200">Chat unavailable</p>
-              <p className="mt-2 text-sm text-red-100/90">{statusMessage}</p>
+            <div className="mx-auto mt-14 max-w-md rounded-3xl border border-white/[0.1] bg-[#0f0f0f]/95 p-6 text-center shadow-[0_16px_45px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+              <p className="text-base font-semibold text-white">Chat unavailable</p>
+              <p className="mt-2 text-sm text-gray-300">{statusMessage}</p>
               <button
                 onClick={() => initializeConversation()}
-                className="mt-4 rounded-lg border border-red-200/40 bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-100"
+                className="mt-4 rounded-full border border-white/[0.14] bg-[#1a1a1a] px-4 py-2 text-sm font-semibold text-white"
               >
                 Retry
               </button>
@@ -1032,7 +1052,7 @@ export function ChannelChatExperience({
           ) : null}
 
           {isReady ? (
-            <div className="space-y-3 pb-4">
+            <div className="space-y-2.5 pb-2 sm:space-y-3 sm:pb-3">
               {messages.map((message) => {
                 const normalizedSender = String(message.senderInboxId || '').toLowerCase();
                 const isSelfByWallet = Boolean(walletAddress && normalizedSender === walletAddress);
@@ -1043,32 +1063,45 @@ export function ChannelChatExperience({
                 const senderLabel = isSelf
                   ? 'You'
                   : senderLabels[message.senderInboxId] || `${message.senderInboxId.slice(0, 8)}...`;
+                const senderInitial = senderLabel.slice(0, 1).toUpperCase();
                 const imageUrl = extractImageUrlFromMessage(message);
                 const displayText = displayMessageContent(message);
+
                 return (
                   <article
                     key={message.id}
-                    className={`max-w-[86%] rounded-2xl border px-4 py-2.5 text-sm shadow-sm backdrop-blur-md ${
-                      isSelf
-                        ? 'ml-auto border-yellow-300/35 bg-gradient-to-br from-yellow-400/20 to-teal-400/20 text-white'
-                        : 'border-white/20 bg-white/10 text-gray-100'
-                    }`}
+                    className={`group flex max-w-[98%] items-end gap-2 sm:max-w-[96%] sm:gap-2.5 ${isSelf ? 'ml-auto flex-row-reverse' : ''}`}
                   >
-                    <div className="mb-1 flex items-center justify-between gap-4 text-[11px]">
-                      <span className={`${isSelf ? 'text-yellow-200' : 'text-cyan-200/80'} truncate`}>
-                        {senderLabel}
-                      </span>
-                      <span className="text-gray-300">{toDateLabel(message.sentAt)}</span>
+                    <div
+                      className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold sm:h-9 sm:w-9 sm:text-xs ${
+                        isSelf
+                          ? 'bg-gradient-to-br from-yellow-300 to-teal-300 text-gray-900'
+                          : 'bg-[#141414] text-white ring-1 ring-white/[0.15]'
+                      }`}
+                    >
+                      {isSelf ? 'You' : senderInitial || '•'}
                     </div>
-                    {imageUrl ? (
-                      <img
-                        src={imageUrl}
-                        alt="Shared image"
-                        className="mb-2 max-h-[320px] w-full rounded-xl border border-white/10 object-contain"
-                        loading="lazy"
-                      />
-                    ) : null}
-                    {displayText ? <p className="break-words leading-relaxed">{displayText}</p> : null}
+                    <div
+                      className={`rounded-[20px] px-2.5 py-2 shadow-[0_12px_28px_rgba(0,0,0,0.26)] backdrop-blur-sm sm:rounded-[22px] sm:px-3 sm:py-2.5 ${
+                        isSelf
+                          ? 'border border-yellow-300/35 bg-gradient-to-br from-yellow-400/18 to-teal-400/16 text-white'
+                          : 'border border-white/[0.12] bg-[#121316] text-white'
+                      }`}
+                    >
+                      <div className="mb-1 flex items-center gap-2 text-[11px] leading-none">
+                        <span className="font-semibold leading-none text-white/95">{senderLabel}</span>
+                        <span className="text-gray-400">{toDateLabel(message.sentAt)}</span>
+                      </div>
+                      {imageUrl ? (
+                        <img
+                          src={imageUrl}
+                          alt="Shared image"
+                          className="mb-2 max-h-[360px] w-full rounded-2xl border border-white/[0.1] object-contain"
+                          loading="lazy"
+                        />
+                      ) : null}
+                      {displayText ? <p className="break-words text-[14px] leading-[1.45]">{displayText}</p> : null}
+                    </div>
                   </article>
                 );
               })}
@@ -1076,61 +1109,63 @@ export function ChannelChatExperience({
           ) : null}
         </div>
 
-        <footer className="border-t border-white/10 bg-black/25 px-3 py-3 backdrop-blur-xl sm:px-6">
-          <div className="mb-2 flex flex-wrap gap-2">
+        <footer className="border-t border-white/[0.07] bg-[#0f0f0f]/96 px-2 pb-[max(env(safe-area-inset-bottom),0.65rem)] pt-1.5 backdrop-blur-xl sm:px-5 sm:pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:pt-2">
+          <div className="mb-1.5 flex items-center gap-1.5 overflow-x-auto pb-0.5 sm:mb-2 sm:pb-1">
             {QUICK_REACTIONS.map((reaction) => (
               <button
                 key={reaction}
                 type="button"
                 onClick={() => handleReaction(reaction)}
                 disabled={!isReady}
-                className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border border-white/20 bg-white/10 px-2 text-sm text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+                className="inline-flex h-6.5 min-w-6.5 items-center justify-center rounded-full border border-white/[0.12] bg-[#171717] px-2 text-[13px] text-white transition-colors hover:bg-[#202020] disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 sm:min-w-7 sm:text-sm"
               >
                 {reaction}
               </button>
             ))}
           </div>
 
-          <div className="flex items-end gap-2">
-            <input
-              ref={imageInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleImageSelect}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={openImagePicker}
-              disabled={!isReady || sending}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-white/20 bg-white/10 text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Send image"
-              title="Send image"
-            >
-              <ImagePlus className="h-4 w-4" />
-            </button>
-            <textarea
-              value={inputValue}
-              onChange={(event) => setInputValue(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault();
-                  handleSend();
-                }
-              }}
-              disabled={!isReady || sending}
-              rows={1}
-              placeholder={isReady ? `Message ${streamName || 'channel'}...` : 'Chat is unavailable right now'}
-              className="max-h-28 min-h-[44px] flex-1 resize-none rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-gray-300 focus:border-yellow-300/70 focus:outline-none"
-            />
-            <button
-              onClick={handleSend}
-              disabled={!isReady || sending || !inputValue.trim()}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-r from-yellow-500 to-teal-500 text-black transition-transform hover:scale-[1.02] disabled:cursor-not-allowed disabled:opacity-50"
-              aria-label="Send message"
-            >
-              {sending ? <Bars width={14} height={14} color="#0b0b0b" /> : <Send className="h-4 w-4" />}
-            </button>
+          <div className="rounded-2xl border border-white/[0.1] bg-[#0f0f0f] p-1.5 shadow-[0_18px_36px_rgba(0,0,0,0.36)] sm:p-2">
+            <div className="flex items-end gap-1.5 sm:gap-2">
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={openImagePicker}
+                disabled={!isReady || sending}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/[0.1] bg-[#161616] text-white transition-colors hover:bg-[#202020] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-10"
+                aria-label="Send image"
+                title="Send image"
+              >
+                <ImagePlus className="h-4 w-4" />
+              </button>
+              <textarea
+                value={inputValue}
+                onChange={(event) => setInputValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' && !event.shiftKey) {
+                    event.preventDefault();
+                    handleSend();
+                  }
+                }}
+                disabled={!isReady || sending}
+                rows={1}
+                placeholder={isReady ? `Message ${streamName || 'channel'}...` : 'Chat is unavailable right now'}
+                className="max-h-28 min-h-[36px] flex-1 resize-none rounded-xl border border-white/[0.1] bg-[#161616] px-2.5 py-1.5 text-[14px] leading-[1.35] text-white placeholder:text-white/45 focus:border-[#facc15]/50 focus:outline-none sm:min-h-[40px] sm:px-3 sm:py-2"
+              />
+              <button
+                onClick={handleSend}
+                disabled={!isReady || sending || !inputValue.trim()}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-r from-yellow-400 to-teal-500 text-black transition-transform hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-50 sm:h-10 sm:w-10"
+                aria-label="Send message"
+              >
+                {sending ? <Bars width={14} height={14} color="#0b0b0b" /> : <Send className="h-4 w-4" />}
+              </button>
+            </div>
           </div>
         </footer>
       </div>

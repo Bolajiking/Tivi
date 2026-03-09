@@ -5,6 +5,9 @@ const LIVEPEER_API_BASE = 'https://livepeer.studio/api';
 const STREAM_CREATE_ALLOWED_FIELDS = new Set(['name', 'record', 'playbackPolicy', 'creatorId']);
 const STREAM_PATCH_ALLOWED_FIELDS = new Set(['name', 'record', 'playbackPolicy']);
 const ASSET_REQUEST_UPLOAD_ALLOWED_FIELDS = new Set(['name', 'staticMP4', 'creatorId']);
+const LIVEPEER_UPSTREAM_TIMEOUT_MS = 12000;
+const LIVEPEER_UPSTREAM_MAX_ATTEMPTS = 3;
+const RETRYABLE_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 
 const buildUpstreamUrl = (request: Request, path: string[]) => {
   const safePath = path.join('/');
@@ -51,6 +54,56 @@ const sanitizePayload = (payload: any, allowedFields: Set<string>): Record<strin
   });
 
   return safePayload;
+};
+
+const delay = (ms: number) =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const shouldRetryStatus = (status: number): boolean =>
+  RETRYABLE_STATUSES.has(status);
+
+const fetchUpstreamWithRetry = async (
+  url: string,
+  init: RequestInit,
+  options?: { timeoutMs?: number; maxAttempts?: number },
+): Promise<Response> => {
+  const timeoutMs = options?.timeoutMs ?? LIVEPEER_UPSTREAM_TIMEOUT_MS;
+  const maxAttempts = options?.maxAttempts ?? LIVEPEER_UPSTREAM_MAX_ATTEMPTS;
+  let lastNetworkError: unknown = null;
+  let lastRetryableResponse: Response | null = null;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort('livepeer-upstream-timeout'), timeoutMs);
+
+    try {
+      const response = await fetch(url, {
+        ...init,
+        signal: controller.signal,
+      });
+
+      if (!response.ok && shouldRetryStatus(response.status) && attempt < maxAttempts) {
+        lastRetryableResponse = response;
+        await delay(250 * attempt);
+        continue;
+      }
+
+      return response;
+    } catch (error) {
+      lastNetworkError = error;
+      if (attempt < maxAttempts) {
+        await delay(250 * attempt);
+        continue;
+      }
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  if (lastRetryableResponse) return lastRetryableResponse;
+  throw lastNetworkError || new Error('Livepeer upstream request failed');
 };
 
 const isAllowedReadPath = (path: string[]): boolean => {
@@ -100,14 +153,23 @@ const isAllowedWritePath = (method: string, path: string[]): boolean => {
 };
 
 const fetchStreamOwnerCreatorId = async (key: string, streamId: string): Promise<string | null> => {
-  const response = await fetch(`${LIVEPEER_API_BASE}/stream/${encodeURIComponent(streamId)}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    cache: 'no-store',
-  });
+  let response: Response;
+  try {
+    response = await fetchUpstreamWithRetry(
+      `${LIVEPEER_API_BASE}/stream/${encodeURIComponent(streamId)}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      },
+      { maxAttempts: 2 },
+    );
+  } catch {
+    return null;
+  }
 
   if (!response.ok) {
     return null;
@@ -118,14 +180,23 @@ const fetchStreamOwnerCreatorId = async (key: string, streamId: string): Promise
 };
 
 const fetchAssetOwnerCreatorId = async (key: string, assetId: string): Promise<string | null> => {
-  const response = await fetch(`${LIVEPEER_API_BASE}/asset/${encodeURIComponent(assetId)}`, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${key}`,
-      'Content-Type': 'application/json',
-    },
-    cache: 'no-store',
-  });
+  let response: Response;
+  try {
+    response = await fetchUpstreamWithRetry(
+      `${LIVEPEER_API_BASE}/asset/${encodeURIComponent(assetId)}`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      },
+      { maxAttempts: 2 },
+    );
+  } catch {
+    return null;
+  }
 
   if (!response.ok) {
     return null;
@@ -303,7 +374,7 @@ const proxy = async (request: Request, path: string[]) => {
 
   let response: Response;
   try {
-    response = await fetch(upstreamUrl, {
+    response = await fetchUpstreamWithRetry(upstreamUrl, {
       method,
       headers,
       cache: 'no-store',

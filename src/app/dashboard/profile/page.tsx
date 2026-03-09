@@ -218,9 +218,9 @@ const ProfilePage: React.FC = () => {
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <div className="flex-1 overflow-auto pb-20">
           <Header toggleMenu={toggleMobileMenu} mobileOpen={mobileMenuOpen} />
-          
-          <div className="m-4 p-6">
-            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-6 space-y-6">
+
+          <div className="mx-auto w-full max-w-[1200px] px-3 pt-14 pb-4 md:px-6 md:pt-6">
+            <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-4 md:p-6 space-y-6">
               <h1 className="text-2xl font-bold text-white mb-6">User Profile</h1>
 
               {/* Display Picture Section */}

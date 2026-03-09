@@ -7,9 +7,10 @@ interface LogoProps {
   className?: string;
   href?: string;
   size?: 'sm' | 'md' | 'lg';
+  iconOnly?: boolean;
 }
 
-export default function Logo({ className = '', href = '/', size = 'md' }: LogoProps) {
+export default function Logo({ className = '', href = '/', size = 'md', iconOnly = false }: LogoProps) {
   const pathname = usePathname();
   const isHome = pathname === '/';
 
@@ -19,16 +20,32 @@ export default function Logo({ className = '', href = '/', size = 'md' }: LogoPr
     lg: 'h-10',
   };
 
+  const iconSizeClasses = {
+    sm: 'h-8 w-8',
+    md: 'h-10 w-10',
+    lg: 'h-12 w-12',
+  };
+
   const LogoContent = () => (
     <div className="relative inline-block group cursor-pointer">
-      <Image
-        src="/assets/images/tvinbio-logo.svg"
-        alt="TVinBio"
-        width={140}
-        height={40}
-        style={{ width: 'auto', height: 'auto' }}
-        className={`${sizeClasses[size]} w-auto`}
-      />
+      {iconOnly ? (
+        <Image
+          src="/assets/images/icon.png"
+          alt="TVinBio"
+          width={48}
+          height={48}
+          className={`${iconSizeClasses[size]} rounded-md object-contain`}
+        />
+      ) : (
+        <Image
+          src="/assets/images/tvinbio-logo.svg"
+          alt="TVinBio"
+          width={140}
+          height={40}
+          style={{ width: 'auto', height: 'auto' }}
+          className={`${sizeClasses[size]} w-auto`}
+        />
+      )}
     </div>
   );
 

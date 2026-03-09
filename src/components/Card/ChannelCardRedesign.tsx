@@ -156,7 +156,7 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
   return (
     <div className={`w-full max-w-none flex bg-transparent items-center space-y-1 py-0.5 px-2 rounded-lg ${isSimpleLayout ? 'justify-center flex-col' : 'justify-between'}`}>
       {/* Stream Image - Different sizes based on layout */}
-      <div className={`relative overflow-hidden border-2 border-yellow-400/50 ${isSimpleLayout ? 'w-full max-w-md aspect-video rounded-lg' : 'w-24 h-24 rounded-full'}`}>
+      <div className={`relative overflow-hidden border-2 border-white/[0.07] ${isSimpleLayout ? 'w-full max-w-md aspect-video rounded-xl' : 'w-24 h-24 rounded-full'}`}>
         {loading ? (
           <div className="flex items-center justify-center w-full h-full bg-black">
             <p className="text-white text-sm">Loading</p>
@@ -194,7 +194,7 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
 
       {/* Stream Status Display - Only show in simple layout (Gallery) */}
       {isSimpleLayout && (
-        <div className="w-full max-w-md flex items-center justify-center gap-2 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10">
+        <div className="w-full max-w-md flex items-center justify-center gap-2 px-3 py-1.5 bg-[#1a1a1a] rounded-lg border border-white/[0.07]">
           <div className={`w-2 h-2 rounded-full ${status ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
           <span className={`text-xs font-medium ${status ? 'text-green-400' : 'text-gray-400'}`}>
             {status ? 'Live' : 'Offline'}
@@ -226,7 +226,7 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
                 href={socialLinks.twitter}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+                className="p-2 rounded-lg bg-[#1a1a1a] hover:bg-[#242424] transition-colors flex items-center justify-center"
                 title="Twitter"
               >
                 <FaTwitter className="text-lg text-blue-400" />
@@ -237,7 +237,7 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
                 href={socialLinks.instagram}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+                className="p-2 rounded-lg bg-[#1a1a1a] hover:bg-[#242424] transition-colors flex items-center justify-center"
                 title="Instagram"
               >
                 <FaInstagram className="text-lg text-pink-500" />
@@ -248,7 +248,7 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
                 href={socialLinks.youtube}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+                className="p-2 rounded-lg bg-[#1a1a1a] hover:bg-[#242424] transition-colors flex items-center justify-center"
                 title="YouTube"
               >
                 <FaYoutube className="text-lg text-red-500" />
@@ -259,7 +259,7 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
                 href={socialLinks.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors flex items-center justify-center"
+                className="p-2 rounded-lg bg-[#1a1a1a] hover:bg-[#242424] transition-colors flex items-center justify-center"
                 title="Website"
               >
                 <FaLink className="text-lg text-yellow-400" />
@@ -269,7 +269,7 @@ export const ChannelCardRedesign: React.FC<ChannelCardRedesignProps> = ({
         ) : (
           <Link
             href="/dashboard/settings"
-            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors text-sm font-medium"
+            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-yellow-400 to-teal-500 hover:from-yellow-500 hover:to-teal-600 text-black rounded-lg transition-colors text-sm font-semibold"
           >
             <FaLink className="text-sm" />
             Add Links

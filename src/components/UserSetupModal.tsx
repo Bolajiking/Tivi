@@ -177,8 +177,8 @@ export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }
       modal={true}
     >
       <Dialog.Portal>
-        <Dialog.Overlay 
-          className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100]"
+        <Dialog.Overlay
+          className="fixed inset-0 bg-black/85 backdrop-blur-sm z-[100]"
           onClick={(e) => {
             // Prevent closing on overlay click for first-time users
             if (isFirstTime) {
@@ -187,11 +187,11 @@ export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }
             }
           }}
         />
-        <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[85vh] w-[90vw] flex mt-4 flex-col justify-center items-center max-w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-gray-900/95 backdrop-blur-sm border border-white/20 px-8 py-6 shadow-2xl z-[101]">
+        <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[85vh] w-[90vw] flex mt-4 flex-col justify-center items-center max-w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-[#0f0f0f] border border-white/[0.07] px-8 py-6 shadow-2xl z-[101]">
           <Dialog.Title className="text-white text-center text-2xl font-bold mb-2">
             {isFirstTime ? 'Welcome! Set Up Your Profile' : 'Complete Your Profile'}
           </Dialog.Title>
-          <Dialog.Description className="text-gray-300 text-center text-sm mb-6">
+          <Dialog.Description className="text-[#888] text-center text-sm mb-6">
             {isFirstTime 
               ? 'Please set a username to continue. Profile picture is optional.'
               : 'Please provide a username and optionally a profile picture'}
@@ -205,7 +205,7 @@ export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }
               </label>
               <div className="flex items-center gap-4">
                 {avatar ? (
-                  <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-yellow-400">
+                  <div className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-white/[0.07]">
                     <img
                       src={avatar}
                       alt="Profile preview"
@@ -213,8 +213,8 @@ export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }
                     />
                   </div>
                 ) : (
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-r from-yellow-500/30 to-teal-500/30 flex items-center justify-center border-2 border-yellow-400">
-                    <span className="text-yellow-400 text-2xl">?</span>
+                  <div className="w-20 h-20 rounded-full bg-[#1a1a1a] flex items-center justify-center border-2 border-white/[0.07]">
+                    <span className="text-[#555] text-2xl">?</span>
                   </div>
                 )}
                 <input
@@ -227,7 +227,7 @@ export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 transition-colors text-sm"
+                  className="px-4 py-2 bg-[#1a1a1a] border-0 text-[#888] hover:text-white hover:bg-[#242424] rounded-lg transition-colors text-sm"
                 >
                   {avatar ? 'Change Picture' : 'Select Picture'}
                 </button>
@@ -252,13 +252,13 @@ export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }
                   }
                 }}
                 placeholder="Enter your username"
-                className={`w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400 ${errors.displayName ? 'border-red-400' : ''}`}
+                className={`w-full bg-[#1a1a1a] border border-white/[0.07] text-white placeholder:text-[#555] focus:outline-none focus:border-[#facc15]/50 ${errors.displayName ? 'border-red-400' : ''}`}
                 maxLength={30}
               />
               {errors.displayName && (
                 <p className="text-red-400 text-xs mt-1">{errors.displayName}</p>
               )}
-              <p className="text-gray-400 text-xs mt-1">
+              <p className="text-[#555] text-xs mt-1">
                 {displayName.length}/30 characters (letters, numbers, _, - only)
               </p>
             </div>
@@ -269,7 +269,7 @@ export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-400 to-teal-500 hover:from-yellow-500 hover:to-teal-600 text-black rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -286,7 +286,7 @@ export function UserSetupModal({ open, onClose, onSuccess, isFirstTime = false }
           {!isFirstTime && (
             <Dialog.Close asChild>
               <button
-                className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-white hover:bg-white/10 focus:shadow-[0_0_0_2px] focus:shadow-yellow-500 focus:outline-none transition-colors"
+                className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-[#888] hover:text-white hover:bg-[#1a1a1a] focus:outline-none transition-colors"
                 aria-label="Close"
                 disabled={loading}
               >

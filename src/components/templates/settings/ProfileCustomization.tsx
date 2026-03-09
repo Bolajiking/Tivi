@@ -1,9 +1,7 @@
 'use client';
-import React, { useState, useEffect ,useMemo} from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
-import { Bars } from 'react-loader-spinner';
-import InputField from '@/components/ui/InputField';
-import { Copy, ExternalLink } from 'lucide-react';
+import { Copy, ExternalLink, Check } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { useRouter } from 'next/navigation';
 import { AppDispatch } from '@/store/store';
@@ -19,10 +17,62 @@ import { createLivestream } from '@/features/streamAPI';
 import { clsx } from 'clsx';
 import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
+/* ─── Shared input class ─── */
+const inputCls =
+  'w-full rounded-xl bg-raised border border-white/[0.07] px-3.5 py-2.5 text-[14px] text-white placeholder:text-[var(--text-3)] outline-none transition-all duration-150 focus:border-transparent focus:ring-1 focus:ring-[var(--accent)]/40';
+
+const errorInputCls = 'border-red-500/50 focus:ring-red-500/30';
+
+/* ─── Section wrapper — spacing only, no card ─── */
+function Section({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h3 className="text-[16px] font-semibold text-white">{title}</h3>
+        {subtitle && <p className="text-[13px] text-[var(--text-2)] mt-0.5">{subtitle}</p>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ─── Field label ─── */
+function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  return (
+    <label className="block text-[13px] font-medium text-[var(--text-2)] mb-1.5">
+      {children}
+      {required && <span className="text-red-400 ml-0.5">*</span>}
+    </label>
+  );
+}
+
+/* ─── Loading skeleton ─── */
+function FormSkeleton() {
+  return (
+    <div className="animate-pulse space-y-8">
+      <div className="h-8 bg-raised rounded-lg w-48" />
+      <div className="space-y-4">
+        <div className="h-4 bg-raised rounded w-32" />
+        <div className="h-11 bg-raised rounded-xl w-full" />
+        <div className="h-4 bg-raised rounded w-24" />
+        <div className="h-24 bg-raised rounded-xl w-full" />
+      </div>
+      <div className="flex gap-4">
+        <div className="w-16 h-16 rounded-full bg-raised" />
+        <div className="flex-1 space-y-3">
+          <div className="h-4 bg-raised rounded w-40" />
+          <div className="h-9 bg-raised rounded-xl w-32" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProfileCustomization() {
   const { walletAddress } = useWalletAddress();
   const dispatch = useDispatch<AppDispatch>();
   const router = useRouter();
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [profileData, setProfileData] = useState({
     displayName: '',
     bio: '',
@@ -31,20 +81,20 @@ export function ProfileCustomization() {
   });
   const [saving, setSaving] = useState(false);
   const [profileUrl, setProfileUrl] = useState('');
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const [errors, setErrors] = useState<{
     displayName?: string;
     bio?: string;
     avatar?: string;
     amount?: string;
   }>({});
-  
-  // Stream-related state
+
   type ViewMode = 'free' | 'one-time' | 'monthly';
   const [streamData, setStreamData] = useState({
     viewMode: 'free' as ViewMode,
     amount: 0,
-    bgcolor: '#ffffff',
-    color: '#000000',
+    bgcolor: '#0f0f0f',
+    color: '#ffffff',
     fontSize: '16',
     fontFamily: 'Arial',
     record: false,
@@ -60,10 +110,8 @@ export function ProfileCustomization() {
 
   const creatorAddress = useMemo(() => walletAddress || null, [walletAddress]);
 
-  // Helper function to convert socialLinks from array of JSON strings to object format
   const parseSocialLinks = (socialLinksArray: string[] | null | undefined): { twitter?: string; instagram?: string; youtube?: string; website?: string } => {
     const socialLinks: { twitter?: string; instagram?: string; youtube?: string; website?: string } = {};
-    
     if (Array.isArray(socialLinksArray)) {
       socialLinksArray.forEach((jsonString: string) => {
         if (typeof jsonString === 'string') {
@@ -71,14 +119,8 @@ export function ProfileCustomization() {
             const parsed = JSON.parse(jsonString);
             Object.keys(parsed).forEach((key) => {
               const value = parsed[key];
-              if (key === 'twitter' && value) {
-                socialLinks.twitter = value;
-              } else if (key === 'instagram' && value) {
-                socialLinks.instagram = value;
-              } else if (key === 'youtube' && value) {
-                socialLinks.youtube = value;
-              } else if (key === 'website' && value) {
-                socialLinks.website = value;
+              if (['twitter', 'instagram', 'youtube', 'website'].includes(key) && value) {
+                (socialLinks as any)[key] = value;
               }
             });
           } catch (e) {
@@ -87,62 +129,43 @@ export function ProfileCustomization() {
         }
       });
     }
-    
     return socialLinks;
   };
 
-  // Helper function to convert socialLinks object to array of JSON strings
   const stringifySocialLinks = (socialLinks: { twitter?: string; instagram?: string; youtube?: string; website?: string }): string[] => {
-    const socialLinksArray: string[] = [];
-    if (socialLinks.twitter) {
-      socialLinksArray.push(JSON.stringify({ twitter: socialLinks.twitter }));
-    }
-    if (socialLinks.instagram) {
-      socialLinksArray.push(JSON.stringify({ instagram: socialLinks.instagram }));
-    }
-    if (socialLinks.youtube) {
-      socialLinksArray.push(JSON.stringify({ youtube: socialLinks.youtube }));
-    }
-    if (socialLinks.website) {
-      socialLinksArray.push(JSON.stringify({ website: socialLinks.website }));
-    }
-    return socialLinksArray;
+    const arr: string[] = [];
+    if (socialLinks.twitter) arr.push(JSON.stringify({ twitter: socialLinks.twitter }));
+    if (socialLinks.instagram) arr.push(JSON.stringify({ instagram: socialLinks.instagram }));
+    if (socialLinks.youtube) arr.push(JSON.stringify({ youtube: socialLinks.youtube }));
+    if (socialLinks.website) arr.push(JSON.stringify({ website: socialLinks.website }));
+    return arr;
   };
 
-  // Fetch existing stream data and load it into form
   useEffect(() => {
     const fetchExistingStream = async () => {
-      if (!creatorAddress) {
-        setHasCreatorAccess(false);
-        return;
-      }
-      
+      if (!creatorAddress) { setHasCreatorAccess(false); return; }
       try {
         setLoadingStream(true);
         setCreatorAccessLoading(true);
         const streams = await getStreamsByCreator(creatorAddress);
         if (streams && streams.length > 0) {
-          // Use the first stream (or you could use the most recent one)
           const stream = streams[0];
           setExistingStream(stream);
           setHasCreatorAccess(true);
-          
-          // Load stream data into form fields
           setProfileData({
             displayName: stream.title || stream.streamName || '',
             bio: stream.description || '',
             avatar: stream.logo || '',
             socialLinks: parseSocialLinks(stream.socialLinks),
           });
-          
           setStreamData({
             viewMode: stream.streamMode || stream.viewMode || 'free',
             amount: stream.streamAmount ?? stream.amount ?? 0,
-            bgcolor: stream.bgcolor || '#ffffff',
-            color: stream.color || '#000000',
+            bgcolor: stream.bgcolor || '#0f0f0f',
+            color: stream.color || '#ffffff',
             fontSize: stream.fontSize?.toString() || '16',
             fontFamily: stream.fontFamily || 'Arial',
-            record: false, // Default to false (NO) - not stored in stream table
+            record: false,
             donations: stream.donations || [0, 0, 0, 0],
           });
         } else {
@@ -159,13 +182,9 @@ export function ProfileCustomization() {
         setCreatorAccessLoading(false);
       }
     };
-
     fetchExistingStream();
   }, [creatorAddress]);
 
-  const loading = loadingStream;
-
-  // Fetch user profile to get username
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!creatorAddress) return;
@@ -179,78 +198,44 @@ export function ProfileCustomization() {
     fetchUserProfile();
   }, [creatorAddress]);
 
-  // Generate profile URL using username
   useEffect(() => {
     if (creatorAddress && userProfile?.displayName) {
       const configuredBase = process.env.NEXT_PUBLIC_BASE_URL?.trim();
       const baseUrl = configuredBase
-        ? configuredBase.startsWith('http')
-          ? configuredBase
-          : `https://${configuredBase}`
+        ? configuredBase.startsWith('http') ? configuredBase : `https://${configuredBase}`
         : window.location.origin;
-      setProfileUrl(
-        `${baseUrl.replace(/\/$/, '')}/${encodeURIComponent(userProfile.displayName)}`,
-      );
+      setProfileUrl(`${baseUrl.replace(/\/$/, '')}/${encodeURIComponent(userProfile.displayName)}`);
     } else {
       setProfileUrl('');
     }
   }, [creatorAddress, userProfile?.displayName]);
 
   const handleInputChange = (field: string, value: string) => {
-    setProfileData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    // Clear error when user types
+    setProfileData(prev => ({ ...prev, [field]: value }));
     if (errors[field as keyof typeof errors]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: undefined
-      }));
+      setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
   const handleSocialLinkChange = (platform: string, value: string) => {
-    setProfileData(prev => ({
-      ...prev,
-      socialLinks: {
-        ...prev.socialLinks,
-        [platform]: value
-      }
-    }));
+    setProfileData(prev => ({ ...prev, socialLinks: { ...prev.socialLinks, [platform]: value } }));
   };
 
-
   const handleStreamChange = (field: string, value: any) => {
-    setStreamData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-    // Clear error when user types
+    setStreamData(prev => ({ ...prev, [field]: value }));
     if (errors[field as keyof typeof errors]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: undefined
-      }));
+      setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
   const handleViewModeChange = (mode: ViewMode) => {
-    setStreamData(prev => ({
-      ...prev,
-      viewMode: mode,
-      amount: mode === 'free' ? 0 : prev.amount
-    }));
+    setStreamData(prev => ({ ...prev, viewMode: mode, amount: mode === 'free' ? 0 : prev.amount }));
   };
 
   const isPaidLivestreamMode = streamData.viewMode !== 'free';
 
   const handleLivestreamModeToggle = (mode: 'free' | 'paid') => {
-    if (mode === 'free') {
-      handleViewModeChange('free');
-      return;
-    }
-
+    if (mode === 'free') { handleViewModeChange('free'); return; }
     const nextMode: ViewMode = streamData.viewMode === 'free' ? 'one-time' : streamData.viewMode;
     handleViewModeChange(nextMode);
   };
@@ -258,61 +243,39 @@ export function ProfileCustomization() {
   const handleDonationChange = (index: number, value: string) => {
     const newDonations = [...streamData.donations];
     newDonations[index] = parseFloat(value) || 0;
-    setStreamData(prev => ({
-      ...prev,
-      donations: newDonations
-    }));
+    setStreamData(prev => ({ ...prev, donations: newDonations }));
   };
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Show loading state
     const prevAvatar = profileData.avatar;
     setProfileData(prev => ({ ...prev, avatar: '' }));
-
     try {
-      const imageUrl = await uploadImage(file, "user-avatars");
-      
+      const imageUrl = await uploadImage(file, 'user-avatars');
       if (imageUrl) {
-        setProfileData(prev => ({
-          ...prev,
-          avatar: imageUrl
-        }));
-        toast.success('Avatar uploaded successfully');
+        setProfileData(prev => ({ ...prev, avatar: imageUrl }));
+        toast.success('Logo uploaded');
       } else {
         setProfileData(prev => ({ ...prev, avatar: prevAvatar }));
-        toast.error('Failed to upload avatar');
+        toast.error('Failed to upload logo');
       }
     } catch (error: any) {
       console.error('Error uploading avatar:', error);
       setProfileData(prev => ({ ...prev, avatar: prevAvatar }));
-      toast.error(error.message || 'Failed to upload avatar');
+      toast.error(error.message || 'Failed to upload logo');
     }
   };
 
   const handleRedeemInviteCode = async () => {
-    if (!creatorAddress) {
-      toast.error('Wallet not connected');
-      return;
-    }
-
-    if (!inviteCode.trim()) {
-      toast.error('Enter an invite code');
-      return;
-    }
-
+    if (!creatorAddress) { toast.error('Wallet not connected'); return; }
+    if (!inviteCode.trim()) { toast.error('Enter an invite code'); return; }
     try {
       setRedeemingCode(true);
       const result = await redeemCreatorInviteCode(creatorAddress, inviteCode);
       setHasCreatorAccess(true);
       setInviteCode('');
-      if (result.alreadyGranted) {
-        toast.success('Creator access already granted on this wallet.');
-      } else {
-        toast.success('Invite code redeemed. Creator access granted.');
-      }
+      toast.success(result.alreadyGranted ? 'Creator access already granted.' : 'Invite code redeemed. Access granted.');
     } catch (error: any) {
       console.error('Invite code redemption failed:', error);
       toast.error(error?.message || 'Failed to redeem invite code');
@@ -323,57 +286,29 @@ export function ProfileCustomization() {
 
   const validateForm = (): boolean => {
     const newErrors: typeof errors = {};
-    
-    if (!profileData.displayName.trim()) {
-      newErrors.displayName = 'Channel name is required';
-    }
-    
-    if (!profileData.bio.trim()) {
-      newErrors.bio = 'Channel description is required';
-    }
-
-    if (!profileData.avatar || !profileData.avatar.trim()) {
-      newErrors.avatar = 'Channel logo is required';
-    }
-
-    // Validate stream amount if viewMode is not free
-    if (streamData.viewMode !== 'free' && (streamData.amount === undefined || streamData.amount <= 0 || isNaN(streamData.amount))) {
+    if (!profileData.displayName.trim()) newErrors.displayName = 'Channel name is required';
+    if (!profileData.bio.trim()) newErrors.bio = 'Channel description is required';
+    if (!profileData.avatar || !profileData.avatar.trim()) newErrors.avatar = 'Channel logo is required';
+    if (streamData.viewMode !== 'free' && (streamData.amount === undefined || streamData.amount <= 0 || isNaN(streamData.amount)))
       newErrors.amount = 'Amount is required for paid streams';
-    }
-    
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSave = async () => {
-    if (!creatorAddress) {
-      toast.error('Wallet not connected');
-      return;
-    }
-
-    if (!existingStream && !hasCreatorAccess) {
-      toast.error('Creator invite access is required before creating a channel.');
-      return;
-    }
-
-    if (!validateForm()) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+    if (!creatorAddress) { toast.error('Wallet not connected'); return; }
+    if (!existingStream && !hasCreatorAccess) { toast.error('Creator invite access is required.'); return; }
+    if (!validateForm()) { toast.error('Please fill in all required fields'); return; }
 
     try {
       setSaving(true);
-
-      // Re-check from source of truth to prevent accidental duplicate stream creation.
       const creatorStreams = await getStreamsByCreator(creatorAddress);
       const activeStream = existingStream || creatorStreams?.[0] || null;
 
-      // Handle Stream Creation/Update (only updating stream table, not users table)
       if (activeStream) {
-        // Update existing stream
         await updateStream(activeStream.playbackId, {
           title: profileData.displayName,
-          streamName: profileData.displayName, // Keep streamName for backward compatibility
+          streamName: profileData.displayName,
           description: profileData.bio,
           logo: profileData.avatar,
           viewMode: streamData.viewMode,
@@ -390,8 +325,7 @@ export function ProfileCustomization() {
         setExistingStream(activeStream);
         toast.success('Channel updated successfully!');
       } else {
-        // Create new stream on first save
-        const streamResult = await dispatch(createLivestream({
+        await dispatch(createLivestream({
           streamName: profileData.displayName,
           record: streamData.record,
           creatorId: creatorAddress,
@@ -405,15 +339,8 @@ export function ProfileCustomization() {
           donation: streamData.donations,
           socialLinks: stringifySocialLinks(profileData.socialLinks),
         })).unwrap();
-        
-        // Fetch the created stream to update existingStream state
         const streams = await getStreamsByCreator(creatorAddress);
-        if (streams && streams.length > 0) {
-          const newStream = streams[0];
-          setExistingStream(newStream);
-        }
-        
-        // Route to dashboard without channelId - content stays hidden until channel is selected
+        if (streams && streams.length > 0) setExistingStream(streams[0]);
         router.push('/dashboard');
         toast.success('Channel created successfully!');
       }
@@ -426,70 +353,61 @@ export function ProfileCustomization() {
   };
 
   const handleCopyUrl = async () => {
-    if (!profileUrl) {
-      toast.error('Username is required to generate a creator URL.');
-      return;
-    }
+    if (!profileUrl) { toast.error('Username is required to generate a URL.'); return; }
     try {
       await navigator.clipboard.writeText(profileUrl);
-      toast.success('Profile URL copied to clipboard!');
-    } catch (error) {
-      toast.error('Failed to copy URL');
-    }
+      setCopiedUrl(true);
+      setTimeout(() => setCopiedUrl(false), 2000);
+      toast.success('URL copied!');
+    } catch { toast.error('Failed to copy URL'); }
   };
 
   const handlePreview = () => {
-    if (!profileUrl) {
-      toast.error('Username is required to preview your creator page.');
-      return;
-    }
+    if (!profileUrl) { toast.error('Username is required to preview.'); return; }
     window.open(profileUrl, '_blank');
   };
 
-  if (loading) {
-    return (
-      <div className="flex justify-center py-8 bg-black! rounded-lg">
-        <Bars width={40} height={40} color="#facc15" />
-      </div>
-    );
-  }
+  /* ─── Loading state ─── */
+  if (loadingStream) return <FormSkeleton />;
 
   const hasRequiredFields = profileData?.displayName?.trim() && profileData?.bio?.trim();
 
   return (
-    <div className="space-y-6">
-      <div className="border-b border-white/20 pb-4">
-        <h3 className="text-xl font-bold mb-2 text-white">Channel Profile</h3>
-        <p className="text-gray-300">Customize your Channel profile that viewers will see</p>
-      </div>
+    <div className="space-y-10">
 
+      {/* ── Page title ── */}
+      <h1 className="text-[28px] md:text-[34px] font-bold font-funnel-display text-white tracking-[-0.4px]">
+        Channel settings
+      </h1>
+
+      {/* ── Creator invite access (new creators only) ── */}
       {!existingStream && (
-        <div className="rounded-lg border border-white/20 bg-white/10 backdrop-blur-sm p-4">
-          <h4 className="text-white font-semibold">Creator Invite Access</h4>
+        <div className="rounded-xl border border-white/[0.07] bg-raised p-5">
+          <h4 className="text-[15px] font-semibold text-white">Creator invite access</h4>
           {creatorAccessLoading ? (
-            <p className="text-sm text-gray-300 mt-2">Checking creator access...</p>
+            <p className="text-[13px] text-[var(--text-2)] mt-2">Checking access...</p>
           ) : hasCreatorAccess ? (
-            <p className="text-sm text-emerald-300 mt-2">
-              Access granted. You can create your channel by completing the profile and clicking Save.
+            <p className="text-[13px] text-emerald-400 mt-2">
+              Access granted. Complete your profile below and save to create your channel.
             </p>
           ) : (
             <>
-              <p className="text-sm text-gray-300 mt-2">
-                Creator accounts are invite-only. Redeem an invite code to unlock channel creation.
+              <p className="text-[13px] text-[var(--text-2)] mt-2">
+                Creator accounts are invite-only. Redeem an invite code to get started.
               </p>
               <div className="mt-3 flex flex-col sm:flex-row gap-2">
-                <InputField
+                <input
                   type="text"
                   value={inviteCode}
                   onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
                   placeholder="Enter invite code"
-                  className="w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400"
+                  className={`${inputCls} flex-1`}
                 />
                 <button
                   type="button"
                   onClick={handleRedeemInviteCode}
                   disabled={redeemingCode}
-                  className="px-4 py-2 rounded-lg bg-gradient-to-r from-yellow-500 to-teal-500 text-black font-semibold hover:from-yellow-600 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-yellow-400 to-teal-500 text-black text-[14px] font-semibold hover:from-yellow-500 hover:to-teal-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
                 >
                   {redeemingCode ? 'Redeeming...' : 'Redeem'}
                 </button>
@@ -499,406 +417,323 @@ export function ProfileCustomization() {
         </div>
       )}
 
-      {/* Profile URL Section - only show if required fields are filled */}
+      {/* ── Channel URL ── */}
       {hasRequiredFields && (
-        <div className="bg-white/10 backdrop-blur-sm border border-white/20 p-4 rounded-lg">
-          <h4 className="font-semibold mb-2 text-white">Your Channel URL</h4>
-          <div className="flex items-center space-x-2">
+        <Section title="Channel URL" subtitle="Share this link with your audience">
+          <div className="flex items-center gap-2">
             <input
               type="text"
               value={profileUrl}
               readOnly
-              className="flex-1 p-2 border border-white/20 bg-white/10 backdrop-blur-sm rounded text-white"
+              className={`${inputCls} flex-1 text-[var(--text-2)] cursor-default`}
             />
             <button
               onClick={handleCopyUrl}
-              className="p-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded transition-colors"
+              className="p-2.5 rounded-xl bg-raised border border-white/[0.07] text-[var(--text-2)] hover:text-white hover:border-white/[0.15] transition-all"
               title="Copy URL"
             >
-              <Copy className="w-4 h-4" />
+              {copiedUrl ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
             </button>
             <button
               onClick={handlePreview}
-              className="p-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded hover:bg-white/20 transition-colors"
-              title="Preview Channel"
+              className="p-2.5 rounded-xl bg-raised border border-white/[0.07] text-[var(--text-2)] hover:text-white hover:border-white/[0.15] transition-all"
+              title="Preview channel"
             >
               <ExternalLink className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        </Section>
       )}
 
-      <div className="rounded-xl border border-white/20 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-4">
-        <p className="text-xs uppercase tracking-[0.18em] text-gray-400 mb-3">Live Preview</p>
-        <div
-          className="rounded-xl border border-white/20 p-4"
-          style={{ backgroundColor: streamData.bgcolor || '#111827' }}
-        >
-          <div className="flex items-center gap-3">
-            {profileData.avatar ? (
-              <img src={profileData.avatar} alt="Preview Avatar" className="w-14 h-14 rounded-full object-cover" />
-            ) : (
-              <div className="w-14 h-14 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black font-bold">
-                {(profileData.displayName || 'TV').slice(0, 2).toUpperCase()}
+      {/* ── Live preview ── */}
+      <Section title="Preview">
+        <div className="rounded-xl border border-white/[0.07] overflow-hidden">
+          <div className="px-3 py-2 border-b border-white/[0.04]">
+            <span className="text-[11px] tracking-widest text-[var(--text-3)] font-medium">live preview</span>
+          </div>
+          <div className="p-4" style={{ backgroundColor: streamData.bgcolor || '#0f0f0f' }}>
+            <div className="flex items-center gap-3">
+              {profileData.avatar ? (
+                <img src={profileData.avatar} alt="Preview" className="w-12 h-12 rounded-full object-cover" />
+              ) : (
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-yellow-400 to-teal-500 flex items-center justify-center text-black text-sm font-bold">
+                  {(profileData.displayName || 'TV').slice(0, 2).toUpperCase()}
+                </div>
+              )}
+              <div>
+                <h4
+                  className="font-bold leading-tight"
+                  style={{
+                    color: streamData.color || '#ffffff',
+                    fontSize: `${Math.max(parseInt(streamData.fontSize || '16'), 14)}px`,
+                    fontFamily: streamData.fontFamily || 'Arial',
+                  }}
+                >
+                  {profileData.displayName || 'Your channel name'}
+                </h4>
+                <p className="text-[12px] mt-0.5" style={{ color: streamData.color || '#d1d5db' }}>
+                  {streamData.viewMode === 'free'
+                    ? 'Free access'
+                    : `Paid access \u00b7 $${(streamData.amount || 0).toFixed(2)} USDC`}
+                </p>
               </div>
-            )}
+            </div>
+            <p
+              className="mt-3 text-[13px] line-clamp-3 leading-relaxed"
+              style={{ color: streamData.color || '#e5e7eb', fontFamily: streamData.fontFamily || 'Arial' }}
+            >
+              {profileData.bio || 'Your channel description will appear here...'}
+            </p>
+          </div>
+        </div>
+      </Section>
+
+      {/* ── Channel information ── */}
+      <Section title="Channel information" subtitle="Basic details viewers will see on your profile">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,auto] gap-6 items-start">
+          <div className="space-y-5">
             <div>
-              <h4
-                className="font-bold"
-                style={{
-                  color: streamData.color || '#ffffff',
-                  fontSize: `${Math.max(parseInt(streamData.fontSize || '16'), 14)}px`,
-                  fontFamily: streamData.fontFamily || 'Arial',
-                }}
-              >
-                {profileData.displayName || 'Your Channel Name'}
-              </h4>
-              <p className="text-xs" style={{ color: streamData.color || '#d1d5db' }}>
-                {streamData.viewMode === 'free'
-                  ? 'Free Access'
-                  : `Paid Access • $${(streamData.amount || 0).toFixed(2)} USDC`}
-              </p>
+              <Label required>Channel name</Label>
+              <input
+                type="text"
+                value={profileData.displayName}
+                onChange={(e) => handleInputChange('displayName', e.target.value)}
+                placeholder="Enter your channel name"
+                className={`${inputCls} ${errors.displayName ? errorInputCls : ''}`}
+              />
+              {errors.displayName && <p className="text-red-400 text-[12px] mt-1">{errors.displayName}</p>}
+            </div>
+
+            <div>
+              <Label required>Description</Label>
+              <textarea
+                value={profileData.bio}
+                onChange={(e) => handleInputChange('bio', e.target.value)}
+                placeholder="Tell viewers about your channel..."
+                className={`${inputCls} resize-none h-[100px] ${errors.bio ? errorInputCls : ''}`}
+                maxLength={500}
+              />
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-[12px] text-[var(--text-3)]">{profileData.bio?.length || 0}/500</span>
+                {errors.bio && <p className="text-red-400 text-[12px]">{errors.bio}</p>}
+              </div>
             </div>
           </div>
-          <p
-            className="mt-3 text-sm line-clamp-3"
-            style={{
-              color: streamData.color || '#e5e7eb',
-              fontFamily: streamData.fontFamily || 'Arial',
-            }}
-          >
-            {profileData.bio || 'Your channel description will appear here...'}
-          </p>
-        </div>
-      </div>
 
-      {/* Basic Information */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <div className="space-y-4">
-        <h4 className="font-semibold text-white">Channel Information</h4>
-        
-        <div>
-          <label className="block text-sm font-medium mb-1 text-white">
-            Channel Name <span className="text-red-400">*</span>
-          </label>
-          <InputField
-            type="text"
-            value={profileData?.displayName}
-            onChange={(e) => handleInputChange('displayName', e.target.value)}
-            placeholder="Enter your channel name"
-            className={`w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400 ${errors.displayName ? 'border-red-400' : ''}`}
-          />
-          {errors.displayName && (
-            <p className="text-red-400 text-xs mt-1">{errors.displayName}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1 text-white">
-            Channel Description <span className="text-red-400">*</span>
-          </label>
-          <textarea
-            value={profileData?.bio}
-            onChange={(e) => handleInputChange('bio', e.target.value)}
-            placeholder="Tell viewers about your channel..."
-            className={`w-full p-3 border border-white/20 bg-white/10 backdrop-blur-sm rounded-lg resize-none h-24 text-white placeholder-gray-400 ${errors.bio ? 'border-red-400' : ''}`}
-            maxLength={500}
-          />
-          <div className="flex justify-between items-center mt-1">
-            <p className="text-xs text-gray-300">{profileData?.bio?.length}/500 characters</p>
-            {errors.bio && (
-              <p className="text-red-400 text-xs">{errors.bio}</p>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1 text-white">
-            Channel Logo <span className="text-red-400">*</span>
-          </label>
-          <div className="flex items-center space-x-4">
-            {profileData?.avatar && (
-              <img
-                src={profileData?.avatar}
-                alt="Channel Logo"
-                className="w-16 h-16 rounded-full object-cover"
-              />
-            )}
+          {/* Avatar upload — right column on desktop */}
+          <div className="flex flex-col items-center gap-3 lg:pt-6">
+            <div
+              className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-white/[0.07] cursor-pointer group"
+              onClick={() => avatarInputRef.current?.click()}
+            >
+              {profileData.avatar ? (
+                <img src={profileData.avatar} alt="Channel logo" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-raised flex items-center justify-center">
+                  <span className="text-[var(--text-3)] text-2xl">+</span>
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="text-white text-[11px] font-medium">Change</span>
+              </div>
+            </div>
             <input
+              ref={avatarInputRef}
               type="file"
               accept="image/*"
               onChange={handleAvatarUpload}
-              className={`block w-full text-sm text-gray-300 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-gradient-to-r file:from-yellow-500 file:to-teal-500 hover:file:from-yellow-600 hover:file:to-teal-600 file:text-black ${errors.avatar ? 'border-red-400' : ''}`}
+              className="hidden"
             />
-          </div>
-          {errors.avatar && (
-            <p className="text-red-400 text-xs mt-1">{errors.avatar}</p>
-          )}
-        </div>
-      </div>
-
-      {/* Social Links */}
-      <div className="space-y-4">
-        <h4 className="font-semibold text-white">Social Links <span className="text-sm font-normal text-gray-300">(Optional)</span></h4>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1 text-white">Twitter </label>
-            <InputField
-              type="url"
-              value={profileData?.socialLinks?.twitter || ''}
-              onChange={(e) => handleSocialLinkChange('twitter', e.target.value)}
-              placeholder="https://twitter.com/username"
-              className="w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1 text-white">Instagram </label>
-            <InputField
-              type="url"
-              value={profileData?.socialLinks?.instagram || ''}
-              onChange={(e) => handleSocialLinkChange('instagram', e.target.value)}
-              placeholder="https://instagram.com/username"
-              className="w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1 text-white">YouTube </label>
-            <InputField
-              type="url"
-              value={profileData?.socialLinks?.youtube || ''}
-              onChange={(e) => handleSocialLinkChange('youtube', e.target.value)}
-              placeholder="https://youtube.com/@channel"
-              className="w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium mb-1 text-white">Website</label>
-            <InputField
-              type="url"
-              value={profileData?.socialLinks?.website || ''}
-              onChange={(e) => handleSocialLinkChange('website', e.target.value)}
-              placeholder="https://yourwebsite.com"
-              className="w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400"
-            />
+            <button
+              type="button"
+              onClick={() => avatarInputRef.current?.click()}
+              className="text-[13px] text-[var(--text-2)] hover:text-white transition-colors"
+            >
+              {profileData.avatar ? 'Change logo' : 'Upload logo'}
+            </button>
+            {errors.avatar && <p className="text-red-400 text-[12px]">{errors.avatar}</p>}
           </div>
         </div>
+      </Section>
 
-      </div>
-      </div>
-
-      {/* Stream Customization */}
-      <div className="space-y-4">
-        <h4 className="font-semibold text-white">Stream & Video Settings</h4>
-
-        <div className="rounded-lg border border-white/20 bg-white/5 p-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-2 text-white">Livestream Mode</label>
-            <p className="text-xs text-gray-300 mb-3">
-              Select whether livestreams are open to everyone or paid access only.
-            </p>
-            <div className="inline-flex rounded-lg border border-white/20 bg-white/10 p-1">
-              <button
-                type="button"
-                onClick={() => handleLivestreamModeToggle('free')}
-                className={clsx(
-                  'min-w-[96px] rounded-md px-4 py-2 text-sm font-semibold transition-colors',
-                  !isPaidLivestreamMode
-                    ? 'bg-gradient-to-r from-yellow-500 to-teal-500 text-black'
-                    : 'text-white hover:bg-white/10'
-                )}
-              >
-                Free
-              </button>
-              <button
-                type="button"
-                onClick={() => handleLivestreamModeToggle('paid')}
-                className={clsx(
-                  'min-w-[96px] rounded-md px-4 py-2 text-sm font-semibold transition-colors',
-                  isPaidLivestreamMode
-                    ? 'bg-gradient-to-r from-yellow-500 to-teal-500 text-black'
-                    : 'text-white hover:bg-white/10'
-                )}
-              >
-                Paid
-              </button>
-            </div>
-          </div>
-
-          {isPaidLivestreamMode && (
-            <div>
-              <label className="block text-sm font-medium mb-1 text-white">
-                Livestream Price (USDC) <span className="text-red-400">*</span>
-              </label>
-              <InputField
-                type="number"
-                step="any"
-                min="0"
-                value={streamData.amount === 0 ? '' : streamData.amount}
-                onChange={(e) => {
-                  const value = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
-                  handleStreamChange('amount', value);
-                }}
-                placeholder="0.00"
-                className={`w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400 ${errors.amount ? 'border-red-400' : ''}`}
+      {/* ── Social links ── */}
+      <Section title="Social links" subtitle="Optional - help viewers find you elsewhere">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {([
+            { key: 'twitter', label: 'Twitter', placeholder: 'https://twitter.com/username' },
+            { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/username' },
+            { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/@channel' },
+            { key: 'website', label: 'Website', placeholder: 'https://yourwebsite.com' },
+          ] as const).map(({ key, label, placeholder }) => (
+            <div key={key}>
+              <Label>{label}</Label>
+              <input
+                type="url"
+                value={profileData.socialLinks?.[key] || ''}
+                onChange={(e) => handleSocialLinkChange(key, e.target.value)}
+                placeholder={placeholder}
+                className={inputCls}
               />
-              {errors.amount && (
-                <p className="text-red-400 text-xs mt-1">{errors.amount}</p>
-              )}
             </div>
-          )}
+          ))}
+        </div>
+      </Section>
+
+      {/* ── Stream & video settings ── */}
+      <Section title="Stream & video settings" subtitle="Configure how your livestreams and content are delivered">
+
+        {/* Livestream mode toggle */}
+        <div>
+          <Label>Livestream mode</Label>
+          <p className="text-[12px] text-[var(--text-3)] mb-3">Open to everyone, or paid access only.</p>
+          <div className="inline-flex rounded-xl border border-white/[0.07] bg-surface p-1 gap-0.5">
+            {(['free', 'paid'] as const).map((mode) => {
+              const isActive = mode === 'free' ? !isPaidLivestreamMode : isPaidLivestreamMode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => handleLivestreamModeToggle(mode)}
+                  className={clsx(
+                    'min-w-[88px] rounded-lg px-4 py-2 text-[13px] font-semibold capitalize transition-all',
+                    isActive
+                      ? 'bg-raised text-white'
+                      : 'text-[var(--text-3)] hover:text-[var(--text-2)]'
+                  )}
+                >
+                  {mode}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* Record Option */}
-        {/* <div>
-          <label className="block text-sm font-medium mb-1 text-white">Record Stream?</label>
-          <select
-            value={streamData.record ? 'yes' : 'no'}
-            onChange={(e) => handleStreamChange('record', e.target.value === 'yes')}
-            className="w-full p-2 border border-white/20 bg-white/10 backdrop-blur-sm rounded text-white"
-          >
-            <option value="no">No</option>
-            <option value="yes">Yes</option>
-          </select>
-        </div> */}
+        {isPaidLivestreamMode && (
+          <div className="max-w-xs">
+            <Label required>Price (USDC)</Label>
+            <input
+              type="number"
+              step="any"
+              min="0"
+              value={streamData.amount === 0 ? '' : streamData.amount}
+              onChange={(e) => {
+                const value = e.target.value === '' ? 0 : parseFloat(e.target.value) || 0;
+                handleStreamChange('amount', value);
+              }}
+              placeholder="0.00"
+              className={`${inputCls} ${errors.amount ? errorInputCls : ''}`}
+            />
+            {errors.amount && <p className="text-red-400 text-[12px] mt-1">{errors.amount}</p>}
+          </div>
+        )}
 
-        {/* Donation Presets */}
+        {/* Divider */}
+        <div className="border-t border-white/[0.04]" />
+
+        {/* Donation presets */}
         <div>
-          <label className="block text-sm font-medium mb-2 text-white">Donation Presets (USDC)</label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Label>Gift presets (USDC)</Label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {streamData.donations.map((value, i) => (
-              <InputField
+              <input
                 key={i}
                 type="number"
                 step="any"
                 min="0"
                 value={value === 0 ? '' : value}
                 onChange={(e) => handleDonationChange(i, e.target.value)}
-                placeholder={`Preset Amount ${i + 1}`}
-                className="w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400"
+                placeholder={`$${(i + 1) * 5}`}
+                className={inputCls}
               />
             ))}
           </div>
         </div>
 
-        {/* Background & Text Color */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Background Color */}
-          <div>
-            <label className="block text-sm font-medium mb-2 text-white">Background Color</label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {['#ffffff', '#ff0000', '#00ff00', '#0000ff', '#ffff00'].map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => handleStreamChange('bgcolor', color)}
-                  className={clsx(
-                    'w-8 h-8 rounded-full border-2 transition-all',
-                    streamData.bgcolor === color ? 'ring-2 ring-yellow-400 scale-110' : 'border-white/30'
-                  )}
-                  style={{ backgroundColor: color }}
+        {/* Divider */}
+        <div className="border-t border-white/[0.04]" />
+
+        {/* Colors */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+          {([
+            { label: 'Background color', field: 'bgcolor', swatches: ['#0f0f0f', '#1a1a1a', '#1a1a2e', '#16213e', '#080808'] },
+            { label: 'Text color', field: 'color', swatches: ['#ffffff', '#facc15', '#14b8a6', '#888888', '#000000'] },
+          ] as const).map(({ label, field, swatches }) => (
+            <div key={field}>
+              <Label>{label}</Label>
+              <div className="flex items-center gap-2 mt-1">
+                {swatches.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => handleStreamChange(field, c)}
+                    className={clsx(
+                      'w-7 h-7 rounded-full transition-all border',
+                      (streamData as any)[field] === c
+                        ? 'ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-canvas border-transparent scale-110'
+                        : 'border-white/[0.1] hover:scale-105'
+                    )}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+                <input
+                  type="color"
+                  value={(streamData as any)[field]}
+                  onChange={(e) => handleStreamChange(field, e.target.value)}
+                  className="w-7 h-7 rounded-full border border-white/[0.1] cursor-pointer appearance-none bg-transparent [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0.5"
+                  title="Custom color"
                 />
-              ))}
-              <input
-                type="color"
-                value={streamData.bgcolor}
-                onChange={(e) => handleStreamChange('bgcolor', e.target.value)}
-                className="w-8 h-8 rounded-full border border-white/20 cursor-pointer"
-                title="Custom background color"
-              />
+              </div>
             </div>
-          </div>
-          
-          {/* Text Color */}
-          <div>
-            <label className="block text-sm font-medium mb-2 text-white">Text Color</label>
-            <div className="flex items-center gap-2 flex-wrap">
-              {['#000000', '#ffffff', '#ff00ff', '#00ffff', '#888888'].map((color) => (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => handleStreamChange('color', color)}
-                  className={clsx(
-                    'w-8 h-8 rounded-full border-2 transition-all',
-                    streamData.color === color ? 'ring-2 ring-yellow-400 scale-110' : 'border-white/30'
-                  )}
-                  style={{ backgroundColor: color }}
-                />
-              ))}
-              <input
-                type="color"
-                value={streamData.color}
-                onChange={(e) => handleStreamChange('color', e.target.value)}
-                className="w-8 h-8 rounded-full border border-white/20 cursor-pointer"
-                title="Custom text color"
-              />
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Font Size */}
+        {/* Font size */}
         <div>
-          <label className="block text-sm font-medium mb-2 text-white">
-            Font Size ({streamData.fontSize}px)
-          </label>
+          <Label>Font size ({streamData.fontSize}px)</Label>
           <input
             type="range"
             min="12"
             max="24"
             value={streamData.fontSize}
             onChange={(e) => handleStreamChange('fontSize', e.target.value)}
-            className="w-full"
+            className="w-full max-w-sm h-1.5 bg-raised rounded-full appearance-none cursor-pointer accent-[var(--accent)] mt-1"
           />
-          <div className="flex justify-between text-xs text-gray-300 mt-1">
+          <div className="flex justify-between max-w-sm text-[11px] text-[var(--text-3)] mt-1">
             <span>12px</span>
             <span>24px</span>
           </div>
         </div>
 
-        {/* Font Family */}
-        <div>
-          <label className="block text-sm font-medium mb-1 text-white">Font Family</label>
+        {/* Font family */}
+        <div className="max-w-xs">
+          <Label>Font family</Label>
           <select
             value={streamData.fontFamily}
             onChange={(e) => handleStreamChange('fontFamily', e.target.value)}
-            className="w-full p-2 border border-white/20 bg-white/10 backdrop-blur-sm rounded text-white"
+            className={`${inputCls} cursor-pointer`}
           >
-            <option value="Arial">Arial</option>
-            <option value="Helvetica">Helvetica</option>
-            <option value="Times New Roman">Times New Roman</option>
-            <option value="Courier New">Courier New</option>
-            <option value="Verdana">Verdana</option>
-            <option value="Georgia">Georgia</option>
-            <option value="Palatino">Palatino</option>
-            <option value="Garamond">Garamond</option>
-            <option value="Comic Sans MS">Comic Sans MS</option>
-            <option value="Impact">Impact</option>
+            {['Arial', 'Helvetica', 'Times New Roman', 'Courier New', 'Verdana', 'Georgia', 'Palatino', 'Garamond', 'Comic Sans MS', 'Impact'].map((font) => (
+              <option key={font} value={font} className="bg-raised text-white">
+                {font}
+              </option>
+            ))}
           </select>
         </div>
-      </div>
+      </Section>
 
-      {/* Save Button */}
-      <div className="flex justify-end pt-4 border-t border-white/20">
+      {/* ── Save button ── */}
+      <div className="flex items-center justify-between pt-6 border-t border-white/[0.07]">
+        <p className="text-[13px] text-[var(--text-3)] hidden sm:block">
+          {existingStream ? 'Changes save to your existing channel.' : 'This will create your channel.'}
+        </p>
         <button
           onClick={handleSave}
           disabled={saving || (!existingStream && !hasCreatorAccess)}
-          className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-8 py-2.5 rounded-xl bg-gradient-to-r from-yellow-400 to-teal-500 text-black text-[14px] font-semibold hover:from-yellow-500 hover:to-teal-600 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {saving ? (
-            <div className="flex items-center space-x-2">
-              <Bars width={16} height={16} color="#ffffff" />
-              <span>Saving...</span>
-            </div>
-          ) : !existingStream && !hasCreatorAccess ? (
-            'Invite Required'
-          ) : (
-            'Save'
-          )}
+          {saving ? 'Saving...' : !existingStream && !hasCreatorAccess ? 'Invite required' : existingStream ? 'Save changes' : 'Create channel'}
         </button>
       </div>
     </div>
   );
-} 
+}

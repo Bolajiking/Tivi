@@ -1,29 +1,27 @@
 "use client"
 
-import React, { useEffect, useState, useMemo } from "react"
+import React, { useEffect, useState, useMemo, useCallback } from "react"
 import Header from "@/components/Header"
 import MobileSidebar from "@/components/MobileSidebar"
 import BottomNav from "@/components/BottomNav"
 import { usePrivy } from "@privy-io/react-auth"
+import { useWalletAddress } from "@/app/hook/useWalletAddress"
+import { getOrdersByBuyer } from "@/lib/supabase-service"
+import type { SupabaseOrder } from "@/lib/supabase-types"
 import { FaShoppingBag, FaDownload, FaPlay } from "react-icons/fa"
 import { IoReceiptOutline } from "react-icons/io5"
 import { ChevronRight } from "lucide-react"
-
-interface Transaction {
-  id: string
-  type: "payment" | "download" | "subscription"
-  creatorName: string
-  contentTitle: string
-  amount: string
-  date: Date
-  status: "completed" | "pending" | "failed"
-}
+import { Skeleton } from "@/components/ui/skeleton"
+import Image from "next/image"
 
 const OrderHistory = () => {
   const { ready, authenticated } = usePrivy()
+  const { walletAddress } = useWalletAddress()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [activeTab, setActiveTab] = useState<"all" | "purchases" | "downloads" | "subscriptions">("all")
+  const [activeTab, setActiveTab] = useState<"all" | "completed" | "pending" | "failed">("all")
+  const [orders, setOrders] = useState<SupabaseOrder[]>([])
+  const [loading, setLoading] = useState(true)
 
   const toggleSidebar = () => {
     setSidebarCollapsed(!sidebarCollapsed)
@@ -33,39 +31,49 @@ const OrderHistory = () => {
     setMobileMenuOpen(!mobileMenuOpen)
   }
 
-  // Placeholder transactions - in a real app, this would come from Supabase
-  const transactions: Transaction[] = []
+  const fetchOrders = useCallback(async () => {
+    if (!walletAddress) {
+      setLoading(false)
+      return
+    }
+    try {
+      setLoading(true)
+      const data = await getOrdersByBuyer(walletAddress)
+      setOrders(data)
+    } catch (err) {
+      console.error("Failed to fetch orders:", err)
+    } finally {
+      setLoading(false)
+    }
+  }, [walletAddress])
 
-  const filteredTransactions = useMemo(() => {
-    if (activeTab === "all") return transactions
-    if (activeTab === "purchases") return transactions.filter(t => t.type === "payment")
-    if (activeTab === "downloads") return transactions.filter(t => t.type === "download")
-    if (activeTab === "subscriptions") return transactions.filter(t => t.type === "subscription")
-    return transactions
-  }, [transactions, activeTab])
+  useEffect(() => {
+    if (ready && authenticated) {
+      fetchOrders()
+    }
+  }, [ready, authenticated, fetchOrders])
+
+  const filteredOrders = useMemo(() => {
+    if (activeTab === "all") return orders
+    return orders.filter(o => o.status === activeTab)
+  }, [orders, activeTab])
 
   const tabs = [
     { id: "all", label: "All" },
-    { id: "purchases", label: "Purchases" },
-    { id: "downloads", label: "Downloads" },
-    { id: "subscriptions", label: "Subscriptions" },
+    { id: "completed", label: "Completed" },
+    { id: "pending", label: "Pending" },
+    { id: "failed", label: "Failed" },
   ]
 
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "payment":
-        return <FaShoppingBag className="text-yellow-400" />
-      case "download":
-        return <FaDownload className="text-blue-400" />
-      case "subscription":
-        return <IoReceiptOutline className="text-green-400" />
-      default:
-        return <FaShoppingBag className="text-gray-400" />
-    }
+  const statusColors: Record<string, string> = {
+    completed: "text-emerald-400",
+    pending: "text-yellow-400",
+    failed: "text-red-400",
+    refunded: "text-[#888]",
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-black via-gray-900 to-black">
+    <div className="flex h-screen overflow-hidden bg-[#080808]">
       {/* Mobile Sidebar */}
       {mobileMenuOpen && (
         <MobileSidebar
@@ -79,12 +87,12 @@ const OrderHistory = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen overflow-auto">
         <Header toggleMenu={toggleMobileMenu} mobileOpen={mobileMenuOpen} />
-        <div className="py-4 px-4 pb-24 md:pb-10 md:py-6 flex flex-col gap-6 h-full">
+        <div className="mx-auto w-full max-w-[1200px] py-4 px-3 pt-14 pb-24 md:px-6 md:pt-6 md:pb-10 flex flex-col gap-6 h-full">
           {/* Page Header */}
           <div className="flex flex-col md:flex-row pt-4 justify-between items-start md:items-center gap-4">
             <div>
-              <h1 className="text-xl md:text-2xl text-white font-bold">Order History</h1>
-              <p className="text-gray-400 text-sm mt-1">View your purchases, downloads, and subscriptions</p>
+              <h1 className="text-xl md:text-2xl text-white font-bold font-funnel-display">Order history</h1>
+              <p className="text-[#888] text-sm mt-1">View your purchases and transactions</p>
             </div>
           </div>
 
@@ -94,10 +102,10 @@ const OrderHistory = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors border ${
                   activeTab === tab.id
-                    ? "bg-yellow-500 text-black"
-                    : "bg-white/10 text-gray-300 hover:bg-white/20"
+                    ? "bg-[#facc15]/10 border-[#facc15]/40 text-[#facc15]"
+                    : "bg-[#1a1a1a] border-white/[0.07] text-[#888] hover:text-white"
                 }`}
               >
                 {tab.label}
@@ -106,44 +114,89 @@ const OrderHistory = () => {
           </div>
 
           {/* Content */}
-          {filteredTransactions.length > 0 ? (
+          {loading ? (
             <div className="space-y-3">
-              {filteredTransactions.map((transaction) => (
-                <div
-                  key={transaction.id}
-                  className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg p-4 flex items-center gap-4 hover:bg-white/15 transition-colors cursor-pointer"
-                >
-                  <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center">
-                    {getTypeIcon(transaction.type)}
+              {Array.from({ length: 4 }, (_, i) => (
+                <div key={i} className="flex items-center gap-4 rounded-xl border border-white/[0.07] bg-[#1a1a1a] p-4">
+                  <Skeleton className="w-12 h-12 rounded-xl bg-[#0f0f0f]" />
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-3/4 rounded-md bg-[#0f0f0f]" />
+                    <Skeleton className="h-3 w-1/2 rounded-md bg-[#0f0f0f]" />
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium truncate">{transaction.contentTitle}</p>
-                    <p className="text-gray-400 text-sm">{transaction.creatorName}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-white font-medium">{transaction.amount}</p>
-                    <p className="text-gray-400 text-xs">{transaction.date.toLocaleDateString()}</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <Skeleton className="h-5 w-16 rounded-md bg-[#0f0f0f]" />
                 </div>
               ))}
+            </div>
+          ) : filteredOrders.length > 0 ? (
+            <div className="space-y-3">
+              {filteredOrders.map((order) => {
+                const snapshot = order.productSnapshot as Record<string, any> | null
+                const productName = snapshot?.name || "Product"
+                const productImage = snapshot?.imageUrl || null
+                const productType = snapshot?.productType || "physical"
+
+                return (
+                  <div
+                    key={order.id}
+                    className="rounded-xl border border-white/[0.07] bg-[#1a1a1a] p-4 flex items-center gap-4 hover:border-white/[0.12] transition-colors"
+                  >
+                    {/* Product Image */}
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-[#0f0f0f] border border-white/[0.07] shrink-0 relative">
+                      {productImage ? (
+                        <Image
+                          src={productImage}
+                          alt={productName}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <FaShoppingBag className="text-[#333]" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-white font-medium text-[14px] truncate">{productName}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[12px] text-[#555] capitalize">{productType}</span>
+                        <span className="text-[12px] text-[#333]">&middot;</span>
+                        <span className={`text-[12px] font-medium capitalize ${statusColors[order.status] || "text-[#888]"}`}>
+                          {order.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Amount + Date */}
+                    <div className="text-right shrink-0">
+                      <p className="text-[#facc15] font-bold text-[14px]">
+                        ${Number(order.amount).toFixed(2)}
+                      </p>
+                      <p className="text-[12px] text-[#555]">
+                        {order.created_at ? new Date(order.created_at).toLocaleDateString() : ""}
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           ) : (
             /* Empty State */
             <div className="flex-1 flex flex-col items-center justify-center text-center py-12">
-              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-white/10 flex items-center justify-center">
-                <FaShoppingBag className="text-4xl text-gray-500" />
+              <div className="w-16 h-16 mx-auto mb-5 rounded-full border border-white/[0.07] bg-[#0f0f0f] flex items-center justify-center">
+                <FaShoppingBag className="text-2xl text-[#888]" />
               </div>
-              <h3 className="text-xl font-semibold text-white mb-2">No orders yet</h3>
-              <p className="text-gray-400 text-sm max-w-xs mb-6">
-                When you purchase content, subscribe to creators, or download videos, they'll appear here.
+              <h3 className="text-lg font-semibold text-white mb-2">No orders yet</h3>
+              <p className="text-[#888] text-sm max-w-xs mb-6">
+                When you purchase products from creator stores, they&apos;ll appear here.
               </p>
               <button
                 onClick={() => window.location.href = "/streamviews"}
-                className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black font-semibold py-3 px-6 rounded-xl transition-colors flex items-center gap-2"
+                className="bg-gradient-to-r from-yellow-400 to-teal-500 hover:from-yellow-500 hover:to-teal-600 text-black font-semibold py-2.5 px-5 rounded-lg transition-all flex items-center gap-2 text-[14px]"
               >
-                <FaPlay className="text-sm" />
-                Explore Content
+                <FaPlay className="text-xs" />
+                Explore creators
               </button>
             </div>
           )}

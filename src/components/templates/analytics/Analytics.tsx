@@ -155,7 +155,7 @@ const Analytics = () => {
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-screen overflow-auto">
         <Header toggleMenu={toggleMobileMenu} mobileOpen={mobileMenuOpen} />
-        <div className="py-4 px-4 pb-10 md:py-6 flex flex-col gap-8 h-full">
+        <div className="mx-auto w-full max-w-[1200px] py-4 px-3 pt-14 pb-10 md:py-6 md:px-6 md:pt-6 flex flex-col gap-8 h-full">
           <div className="flex flex-col gap-6">
             <div className="flex flex-col md:flex-row pt-4 justify-between">
               <h1 className="text-xl md:text-xl lg:text-2xl text-white font-bold">Analytics Dashboard</h1>

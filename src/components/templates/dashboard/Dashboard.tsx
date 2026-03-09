@@ -1,9 +1,7 @@
 'use client';
 import Header from '@/components/Header';
-import Analytics from './Analytics';
 import SectionCard from '@/components/Card/SectionCard';
-import { ChannelCard, VideoCard } from '@/components/Card/Card';
-import { ChannelCardRedesign } from '@/components/Card/ChannelCardRedesign';
+import { VideoCard } from '@/components/Card/Card';
 import { CreatorChannelCard } from '@/components/templates/creator/CreatorChannelCard';
 import { RiVideoAddLine } from 'react-icons/ri';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -25,7 +23,6 @@ import UploadVideoAsset, { type VideoUploadNotice } from '@/components/UploadVid
 import type { Asset, Stream } from '@/interfaces';
 import MobileSidebar from '@/components/MobileSidebar';
 import BottomNav from '@/components/BottomNav';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { UserSetupModal } from '@/components/UserSetupModal';
 import {
   getUserProfile,
@@ -47,22 +44,20 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView }: DashboardProps) => {
-  const { ready, authenticated } = usePrivy();
+  const { ready, authenticated, login } = usePrivy();
   const { walletAddress } = useWalletAddress();
   const navigate = useRouter();
   const pathname = usePathname();
   const params = useParams();
   const dashboardRouteCreatorId = typeof params?.creatorId === 'string' ? decodeURIComponent(params.creatorId) : '';
   const dispatch = useDispatch<AppDispatch>();
-  const { streams, loading: streamsLoading, error: streamsError, stream: currentStream } = useSelector((state: RootState) => state.streams);
+  const { streams, loading: streamsLoading, error: streamsError } = useSelector((state: RootState) => state.streams);
   const { assets, loading: assetsLoading, error: assetsError } = useSelector((state: RootState) => state.assets);
   const searchParams = useSearchParams();
   const { selectedChannelId: contextChannelId, setSelectedChannelId } = useChannel();
   const [showUserSetupModal, setShowUserSetupModal] = useState(false);
   const [checkingProfile, setCheckingProfile] = useState(true);
   const [isFirstTimeUser, setIsFirstTimeUser] = useState(false);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [activeStreamId, setActiveStreamId] = useState<string | null>(null);
   const [showStreamSetupModal, setShowStreamSetupModal] = useState(false);
   const [pendingStreamId, setPendingStreamId] = useState<string | null>(null);
   const [streamForSetup, setStreamForSetup] = useState<any>(null);
@@ -71,9 +66,11 @@ const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView 
 
   // Get channelId from URL query params (for navigation from outside dashboard)
   const urlChannelId = searchParams?.get('channelId');
+  const shouldUseContextSelection = Boolean(authenticated);
   
-  // Use URL channelId if available, otherwise use context channelId
-  const selectedChannelId = urlChannelId || contextChannelId || initialLivePlaybackId || null;
+  // In unauthenticated state, ignore persisted context channel selection unless URL explicitly provides one.
+  const selectedChannelId =
+    urlChannelId || (shouldUseContextSelection ? contextChannelId : null) || initialLivePlaybackId || null;
   
   // Get creator address (wallet address)
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
@@ -82,8 +79,11 @@ const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView 
   const [videoUploadNotice, setVideoUploadNotice] = useState<(VideoUploadNotice & { minimized: boolean }) | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState<'videos' | 'livestreams'>('videos');
+  const [showLiveTileAlert, setShowLiveTileAlert] = useState(false);
+  const [showChatLiveTileAlert, setShowChatLiveTileAlert] = useState(false);
   const realtimeRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previousLiveStateRef = useRef(false);
+  const previousChatLiveStateRef = useRef(false);
 
   useEffect(() => {
     if (isDialogOpen2) return;
@@ -144,7 +144,20 @@ const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView 
 
   useEffect(() => {
     if (!creatorAddress) return;
-    const unsubscribe = subscribeToCreatorStreamUpdates(creatorAddress, () => {
+    const unsubscribe = subscribeToCreatorStreamUpdates(creatorAddress, (streamUpdate) => {
+      if (streamUpdate?.playbackId) {
+        const isSelectedStream =
+          streamUpdate.playbackId === selectedChannelId ||
+          streamUpdate.playbackId === channelSupabaseData?.playbackId;
+        if (isSelectedStream) {
+          setChannelSupabaseData((prev: any) => ({
+            ...(prev || {}),
+            ...streamUpdate,
+            playbackId: streamUpdate.playbackId,
+          }));
+        }
+      }
+
       if (realtimeRefreshTimerRef.current) {
         clearTimeout(realtimeRefreshTimerRef.current);
       }
@@ -160,7 +173,7 @@ const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView 
         realtimeRefreshTimerRef.current = null;
       }
     };
-  }, [creatorAddress, dispatch]);
+  }, [creatorAddress, dispatch, selectedChannelId, channelSupabaseData?.playbackId]);
 
   useEffect(() => {
     if (streamsError) {
@@ -170,13 +183,6 @@ const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView 
       toast.error('Failed to fetch assets: ' + assetsError);
     }
   }, [streamsError, assetsError]);
-
-  // Redirect to login if not authenticated
-  useEffect(() => {
-    if (ready && !authenticated) {
-      navigate.push('/auth/login');
-    }
-  }, [ready, authenticated, navigate]);
 
   // Check if user has completed profile setup
   useEffect(() => {
@@ -215,10 +221,8 @@ const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView 
     if (!creatorUsername) return;
 
     const onLegacyDashboardPath = pathname === '/dashboard';
-    if (onLegacyDashboardPath && urlChannelId) {
-      navigate.replace(
-        `/dashboard/${encodeURIComponent(creatorUsername)}?channelId=${encodeURIComponent(urlChannelId)}`,
-      );
+    if (onLegacyDashboardPath) {
+      navigate.replace(`/dashboard/${encodeURIComponent(creatorUsername)}`);
       return;
     }
 
@@ -228,19 +232,43 @@ const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView 
     if (onUsernameDashboardPath && dashboardRouteCreatorId && requestedCreatorId !== canonicalCreatorId) {
       const pathSegments = (pathname || '').split('/');
       const suffixPath = pathSegments.length > 3 ? `/${pathSegments.slice(3).join('/')}` : '';
-      const channelQuery = urlChannelId
-        ? `?channelId=${encodeURIComponent(urlChannelId)}`
-        : '';
-      navigate.replace(`/dashboard/${encodeURIComponent(creatorUsername)}${suffixPath}${channelQuery}`);
+      navigate.replace(`/dashboard/${encodeURIComponent(creatorUsername)}${suffixPath}`);
+      return;
+    }
+
+    const onCanonicalDashboardRoot =
+      pathname === `/dashboard/${encodeURIComponent(creatorUsername)}` ||
+      pathname === `/dashboard/${creatorUsername}`;
+    if (onCanonicalDashboardRoot && urlChannelId) {
+      navigate.replace(`/dashboard/${encodeURIComponent(creatorUsername)}`);
     }
   }, [creatorUsername, dashboardRouteCreatorId, navigate, pathname, urlChannelId]);
 
   // Sync URL channelId to context when navigating from outside dashboard
   useEffect(() => {
+    if (!authenticated) return;
     if (urlChannelId && urlChannelId !== contextChannelId) {
       setSelectedChannelId(urlChannelId);
     }
-  }, [urlChannelId, contextChannelId, setSelectedChannelId]);
+  }, [authenticated, urlChannelId, contextChannelId, setSelectedChannelId]);
+
+  // Clear stale persisted channel selection in unauthenticated dashboard state
+  // so `/dashboard` shows the neutral "no channel selected" view.
+  useEffect(() => {
+    if (!ready || authenticated) return;
+    if (urlChannelId || initialLivePlaybackId || initialChatPlaybackId) return;
+    if (contextChannelId) {
+      setSelectedChannelId(null);
+    }
+  }, [
+    ready,
+    authenticated,
+    contextChannelId,
+    initialChatPlaybackId,
+    initialLivePlaybackId,
+    setSelectedChannelId,
+    urlChannelId,
+  ]);
 
   const handleProfileSetupSuccess = () => {
     // User has completed setup, no longer first-time
@@ -280,14 +308,57 @@ const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView 
 
 const filteredStreams = useMemo(() => {
   if (!creatorAddress) return [];
-  return streams.filter((stream) => !!stream.playbackId && stream.creatorId?.value === creatorAddress);
+  const addr = creatorAddress.toLowerCase();
+  return streams.filter((stream) => {
+    if (!stream.playbackId) return false;
+    const livepeerMatch = stream.creatorId?.value?.toLowerCase() === addr;
+    const supabaseMatch = (stream as any).supabaseCreatorId?.toLowerCase() === addr;
+    return livepeerMatch || supabaseMatch;
+  });
 }, [streams, creatorAddress]);
 
-// Get the selected channel stream
-const selectedChannel = useMemo(() => {
+useEffect(() => {
+  if (selectedChannelId) return;
+  if (filteredStreams.length === 0) return;
+  setSelectedChannelId(filteredStreams[0].playbackId);
+}, [filteredStreams, selectedChannelId, setSelectedChannelId]);
+
+// Prevent stale cross-channel context on creator dashboard routes:
+// if selected channel is not owned by the authenticated creator and no explicit
+// channel/live/chat route parameter is present, reset to first owned channel.
+useEffect(() => {
+  if (!authenticated) return;
+  if (!selectedChannelId) return;
+  if (filteredStreams.length === 0) return;
+  if (urlChannelId || initialLivePlaybackId || initialChatPlaybackId) return;
+
+  const isOwnedSelection = filteredStreams.some(
+    (stream) => stream.playbackId === selectedChannelId,
+  );
+  if (isOwnedSelection) return;
+
+  const fallbackOwned = filteredStreams[0]?.playbackId || null;
+  if (fallbackOwned) {
+    setSelectedChannelId(fallbackOwned);
+  }
+}, [
+  authenticated,
+  filteredStreams,
+  initialChatPlaybackId,
+  initialLivePlaybackId,
+  selectedChannelId,
+  setSelectedChannelId,
+  urlChannelId,
+]);
+
+// Get the selected channel stream — check filteredStreams first, then all streams as fallback
+const selectedChannelFromRedux = useMemo(() => {
   if (!selectedChannelId) return null;
-  return filteredStreams.find((stream) => stream.playbackId === selectedChannelId) || null;
-}, [selectedChannelId, filteredStreams]);
+  return filteredStreams.find((stream) => stream.playbackId === selectedChannelId)
+    || streams.find((stream) => stream.playbackId === selectedChannelId)
+    || null;
+}, [selectedChannelId, filteredStreams, streams]);
+
 const isDedicatedLiveView = Boolean(initialLivePlaybackId);
 const isDedicatedChatView = Boolean(openChatView);
 const activeChatPlaybackId = useMemo(() => {
@@ -295,31 +366,154 @@ const activeChatPlaybackId = useMemo(() => {
 }, [filteredStreams, initialChatPlaybackId, selectedChannelId]);
 const dedicatedLiveStream = useMemo(() => {
   if (!initialLivePlaybackId) return null;
-  return filteredStreams.find((stream) => stream.playbackId === initialLivePlaybackId) || null;
-}, [filteredStreams, initialLivePlaybackId]);
+  const fromOwned = filteredStreams.find((stream) => stream.playbackId === initialLivePlaybackId);
+  if (fromOwned) return fromOwned;
+
+  const fromAll = streams.find((stream) => stream.playbackId === initialLivePlaybackId);
+  if (fromAll) return fromAll;
+
+  if (channelSupabaseData?.playbackId === initialLivePlaybackId) {
+    return {
+      id: channelSupabaseData.id || initialLivePlaybackId,
+      playbackId: channelSupabaseData.playbackId || initialLivePlaybackId,
+      title: channelSupabaseData.title || channelSupabaseData.streamName || 'Channel',
+      name: channelSupabaseData.streamName || channelSupabaseData.title || 'Channel',
+      logo: channelSupabaseData.logo || null,
+      isActive: Boolean(channelSupabaseData.isActive),
+      lastSeen: channelSupabaseData.lastSeen || null,
+      creatorId: { value: channelSupabaseData.creatorId || creatorAddress || '' },
+      supabaseCreatorId: channelSupabaseData.creatorId || creatorAddress || '',
+      streamKey: channelSupabaseData.streamKey || '',
+    } as Stream;
+  }
+
+  return null;
+}, [filteredStreams, initialLivePlaybackId, streams, channelSupabaseData, creatorAddress]);
 const dedicatedChatStream = useMemo(() => {
   if (!activeChatPlaybackId) return null;
   return filteredStreams.find((stream) => stream.playbackId === activeChatPlaybackId) || null;
 }, [activeChatPlaybackId, filteredStreams]);
+
+const selectedChannel = useMemo(() => {
+  if (selectedChannelFromRedux) return selectedChannelFromRedux;
+  if (!selectedChannelId || !channelSupabaseData) return null;
+
+  return {
+    id: channelSupabaseData.id || selectedChannelId,
+    playbackId: channelSupabaseData.playbackId || selectedChannelId,
+    title: channelSupabaseData.title || channelSupabaseData.streamName || 'Channel',
+    name: channelSupabaseData.streamName || channelSupabaseData.title || 'Channel',
+    logo: channelSupabaseData.logo || null,
+    isActive: Boolean(channelSupabaseData.isActive),
+    lastSeen: channelSupabaseData.lastSeen || null,
+    creatorId: { value: channelSupabaseData.creatorId || creatorAddress || '' },
+    supabaseCreatorId: channelSupabaseData.creatorId || creatorAddress || '',
+    streamKey: channelSupabaseData.streamKey || '',
+  } as Stream;
+}, [selectedChannelFromRedux, selectedChannelId, channelSupabaseData, creatorAddress]);
+
+const selectedChannelIsLive = useMemo(() => {
+  if (!selectedChannel) return false;
+  if (typeof selectedChannel.isActive === 'boolean') return selectedChannel.isActive;
+  if (channelSupabaseData?.playbackId === selectedChannel.playbackId) {
+    return Boolean(channelSupabaseData?.isActive);
+  }
+  return false;
+}, [channelSupabaseData?.isActive, channelSupabaseData?.playbackId, selectedChannel]);
+
+const chatHeaderChannel = useMemo(() => {
+  if (selectedChannel && selectedChannel.playbackId === activeChatPlaybackId) {
+    return selectedChannel;
+  }
+  if (dedicatedChatStream) return dedicatedChatStream;
+
+  if (activeChatPlaybackId && channelSupabaseData?.playbackId === activeChatPlaybackId) {
+    return {
+      id: channelSupabaseData.id || activeChatPlaybackId,
+      playbackId: channelSupabaseData.playbackId || activeChatPlaybackId,
+      title: channelSupabaseData.title || channelSupabaseData.streamName || 'Channel',
+      name: channelSupabaseData.streamName || channelSupabaseData.title || 'Channel',
+      logo: channelSupabaseData.logo || null,
+      isActive: Boolean(channelSupabaseData.isActive),
+      lastSeen: channelSupabaseData.lastSeen || null,
+      creatorId: { value: channelSupabaseData.creatorId || creatorAddress || '' },
+      supabaseCreatorId: channelSupabaseData.creatorId || creatorAddress || '',
+      streamKey: channelSupabaseData.streamKey || '',
+    } as Stream;
+  }
+
+  return null;
+}, [activeChatPlaybackId, channelSupabaseData, creatorAddress, dedicatedChatStream, selectedChannel]);
+const chatHeaderChannelIsLive = useMemo(() => {
+  if (!chatHeaderChannel) return false;
+  if (typeof chatHeaderChannel.isActive === 'boolean') return chatHeaderChannel.isActive;
+  if (channelSupabaseData?.playbackId === chatHeaderChannel.playbackId) {
+    return Boolean(channelSupabaseData?.isActive);
+  }
+  return false;
+}, [channelSupabaseData?.isActive, channelSupabaseData?.playbackId, chatHeaderChannel]);
+
 const dashboardRouteId = creatorUsername || dashboardRouteCreatorId;
 const backToDashboardPath = dashboardRouteId
-  ? `/dashboard/${encodeURIComponent(dashboardRouteId)}${
-      (selectedChannel?.playbackId || activeChatPlaybackId)
-        ? `?channelId=${encodeURIComponent(selectedChannel?.playbackId || activeChatPlaybackId || '')}`
-        : ''
-    }`
+  ? `/dashboard/${encodeURIComponent(dashboardRouteId)}`
   : '/dashboard';
+const creatorViewerLivePath = useMemo(() => {
+  if (!dashboardRouteId || !selectedChannel?.playbackId) return null;
+  return `/creator/${encodeURIComponent(dashboardRouteId)}/live/${encodeURIComponent(selectedChannel.playbackId)}`;
+}, [dashboardRouteId, selectedChannel?.playbackId]);
+const chatHeaderLiveDeskPath = useMemo(() => {
+  if (!dashboardRouteId || !chatHeaderChannel?.playbackId) return null;
+  return `/dashboard/${encodeURIComponent(dashboardRouteId)}/live/${encodeURIComponent(chatHeaderChannel.playbackId)}`;
+}, [dashboardRouteId, chatHeaderChannel?.playbackId]);
+const chatHeaderViewerLivePath = useMemo(() => {
+  if (!dashboardRouteId || !chatHeaderChannel?.playbackId) return null;
+  return `/creator/${encodeURIComponent(dashboardRouteId)}/live/${encodeURIComponent(chatHeaderChannel.playbackId)}`;
+}, [dashboardRouteId, chatHeaderChannel?.playbackId]);
+
+useEffect(() => {
+  if (!selectedChannel?.playbackId) {
+    previousLiveStateRef.current = false;
+    setShowLiveTileAlert(false);
+    return;
+  }
+
+  const becameLive = !previousLiveStateRef.current && selectedChannelIsLive;
+  previousLiveStateRef.current = selectedChannelIsLive;
+  if (!becameLive) return;
+
+  setShowLiveTileAlert(true);
+  const timer = setTimeout(() => setShowLiveTileAlert(false), 3800);
+  return () => clearTimeout(timer);
+}, [selectedChannel?.playbackId, selectedChannelIsLive]);
+
+useEffect(() => {
+  if (!chatHeaderChannel?.playbackId) {
+    previousChatLiveStateRef.current = false;
+    setShowChatLiveTileAlert(false);
+    return;
+  }
+
+  const becameLive = !previousChatLiveStateRef.current && chatHeaderChannelIsLive;
+  previousChatLiveStateRef.current = chatHeaderChannelIsLive;
+  if (!becameLive) return;
+
+  setShowChatLiveTileAlert(true);
+  const timer = setTimeout(() => setShowChatLiveTileAlert(false), 3800);
+  return () => clearTimeout(timer);
+}, [chatHeaderChannel?.playbackId, chatHeaderChannelIsLive]);
 
 // Fetch Supabase stream data for bio/socialLinks when channel is selected
 useEffect(() => {
   const fetchChannelData = async () => {
-    if (!selectedChannel || !creatorAddress) {
+    if (!selectedChannelId || !creatorAddress) {
       setChannelSupabaseData(null);
       return;
     }
     try {
-      const streams = await getStreamsByCreator(creatorAddress);
-      const channelData = streams.find(s => s.playbackId === selectedChannel.playbackId);
+      const creatorStreams = await getStreamsByCreator(creatorAddress);
+      const channelData = creatorStreams.find(
+        (s) => s.playbackId === selectedChannelId || s.id === selectedChannelId,
+      );
       setChannelSupabaseData(channelData || null);
     } catch (error) {
       console.error('Error fetching channel data:', error);
@@ -327,40 +521,19 @@ useEffect(() => {
     }
   };
   fetchChannelData();
-}, [selectedChannel, creatorAddress]);
-
-// Helper to parse socialLinks from array format
-const parseSocialLinks = (socialLinksArray: string[] | null | undefined): { twitter?: string; instagram?: string; youtube?: string; website?: string } => {
-  const socialLinks: { twitter?: string; instagram?: string; youtube?: string; website?: string } = {};
-  if (!Array.isArray(socialLinksArray)) return socialLinks;
-  socialLinksArray.forEach((jsonString: string) => {
-    if (typeof jsonString === 'string') {
-      try {
-        const parsed = JSON.parse(jsonString);
-        Object.keys(parsed).forEach((key) => {
-          const value = parsed[key];
-          if (key === 'twitter' && value) socialLinks.twitter = value;
-          else if (key === 'instagram' && value) socialLinks.instagram = value;
-          else if (key === 'youtube' && value) socialLinks.youtube = value;
-          else if (key === 'website' && value) socialLinks.website = value;
-        });
-      } catch (e) {
-        console.warn('Failed to parse social link JSON:', jsonString);
-      }
-    }
-  });
-  return socialLinks;
-};
+}, [selectedChannelId, creatorAddress]);
 
 // Filter assets by selected channel if one is selected
 const filteredAssetsForChannel = useMemo(() => {
   if (!selectedChannel || !creatorAddress) return [];
-  return assets.filter((asset: Asset) => 
-    !!asset.playbackId && 
-    asset.creatorId?.value === creatorAddress &&
-    asset.creatorId?.value === selectedChannel.creatorId?.value
-  );
-}, [assets, selectedChannel, creatorAddress]); 
+  const addr = creatorAddress.toLowerCase();
+  return assets.filter((asset: Asset) => {
+    if (!asset.playbackId) return false;
+    const assetAddr = asset.creatorId?.value?.toLowerCase() || (asset as any).supabaseCreatorId?.toLowerCase();
+    const channelAddr = selectedChannel.creatorId?.value?.toLowerCase() || (selectedChannel as any).supabaseCreatorId?.toLowerCase();
+    return assetAddr === addr && assetAddr === channelAddr;
+  });
+}, [assets, selectedChannel, creatorAddress]);
 
 const EmptyStatePanel = ({
   title,
@@ -373,11 +546,9 @@ const EmptyStatePanel = ({
   icon: React.ReactNode;
   action?: React.ReactNode;
 }) => (
-  <div className="relative overflow-hidden rounded-xl border border-white/20 bg-gradient-to-br from-white/10 via-white/5 to-transparent p-8 text-center">
-    <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-yellow-500/15 blur-2xl" />
-    <div className="absolute -left-10 -bottom-10 h-28 w-28 rounded-full bg-teal-500/15 blur-2xl" />
+  <div className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#1a1a1a] p-8 text-center">
     <div className="relative z-10 flex flex-col items-center gap-3">
-      <div className="rounded-full border border-white/20 bg-white/10 p-3 text-yellow-300">{icon}</div>
+      <div className="rounded-full border border-white/[0.07] bg-[#0f0f0f] p-3 text-[#888]">{icon}</div>
       <h3 className="text-lg font-semibold text-white">{title}</h3>
       <p className="max-w-md text-sm text-gray-300">{description}</p>
       {action ? <div className="pt-1">{action}</div> : null}
@@ -388,21 +559,25 @@ const EmptyStatePanel = ({
 // console.log(filteredStreams);
   const filteredAssets = useMemo(() => {
     if (!creatorAddress) return [];
-    return assets.filter((asset: Asset) => !!asset.playbackId && asset.creatorId?.value === creatorAddress);
+    const addr = creatorAddress.toLowerCase();
+    return assets.filter((asset: Asset) => {
+      if (!asset.playbackId) return false;
+      const assetAddr = asset.creatorId?.value?.toLowerCase() || (asset as any).supabaseCreatorId?.toLowerCase();
+      return assetAddr === addr;
+    });
   }, [assets, creatorAddress]);
-
-  // NEW: only when not loading, no error, and zero existing streams
-  const canCreateStream = !streamsLoading && !streamsError && filteredStreams.length === 0;
 
   // Fetch stream data for setup modal
   useEffect(() => {
     const fetchStreamForSetup = async () => {
       if (!pendingStreamId || !creatorAddress) return;
       
-      try {
-        // First try to find in Redux state by id
-        let stream = filteredStreams.find(s => s.id === pendingStreamId);
-        let playbackId = stream?.playbackId;
+    try {
+      // First try to find in Redux state by id
+      const stream = filteredStreams.find(
+        (s) => s.id === pendingStreamId || s.playbackId === pendingStreamId,
+      );
+      let playbackId = stream?.playbackId;
         
         // Fetch from Supabase to get full stream data
         const streams = await getStreamsByCreator(creatorAddress);
@@ -465,18 +640,15 @@ const EmptyStatePanel = ({
     }
   }, [showStreamSetupModal, pendingStreamId, creatorAddress, filteredStreams]);
 
-  const initiateLiveVideo = async (id: string) => {
-    if (!id) return;
-    
-    // Find the stream to get its playbackId
-    const stream = filteredStreams.find(s => s.id === id);
-    if (!stream || !stream.playbackId) {
-      toast.error('Stream not found');
-      return;
-    }
-    
-    // Show setup modal first with stream id (we'll get playbackId in the modal)
-    setPendingStreamId(id);
+  const initiateLiveVideo = async (streamReference: string) => {
+    if (!streamReference) return;
+
+    const stream = filteredStreams.find(
+      (s) => s.id === streamReference || s.playbackId === streamReference,
+    );
+    const pendingId = stream?.playbackId || stream?.id || streamReference;
+
+    setPendingStreamId(pendingId);
     setShowStreamSetupModal(true);
   };
 
@@ -485,15 +657,21 @@ const EmptyStatePanel = ({
     
     try {
       // Find stream to get its id for getStreamById
-      const stream = filteredStreams.find(s => s.id === pendingStreamId);
-      if (!stream || !stream.playbackId) {
+      const stream = filteredStreams.find(
+        (s) => s.id === pendingStreamId || s.playbackId === pendingStreamId,
+      );
+      const playbackId = stream?.playbackId || pendingStreamId;
+
+      if (!playbackId) {
         toast.error('Stream not found');
         setShowStreamSetupModal(false);
         return;
       }
       
       // Fetch stream details
-      await dispatch(getStreamById(stream.id));
+      if (stream?.id) {
+        await dispatch(getStreamById(stream.id));
+      }
       const creatorRouteId = (await resolveCreatorRouteUsername()) || dashboardRouteCreatorId;
       if (!creatorRouteId) {
         toast.error('Creator username not found. Set a username in profile settings.');
@@ -507,7 +685,7 @@ const EmptyStatePanel = ({
       setStreamForSetup(null);
 
       navigate.push(
-        `/dashboard/${encodeURIComponent(creatorRouteId)}/live/${encodeURIComponent(stream.playbackId)}?channelId=${encodeURIComponent(stream.playbackId)}`,
+        `/dashboard/${encodeURIComponent(creatorRouteId)}/live/${encodeURIComponent(playbackId)}`,
       );
     } catch (error: any) {
       console.error('Error fetching stream:', error);
@@ -516,35 +694,24 @@ const EmptyStatePanel = ({
     }
   };
 
-  const handleStopStreaming = () => {
-    setIsStreaming(false);
-    setActiveStreamId(null);
-  };
-
-  // Get active stream data from Redux state
-  const activeStreamData = useMemo(() => {
-    if (!isStreaming || !activeStreamId || !currentStream) return null;
-    
-    // Check if currentStream has the required properties
-    if (currentStream.streamKey && currentStream.playbackId) {
-      return {
-        id: currentStream.id,
-        streamKey: currentStream.streamKey,
-        playbackId: currentStream.playbackId,
-        name: currentStream.name || currentStream.title || 'Live Stream',
-        isActive: currentStream.isActive || false,
-        createdAt: currentStream.createdAt || new Date().toISOString(),
-      };
+  const openLivePageFromStrip = async () => {
+    if (!selectedChannel?.playbackId) return;
+    const creatorRouteId = (await resolveCreatorRouteUsername()) || dashboardRouteCreatorId;
+    if (!creatorRouteId) {
+      toast.error('Creator username not found. Set a username in profile settings.');
+      return;
     }
-    return null;
-  }, [isStreaming, activeStreamId, currentStream]);
+    navigate.push(
+      `/dashboard/${encodeURIComponent(creatorRouteId)}/live/${encodeURIComponent(selectedChannel.playbackId)}`,
+    );
+  };
   const toggleSidebar = () => setSidebarCollapsed((x) => !x);
   // setSidebarCollapsed(!sidebarCollapsed)
   const toggleMobileMenu = () => setMobileMenuOpen((x) => !x);
 
-  if (!ready || !authenticated || checkingProfile) {
+  if (!ready || (authenticated && checkingProfile)) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-black via-gray-950 to-black">
+      <div className="flex justify-center items-center h-screen bg-[#080808]">
         <Spinner />
       </div>
     );
@@ -573,7 +740,7 @@ const EmptyStatePanel = ({
         onConfirm={handleStreamSetupConfirm}
         stream={streamForSetup}
       />
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-black via-gray-950 to-black">
+    <div className="flex h-screen overflow-hidden bg-[#080808]">
       {/* Mobile Sidebar */}
       {mobileMenuOpen && (
         <MobileSidebar
@@ -585,82 +752,62 @@ const EmptyStatePanel = ({
       )}
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col gap-4 h-screen overflow-hidden relative">
-        <div className="flex-1 flex gap-4 overflow-hidden">
-          <div className="flex-1 my-2 ml-2 flex flex-col relative">
+      <div className={`flex-1 flex flex-col h-screen overflow-hidden relative ${isDedicatedChatView ? 'gap-0' : 'gap-0 md:gap-4'}`}>
+        <div className={`flex-1 flex overflow-hidden ${isDedicatedChatView ? 'gap-0' : 'gap-0 md:gap-4'}`}>
+          <div className={`flex-1 w-full max-w-none mx-0 flex flex-col relative ${isDedicatedChatView ? 'my-0 mx-0' : 'my-0 md:my-2 mx-0 md:px-2'}`}>
           {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto pb-4">
+          <div className={`flex-1 overflow-y-auto overflow-x-hidden ${isDedicatedChatView ? 'pb-0' : 'pb-4'}`}>
           {/* <Analytics /> */}
           <Header toggleMenu={toggleMobileMenu} mobileOpen={mobileMenuOpen} />
-          {/* Only show "Your Channel" section when a channel is selected */}
-          {selectedChannel && !isDedicatedLiveView && (
-            <div
-              className={`md:px-6 px-3 w-full relative rounded-lg ${
-                isDedicatedChatView ? 'py-1 pb-2 my-1.5' : 'py-2 pb-4 my-2'
-              }`}
-            >
-              {streamsLoading ? (
-                Array.from({ length: 1 }, (_, index) => (
-                  <div key={index} className="flex flex-col space-y-2">
-                    <Skeleton className="h-[120px] w-[318px] rounded-xl bg-black" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 md:w-[316px] rounded-md bg-black" />
-                      <Skeleton className="h-7 w-[44px] rounded-md bg-black" />
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div key={selectedChannel.id} className="col-span-full w-full">
-                  <CreatorChannelCard
-                    title={channelSupabaseData?.title || selectedChannel.title || selectedChannel.name || 'Your Channel'}
-                    logo={channelSupabaseData?.logo || selectedChannel.logo || null}
-                    bio={channelSupabaseData?.description || null}
-                    socialLinks={parseSocialLinks(channelSupabaseData?.socialLinks) || {}}
-                    defaultImage={image1}
-                    isActive={selectedChannel.isActive || false}
-                    creatorId={creatorAddress || undefined}
-                    creatorRouteId={creatorUsername || undefined}
-                    compact
-                    chatCompact={isDedicatedChatView}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-          
-          {/* Show empty state when no channel is selected and user has channels */}
-          {!selectedChannel && !isDedicatedLiveView && !canCreateStream && filteredStreams.length > 0 && (
+          {!selectedChannel && !isDedicatedLiveView && !isDedicatedChatView && (
             <SectionCard title="">
               <EmptyStatePanel
-                title="Choose a channel to continue"
-                description="Pick one of your channels from the sidebar to manage videos, livestreams, and monetization settings."
+                title={
+                  !authenticated
+                    ? 'Explore TVinBio'
+                    : filteredStreams.length > 0
+                    ? 'Choose a channel to continue'
+                    : 'No channel selected'
+                }
+                description={
+                  !authenticated
+                    ? 'Browse the app in preview mode. Sign in to create channels, upload videos, go live, and unlock creator tools.'
+                    : filteredStreams.length > 0
+                    ? 'Pick one of your channels from the sidebar to manage videos, livestreams, and monetization settings.'
+                    : 'Your dashboard is ready. Select a channel from the sidebar to open your channel gallery.'
+                }
                 icon={<Sparkles className="h-5 w-5" />}
-              />
-            </SectionCard>
-          )}
-          
-          {/* Show empty state when no channel is selected */}
-          {!selectedChannel && !isDedicatedLiveView && (
-            <SectionCard title="">
-              <EmptyStatePanel
-                title="No channel selected"
-                description="Your dashboard is ready. Select a channel to view channel-specific videos and livestream controls."
-                icon={<Sparkles className="h-5 w-5" />}
+                action={
+                  !authenticated ? (
+                    <button
+                      type="button"
+                      onClick={() => login()}
+                      className="inline-flex h-10 items-center justify-center rounded-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-emerald-400 px-5 text-sm font-semibold text-black transition hover:brightness-105"
+                    >
+                      Sign in to continue
+                    </button>
+                  ) : undefined
+                }
               />
             </SectionCard>
           )}
 
-          {/* Only show tabs section when a channel is selected */}
+          {/* Main selected channel experience + dedicated live/chat routes */}
           {(selectedChannel || isDedicatedLiveView || isDedicatedChatView) && (
-            <>
-              {!isDedicatedLiveView && !isDedicatedChatView && <hr className="border-white/20" />}
-              <SectionCard
-                title=""
-                contentClassName={isDedicatedLiveView || isDedicatedChatView ? 'w-full' : undefined}
-              >
+            <SectionCard
+              title=""
+              contentClassName="w-full"
+              sectionClassName={
+                isDedicatedChatView
+                  ? 'md:px-0 px-0 w-full py-0 pb-0 relative my-0 bg-transparent border-0 backdrop-blur-0 rounded-none'
+                  : isDedicatedLiveView
+                  ? undefined
+                  : 'md:px-0 px-0 w-full py-0 pb-0 relative my-0 bg-transparent border-0 backdrop-blur-0 rounded-none'
+              }
+            >
                 {isDedicatedLiveView ? (
                   <div className="-mx-3 md:-mx-6 -mb-4 md:-mb-10 space-y-2">
-                    <div className="flex items-center justify-between rounded-xl border border-white/20 bg-gradient-to-r from-white/10 to-white/5 px-4 py-3">
+                    <div className="flex items-center justify-between rounded-xl border border-white/[0.07] bg-[#1a1a1a] px-4 py-3">
                       <div>
                         <p className="text-[10px] uppercase tracking-[0.16em] text-gray-400">Creator Broadcast Desk</p>
                         <h3 className="text-lg font-semibold text-white">
@@ -669,7 +816,7 @@ const EmptyStatePanel = ({
                       </div>
                       <button
                         onClick={() => navigate.push(backToDashboardPath)}
-                        className="rounded-lg border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/20"
+                        className="rounded-lg bg-[#1a1a1a] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#242424]"
                       >
                         Back to Dashboard
                       </button>
@@ -677,7 +824,7 @@ const EmptyStatePanel = ({
 
                     {dedicatedLiveStream ? (
                       <div
-                        className="w-full overflow-hidden rounded-xl border border-white/20 bg-black min-h-[560px] h-[calc(100vh-150px)] md:min-h-[720px] md:h-[calc(100vh-190px)]"
+                        className="w-full overflow-hidden rounded-xl border border-white/[0.07] bg-black min-h-[560px] h-[calc(100vh-150px)] md:min-h-[720px] md:h-[calc(100vh-190px)]"
                       >
                         <DashboardBroadcast
                           streamName={dedicatedLiveStream.title || dedicatedLiveStream.name}
@@ -709,23 +856,64 @@ const EmptyStatePanel = ({
                     )}
                   </div>
                 ) : isDedicatedChatView ? (
-                  <div className="-mx-3 md:-mx-6 -mb-4 md:-mb-10 space-y-2">
-                    <div className="flex items-center justify-between rounded-xl border border-white/20 bg-gradient-to-r from-white/10 to-white/5 px-4 py-3">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.16em] text-gray-400">Channel Community</p>
-                        <h3 className="text-lg font-semibold text-white">
-                          {dedicatedChatStream?.title || dedicatedChatStream?.name || 'Channel Chat'}
-                        </h3>
-                      </div>
-                    </div>
+                  <div className="space-y-0">
                     {activeChatPlaybackId ? (
-                      <ChannelChatExperience
-                        playbackId={activeChatPlaybackId}
-                        creatorId={creatorAddress || ''}
-                        streamName={dedicatedChatStream?.title || dedicatedChatStream?.name || selectedChannel?.title || 'Channel'}
-                        onBack={() => navigate.push(backToDashboardPath)}
-                        backLabel="Back to Dashboard"
-                      />
+                      <>
+                        {chatHeaderChannel ? (
+                          <div className="w-full">
+                            <CreatorChannelCard
+                              title={channelSupabaseData?.title || chatHeaderChannel.title || chatHeaderChannel.name || 'Channel'}
+                              logo={channelSupabaseData?.logo || chatHeaderChannel.logo || null}
+                              bio={channelSupabaseData?.description || null}
+                              socialLinks={{}}
+                              defaultImage={image1}
+                              isActive={chatHeaderChannelIsLive}
+                              creatorId={creatorAddress || undefined}
+                              creatorRouteId={creatorUsername || undefined}
+                              compact
+                              chatCompact
+                              actionSlot={
+                                chatHeaderChannelIsLive && chatHeaderLiveDeskPath ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate.push(chatHeaderLiveDeskPath)}
+                                    className="inline-flex h-8 items-center justify-center rounded-full border border-red-300/45 bg-red-500/10 px-3 text-[11px] font-semibold text-red-100 transition hover:bg-red-500/20"
+                                  >
+                                    Open live desk
+                                  </button>
+                                ) : undefined
+                              }
+                            />
+                            {chatHeaderChannelIsLive && chatHeaderViewerLivePath ? (
+                              <button
+                                type="button"
+                                onClick={() => navigate.push(chatHeaderViewerLivePath)}
+                                className={`mt-2 inline-flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm font-semibold transition ${
+                                  showChatLiveTileAlert
+                                    ? 'animate-pulse border-red-300/60 bg-red-500/16 text-red-100'
+                                    : 'border-red-300/45 bg-red-500/12 text-red-100 hover:bg-red-500/20'
+                                }`}
+                                aria-label="Open public livestream page"
+                              >
+                                <span className="inline-flex items-center gap-2">
+                                  <span className="h-2.5 w-2.5 rounded-full bg-red-400 shadow-[0_0_12px_rgba(248,113,113,0.85)]" />
+                                  {chatHeaderChannel.title || chatHeaderChannel.name || 'Channel'} is live now
+                                </span>
+                                <span className="text-xs uppercase tracking-[0.12em] text-red-100/90">
+                                  Open viewer page
+                                </span>
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        <ChannelChatExperience
+                          playbackId={activeChatPlaybackId}
+                          creatorId={creatorAddress || ''}
+                          streamName={dedicatedChatStream?.title || dedicatedChatStream?.name || selectedChannel?.title || 'Channel'}
+                          onBack={() => navigate.push(backToDashboardPath)}
+                          backLabel="Back to Dashboard"
+                        />
+                      </>
                     ) : (
                       <EmptyStatePanel
                         title="Choose a channel to open chat"
@@ -735,94 +923,163 @@ const EmptyStatePanel = ({
                     )}
                   </div>
                 ) : (
-                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'videos' | 'livestreams')} className="w-full col-span-full">
-                  <TabsList className="grid w-full grid-cols-2 bg-white/10 backdrop-blur-sm border border-white/20 p-1">
-                    <TabsTrigger 
-                      value="videos" 
-                      className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-teal-500 data-[state=active]:text-black text-white"
-                    >
-                      Videos
-                    </TabsTrigger>
-                    <TabsTrigger 
-                      value="livestreams"
-                      className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-teal-500 data-[state=active]:text-black text-white"
-                    >
-                      Livestreams
-                    </TabsTrigger>
-                  </TabsList>
+                  <div className="w-full pb-4 md:pb-6">
+                    <div className="relative overflow-hidden border border-white/[0.08] bg-[#08090f] rounded-none md:rounded-2xl">
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(250,204,21,0.15),transparent_35%),radial-gradient(circle_at_84%_8%,rgba(20,184,166,0.14),transparent_33%),linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0)_42%)]" />
 
-                  {/* Videos Tab */}
-                  <TabsContent value="videos" className="mt-4">
-                    {assetsLoading ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {Array.from({ length: 6 }, (_, index) => (
-                          <div key={index} className="flex flex-col space-y-3">
-                            <Skeleton className="h-[180px] w-full rounded-xl bg-black" />
-                            <div className="space-y-2">
-                              <Skeleton className="h-4 w-full rounded-md bg-black" />
-                              <Skeleton className="h-7 w-20 rounded-md bg-black" />
+                      <div className="relative px-3 pt-4 sm:px-4 sm:pt-5 md:px-6 md:pt-6">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start gap-3">
+                              <div className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.16] bg-[#111824]">
+                                {channelSupabaseData?.logo || selectedChannel.logo ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={(channelSupabaseData?.logo || selectedChannel.logo) as string}
+                                    alt={selectedChannel.title || selectedChannel.name || 'Channel'}
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-white">
+                                    {(selectedChannel.title || selectedChannel.name || 'C').charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="min-w-0">
+                                <h2 className="truncate text-xl sm:text-2xl font-semibold text-white">
+                                  {channelSupabaseData?.title || selectedChannel.title || selectedChannel.name || 'Your Channel'}
+                                </h2>
+                                <p className="mt-1 line-clamp-2 max-w-3xl text-sm text-gray-300">
+                                  {channelSupabaseData?.description?.trim() || 'Creator dashboard and publishing gallery.'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <span
+                                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+                                  selectedChannelIsLive
+                                    ? 'border-red-400/45 bg-red-500/10 text-red-200'
+                                    : 'border-white/[0.14] bg-white/[0.03] text-gray-300'
+                                }`}
+                              >
+                                <span
+                                  className={`h-2 w-2 rounded-full ${
+                                    selectedChannelIsLive ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.8)]' : 'bg-gray-500'
+                                  }`}
+                                />
+                                {selectedChannelIsLive ? 'Live now' : 'Offline'}
+                              </span>
+                              <span className="inline-flex items-center rounded-full border border-white/[0.12] bg-black/30 px-3 py-1 text-xs text-gray-300">
+                                {filteredAssetsForChannel.length} video{filteredAssetsForChannel.length === 1 ? '' : 's'}
+                              </span>
+                              <span className="inline-flex max-w-full sm:max-w-[320px] items-center rounded-full border border-white/[0.12] bg-black/30 px-3 py-1 text-xs text-gray-400">
+                                <span className="truncate">ID: {selectedChannel.playbackId}</span>
+                              </span>
+                              {selectedChannelIsLive ? (
+                                <button
+                                  type="button"
+                                  onClick={openLivePageFromStrip}
+                                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                                    showLiveTileAlert
+                                      ? 'animate-pulse border-red-300/55 bg-red-500/15 text-red-100'
+                                      : 'border-red-300/40 bg-red-500/10 text-red-100 hover:bg-red-500/20'
+                                  }`}
+                                >
+                                  <span className="h-2 w-2 rounded-full bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.75)]" />
+                                  Broadcast is live
+                                </button>
+                              ) : null}
                             </div>
                           </div>
-                        ))}
+
+                          <div className="grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end">
+                            <button
+                              type="button"
+                              onClick={() => setIsDialogOpen2(true)}
+                              className="inline-flex h-10 items-center justify-center rounded-full border border-white/[0.15] bg-white/[0.03] px-4 text-sm font-medium text-white transition hover:bg-white/[0.08]"
+                            >
+                              Upload video
+                            </button>
+
+                            {selectedChannelIsLive ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={openLivePageFromStrip}
+                                  className="inline-flex h-10 items-center justify-center rounded-full bg-gradient-to-r from-red-500 to-fuchsia-500 px-4 text-sm font-semibold text-white transition hover:opacity-90"
+                                >
+                                  Open live desk
+                                </button>
+                                {creatorViewerLivePath ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => navigate.push(creatorViewerLivePath)}
+                                    className="inline-flex h-10 items-center justify-center rounded-full border border-emerald-300/45 bg-emerald-500/10 px-4 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 sm:col-span-2 lg:col-span-1"
+                                  >
+                                    Watch stream
+                                  </button>
+                                ) : null}
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  initiateLiveVideo(selectedChannel.playbackId || selectedChannel.id)
+                                }
+                                className="inline-flex h-10 items-center justify-center rounded-full bg-gradient-to-r from-yellow-300 via-yellow-400 to-emerald-400 px-4 text-sm font-semibold text-black transition hover:brightness-105"
+                              >
+                                Go live
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {selectedChannelIsLive ? (
+                          <div className="mt-4 rounded-xl border border-red-400/25 bg-red-500/10 px-3 py-2 text-sm text-red-100">
+                            Broadcast is active. Use <span className="font-semibold">Watch stream</span> to open the viewer experience or <span className="font-semibold">Open live desk</span> to manage the session.
+                          </div>
+                        ) : null}
                       </div>
-                    ) : (
-                      <>
-                        {filteredAssetsForChannel.length === 0 ? (
+
+                      <div className="relative px-3 pb-6 pt-5 sm:px-4 md:px-6 md:pb-9 md:pt-6">
+                        <div className="mb-4 flex items-center justify-between">
+                          <h3 className="text-xl font-semibold text-white">Gallery</h3>
+                          <span className="text-xs text-gray-400">
+                            {filteredAssetsForChannel.length} item{filteredAssetsForChannel.length === 1 ? '' : 's'}
+                          </span>
+                        </div>
+
+                        {assetsLoading ? (
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                            {Array.from({ length: 6 }, (_, index) => (
+                              <div key={index} className="flex flex-col space-y-3">
+                                <Skeleton className="h-[190px] w-full rounded-xl bg-black" />
+                                <div className="space-y-2">
+                                  <Skeleton className="h-4 w-full rounded-md bg-black" />
+                                  <Skeleton className="h-7 w-20 rounded-md bg-black" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : filteredAssetsForChannel.length === 0 ? (
                           <EmptyStatePanel
                             title="No videos yet"
                             description="Upload your first video to start building your channel library and gated content catalog."
                             icon={<Clapperboard className="h-5 w-5" />}
                             action={
-                              <Dialog.Root open={isDialogOpen2} onOpenChange={setIsDialogOpen2} modal={false}>
-                                <Dialog.Trigger asChild>
-                                  <button
-                                    onClick={() => setIsDialogOpen2(true)}
-                                    className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black font-semibold rounded-lg transition-all duration-200 flex items-center gap-2"
-                                  >
-                                    <RiVideoAddLine className="w-5 h-5" />
-                                    Upload Video
-                                  </button>
-                                </Dialog.Trigger>
-                                <Dialog.Portal forceMount>
-                                  <Dialog.Overlay
-                                    className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100]"
-                                    style={{
-                                      display: isDialogOpen2 ? 'block' : 'none',
-                                      pointerEvents: isDialogOpen2 ? 'auto' : 'none',
-                                    }}
-                                  />
-                                  <Dialog.Content
-                                    forceMount
-                                    style={{
-                                      display: isDialogOpen2 ? 'flex' : 'none',
-                                      pointerEvents: isDialogOpen2 ? 'auto' : 'none',
-                                    }}
-                                    className="fixed left-1/2 top-1/2 max-h-[85vh] w-[90vw] flex mt-4 flex-col justify-center items-center max-w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-gray-900/95 backdrop-blur-sm border border-white/20 px-10 max-sm:px-6 py-6 shadow-2xl z-[101]"
-                                  >
-                                    <Dialog.Title className="text-white text-center flex items-center gap-2 my-4 text-xl font-bold">
-                                      <RiVideoAddLine className="text-yellow-400 text-sm" /> Upload Video Asset
-                                    </Dialog.Title>
-                                    <UploadVideoAsset
-                                      onClose={() => {
-                                        setIsDialogOpen2(false);
-                                      }}
-                                      onStatusChange={handleVideoUploadStatusChange}
-                                    />
-                                    <Dialog.Close asChild>
-                                      <button
-                                        className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-white hover:bg-white/10 focus:shadow-[0_0_0_2px] focus:shadow-yellow-500 focus:outline-none transition-colors"
-                                        aria-label="Close"
-                                      >
-                                        <IoMdClose className="text-white font-medium text-4xl" />
-                                      </button>
-                                    </Dialog.Close>
-                                  </Dialog.Content>
-                                </Dialog.Portal>
-                              </Dialog.Root>
+                              <button
+                                onClick={() => setIsDialogOpen2(true)}
+                                className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-teal-500 hover:from-yellow-500 hover:to-teal-600 text-black font-semibold rounded-lg transition-all duration-200 flex items-center gap-2"
+                              >
+                                <RiVideoAddLine className="w-5 h-5" />
+                                Upload video
+                              </button>
                             }
                           />
                         ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
                             {filteredAssetsForChannel.map((asset) => (
                               <div key={asset.id}>
                                 <VideoPaymentGate
@@ -851,124 +1108,13 @@ const EmptyStatePanel = ({
                                 </VideoPaymentGate>
                               </div>
                             ))}
-
-                            {/* Upload Asset Button */}
-                            <Dialog.Root open={isDialogOpen2} onOpenChange={setIsDialogOpen2} modal={false}>
-                              <Dialog.Trigger asChild>
-                                <div className="flex w-full flex-col cursor-pointer" onClick={() => setIsDialogOpen2(true)}>
-                                  <div className="w-full justify-center flex items-center h-[180px] rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 hover:bg-white/20 transition-all duration-200">
-                                    <RiVideoAddLine className="text-yellow-400 w-24 h-24" />
-                                  </div>
-                                  <div className="text-white text-xl font-bold pt-2 text-center">Upload Asset</div>
-                                </div>
-                              </Dialog.Trigger>
-                              <Dialog.Portal forceMount>
-                                <Dialog.Overlay
-                                  className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100]"
-                                  style={{
-                                    display: isDialogOpen2 ? 'block' : 'none',
-                                    pointerEvents: isDialogOpen2 ? 'auto' : 'none',
-                                  }}
-                                />
-                                <Dialog.Content
-                                  forceMount
-                                  style={{
-                                    display: isDialogOpen2 ? 'flex' : 'none',
-                                    pointerEvents: isDialogOpen2 ? 'auto' : 'none',
-                                  }}
-                                  className="fixed left-1/2 top-1/2 max-h-[85vh] w-[90vw] flex mt-4 flex-col justify-center items-center max-w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-gray-900/95 backdrop-blur-sm border border-white/20 px-10 max-sm:px-6 py-6 shadow-2xl z-[101]"
-                                >
-                                  <Dialog.Title className="text-white text-center flex items-center gap-2 my-4 text-xl font-bold">
-                                    <RiVideoAddLine className="text-yellow-400 text-sm" /> Upload Video Asset
-                                  </Dialog.Title>
-                                  <UploadVideoAsset
-                                    onClose={() => {
-                                      setIsDialogOpen2(false);
-                                    }}
-                                    onStatusChange={handleVideoUploadStatusChange}
-                                  />
-                                  <Dialog.Close asChild>
-                                    <button
-                                      className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-white hover:bg-white/10 focus:shadow-[0_0_0_2px] focus:shadow-yellow-500 focus:outline-none transition-colors"
-                                      aria-label="Close"
-                                    >
-                                      <IoMdClose className="text-white font-medium text-4xl" />
-                                    </button>
-                                  </Dialog.Close>
-                                </Dialog.Content>
-                              </Dialog.Portal>
-                            </Dialog.Root>
                           </div>
                         )}
-                      </>
-                    )}
-                  </TabsContent>
-
-                  {/* Livestreams Tab */}
-                  <TabsContent value="livestreams" className="mt-4 -mx-3 md:-mx-6 -mb-4 md:-mb-10">
-                    {isStreaming && activeStreamData ? (
-                      <div className="w-[calc(100%+1.5rem)] md:w-[calc(100%+3rem)] border border-white/20 rounded-lg overflow-hidden bg-black" style={{ minHeight: '600px', height: 'calc(100vh - 400px)' }}>
-                        <DashboardBroadcast
-                          streamName={activeStreamData.name}
-                          streamKey={activeStreamData.streamKey}
-                          playbackId={activeStreamData.playbackId}
-                          creatorAddress={creatorAddress || ''}
-                          onStreamEnd={handleStopStreaming}
-                        />
                       </div>
-                    ) : streamsLoading ? (
-                      Array.from({ length: 1 }, (_, index) => (
-                        <div key={index} className="flex flex-col space-y-3">
-                          <Skeleton className="h-[180px] w-[318px] rounded-xl bg-black" />
-                          <div className="space-y-2">
-                            <Skeleton className="h-4 md:w-[316px] rounded-md bg-black" />
-                            <Skeleton className="h-7 w-[44px] rounded-md bg-black" />
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <>
-                        {selectedChannel ? (
-                          <div className="mb-4">
-                            <ChannelCardRedesign
-                              title={selectedChannel.title || selectedChannel.name}
-                              image={image1}
-                              logo={selectedChannel.logo}
-                              goLive={() => initiateLiveVideo(selectedChannel.id)}
-                              streamId={selectedChannel.id}
-                              playbackId={selectedChannel.playbackId}  
-                              playb={selectedChannel.playbackId}
-                              lastSeen={new Date(selectedChannel.lastSeen || 0)}
-                              status={selectedChannel.isActive}
-                              showName={false}
-                              showSocialLinks={false}
-                              useThumbnail={true}
-                            />
-                            {/* Go Live Button */}
-                            <div className="mt-4">
-                              <button
-                                onClick={() => initiateLiveVideo(selectedChannel.id)}
-                                className="w-full bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-                              >
-                                <RiVideoAddLine className="w-5 h-5" />
-                                Go Live
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <EmptyStatePanel
-                            title="No livestream available"
-                            description="This channel has no active livestream configured yet. Set one up and go live when you're ready."
-                            icon={<Radio className="h-5 w-5" />}
-                          />
-                        )}
-                      </>
-                    )}
-                  </TabsContent>
-                </Tabs>
+                    </div>
+                  </div>
                 )}
               </SectionCard>
-            </>
           )}
           </div>
           {/* Bottom Navigation - Fixed at bottom of middle column */}
@@ -977,6 +1123,44 @@ const EmptyStatePanel = ({
           </div>
           </div>
         </div>
+
+        <Dialog.Root open={isDialogOpen2} onOpenChange={setIsDialogOpen2} modal={false}>
+          <Dialog.Portal forceMount>
+            <Dialog.Overlay
+              className="fixed inset-0 bg-black/85 backdrop-blur-sm z-[100]"
+              style={{
+                display: isDialogOpen2 ? 'block' : 'none',
+                pointerEvents: isDialogOpen2 ? 'auto' : 'none',
+              }}
+            />
+            <Dialog.Content
+              forceMount
+              style={{
+                display: isDialogOpen2 ? 'flex' : 'none',
+                pointerEvents: isDialogOpen2 ? 'auto' : 'none',
+              }}
+              className="fixed left-1/2 top-1/2 max-h-[85vh] w-[90vw] flex mt-4 flex-col justify-center items-center max-w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-[#0f0f0f] border border-white/[0.07] px-10 max-sm:px-6 py-6 shadow-2xl z-[101]"
+            >
+              <Dialog.Title className="text-white text-center flex items-center gap-2 my-4 text-xl font-bold">
+                <RiVideoAddLine className="text-yellow-400 text-sm" /> Upload Video Asset
+              </Dialog.Title>
+              <UploadVideoAsset
+                onClose={() => {
+                  setIsDialogOpen2(false);
+                }}
+                onStatusChange={handleVideoUploadStatusChange}
+              />
+              <Dialog.Close asChild>
+                <button
+                  className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-white hover:bg-white/10 focus:shadow-[0_0_0_2px] focus:shadow-yellow-500 focus:outline-none transition-colors"
+                  aria-label="Close"
+                >
+                  <IoMdClose className="text-white font-medium text-4xl" />
+                </button>
+              </Dialog.Close>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
 
         {videoUploadNotice && (
           <div className="fixed bottom-6 right-4 z-[120] w-[min(92vw,360px)]">
@@ -988,9 +1172,9 @@ const EmptyStatePanel = ({
                     prev ? { ...prev, minimized: false } : prev,
                   )
                 }
-                className="w-full rounded-lg border border-cyan-300/30 bg-gradient-to-r from-[#0b1018] via-[#0d1320] to-[#0f1b1f] px-3 py-2 text-left shadow-[0_12px_40px_rgba(0,0,0,0.45)]"
+                className="w-full rounded-lg border border-white/[0.07] bg-[#1a1a1a] px-3 py-2 text-left"
               >
-                <p className="text-[11px] uppercase tracking-[0.16em] text-cyan-200/80">
+                <p className="text-[11px] uppercase tracking-[0.16em] text-[#888]">
                   Upload In Background
                 </p>
                 <p className="mt-1 text-sm font-semibold text-white line-clamp-1">
@@ -998,10 +1182,10 @@ const EmptyStatePanel = ({
                 </p>
               </button>
             ) : (
-              <div className="rounded-xl border border-cyan-300/30 bg-gradient-to-br from-[#0d121a] via-[#111827] to-[#0f1d1f] p-3 shadow-[0_18px_55px_rgba(0,0,0,0.52)] backdrop-blur-md">
+              <div className="rounded-xl border border-white/[0.07] bg-[#0f0f0f] p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.16em] text-cyan-200/80">
+                    <p className="text-[11px] uppercase tracking-[0.16em] text-[#888]">
                       Upload Status
                     </p>
                     <p className="mt-1 text-sm font-semibold text-white line-clamp-1">
@@ -1021,14 +1205,14 @@ const EmptyStatePanel = ({
                           prev ? { ...prev, minimized: true } : prev,
                         )
                       }
-                      className="rounded-md border border-white/20 px-2 py-1 text-[11px] font-semibold text-white/90 hover:bg-white/10"
+                      className="rounded-md border border-white/[0.07] px-2 py-1 text-[11px] font-semibold text-white/90 hover:bg-[#242424]"
                     >
                       Minimize
                     </button>
                     <button
                       type="button"
                       onClick={() => setVideoUploadNotice(null)}
-                      className="rounded-md border border-white/20 px-2 py-1 text-[11px] font-semibold text-white/90 hover:bg-white/10"
+                      className="rounded-md border border-white/[0.07] px-2 py-1 text-[11px] font-semibold text-white/90 hover:bg-[#242424]"
                     >
                       Close
                     </button>
@@ -1036,7 +1220,7 @@ const EmptyStatePanel = ({
                 </div>
 
                 <div className="mt-3">
-                  <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                  <div className="h-2 w-full rounded-full bg-[#1a1a1a] overflow-hidden">
                     <div
                       className="h-full rounded-full bg-gradient-to-r from-yellow-400 via-cyan-300 to-teal-400 transition-all duration-300"
                       style={{

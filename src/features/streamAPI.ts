@@ -251,6 +251,7 @@ export const getAllStreams = createAsyncThunk('streams/getAllStreams', async () 
       // Merge Supabase metadata into the stream
       return {
         ...stream,
+        supabaseCreatorId: supabaseStream.creatorId || null,
         isActive: getMergedActiveState(stream, supabaseStream),
         logo: supabaseStream.logo || stream.logo || '',
         title: supabaseStream.title || supabaseStream.streamName || stream.name || stream.title || '',

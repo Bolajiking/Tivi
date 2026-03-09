@@ -832,6 +832,231 @@ Phase 5 (Polish) ← Final pass after all phases
 - File:
   - `package.json`
 
+50. **Sidebar-first top action rail (profile moved out of header)**
+- Refactored global profile menu UI out of `Header` into a reusable sidebar-owned dropdown component.
+- Added a compact top action rail to sidebars (small logo + search + notifications + profile + collapse/expand control) aligned with the new design direction.
+- Updated mobile sidebar header to use the same compact action rail pattern and keep profile access consistent on small screens.
+- Simplified `Header` to only handle the mobile menu trigger, removing duplicate top-right profile UI.
+- Files:
+  - `src/components/UserProfileMenu.tsx`
+  - `src/components/Header.tsx`
+  - `src/app/dashboard/layout.tsx`
+  - `src/components/MobileSidebar.tsx`
+  - `src/components/templates/creator/CreatorProfile.tsx`
+
+51. **Sidebar toggle relocation + explore visibility hardening**
+- Moved sidebar collapse/expand control from top header into `SidebarBottomLinks` so it appears beneath `Create Channel` and `Explore`, using a minimal icon-only button.
+- Applied toggle relocation across:
+  - dashboard layout sidebar,
+  - creator profile sidebar,
+  - mobile sidebar.
+- Fixed missing `Explore` in some mobile flows by ensuring `SidebarBottomLinks` remains rendered in `dashboard/layout` mobile sidebar state.
+- Files:
+  - `src/components/SidebarBottomLinks.tsx`
+  - `src/app/dashboard/layout.tsx`
+  - `src/components/templates/creator/CreatorProfile.tsx`
+  - `src/components/MobileSidebar.tsx`
+
+52. **Sidebar profile-mode panel (replace channel list on profile click)**
+- Added a dedicated sidebar-native profile panel with two tabs (`Profile` and `Mobile Purse`) and an in-panel close (`X`) action.
+- Updated sidebars so clicking the user avatar opens this panel in-place, replacing the channel list UI for a focused and fast interaction.
+- Preserved channel list state and returns to the prior sidebar view immediately when close is clicked.
+- Applied the same behavior on desktop and mobile sidebars for consistent responsive UX.
+- Files:
+  - `src/components/SidebarUserPanel.tsx`
+  - `src/components/SidebarProfileTrigger.tsx`
+  - `src/app/dashboard/layout.tsx`
+  - `src/components/templates/creator/CreatorProfile.tsx`
+  - `src/components/MobileSidebar.tsx`
+
+53. **Mobile middle-section centering and responsive spacing pass**
+- Standardized middle-column wrappers to use centered max-width containers and removed left-biased margins that caused off-center mobile rendering.
+- Added consistent mobile-safe top spacing for fixed header overlays and tightened horizontal overflow handling (`overflow-x-hidden`) in core middle content panes.
+- Applied the same pattern across dashboard/watch, creator, streamviews, settings, profile, analytics, order history, and monetization pages for consistent mobile UX.
+- Files:
+  - `src/app/dashboard/layout.tsx`
+  - `src/components/templates/dashboard/Dashboard.tsx`
+  - `src/components/templates/creator/CreatorProfile.tsx`
+  - `src/app/streamviews/page.tsx`
+  - `src/components/templates/settings/settings.tsx`
+  - `src/app/dashboard/profile/page.tsx`
+  - `src/app/dashboard/order-history/page.tsx`
+  - `src/components/templates/analytics/Analytics.tsx`
+  - `src/components/templates/monetization/monetization.tsx`
+
+54. **Sidebar action stack refinement (Add Channel + Explore)**
+- Moved `Explore` from bottom links into the channel action area directly beneath `Add Channel`.
+- Restyled `Add Channel` from gradient CTA to minimal sidebar action styling to match `Explore`.
+- Applied the same minimal icon treatment for collapsed sidebar actions (`Add Channel` and `Explore`).
+- Removed duplicate `Explore` entry from `SidebarBottomLinks`.
+- Files:
+  - `src/components/Sidebar.tsx`
+  - `src/components/SidebarBottomLinks.tsx`
+
+55. **Sidebar profile entry relocation + bottom-up panel behavior**
+- Moved profile entry point from sidebar header to the bottom action area (replacing the old bottom collapse-slot position).
+- Moved sidebar collapse control to the top-right of sidebar headers.
+- Implemented bottom-up profile panel reveal in sidebar width using `SidebarUserPanel` sheet mode.
+- Updated sheet mode to open fully (full sidebar height) from bottom with smooth transition and no 1/3-height cap.
+- Applied behavior across dashboard sidebar, creator sidebar, streamviews sidebar, and shared mobile sidebar.
+- Files:
+  - `src/components/SidebarUserPanel.tsx`
+  - `src/components/SidebarBottomLinks.tsx`
+  - `src/app/dashboard/layout.tsx`
+  - `src/components/templates/creator/CreatorProfile.tsx`
+  - `src/app/streamviews/page.tsx`
+  - `src/components/MobileSidebar.tsx`
+
+56. **Profile sheet spacing and content-driven height refinement**
+- Reduced vertical gap between avatar/name block and profile action buttons in `Profile` tab.
+- Removed forced bottom push spacing so account actions sit directly beneath profile identity section.
+- Changed sidebar sheet sizing from fixed expanded height to content-driven (`h-auto`) while retaining bottom-up animation and max-height guard.
+- This aligns the profile box height with its actual content and avoids unnecessary empty space.
+- File:
+  - `src/components/SidebarUserPanel.tsx`
+
+57. **Create Channel button relocation to channel action cluster**
+- Moved creator onboarding action (`Create Channel`) out of sidebar bottom links into `Sidebar` action cluster.
+- Placement now sits directly above `Add Channel` in expanded and collapsed sidebar states.
+- Added invite-gated creator access handling directly in `Sidebar` for `Create Channel` (including invite redemption modal and route to channel setup).
+- Ensured `Create Channel` is hidden when the current user already owns a channel (`hasCreatedStream` true).
+- Simplified `SidebarBottomLinks` to profile-trigger-only behavior after removal of legacy create-channel flow.
+- Files:
+  - `src/components/Sidebar.tsx`
+  - `src/components/SidebarBottomLinks.tsx`
+  - `src/app/dashboard/layout.tsx`
+  - `src/app/streamviews/page.tsx`
+
+58. **Dashboard selected-channel fallback hardening**
+- Fixed creator dashboard middle-section hydration when `channelId` is present in URL but Redux stream list is missing/delayed for that playback ID.
+- Added Supabase-backed fallback selected channel object derived from `channelId` so channel tile, tabs, and livestream controls can render reliably.
+- Changed channel metadata fetch trigger from Redux-selected channel to URL `selectedChannelId` to avoid dependency deadlock.
+- File:
+  - `src/components/templates/dashboard/Dashboard.tsx`
+
+59. **Instant livestream state transitions on creator/viewer channel tiles**
+- Added realtime stream-state hydration from Supabase stream update payloads so `isActive` flips immediately in UI without waiting for slower list refresh cycles.
+- Implemented live-state transition alert pulse on both creator dashboard strip and viewer/creator profile strip when stream changes from offline → live.
+- Added clickable live CTA inside the profile tile state:
+  - Creator side: quick open to live desk.
+  - Viewer side: quick watch-live navigation.
+- Extended dedicated chat header tile actions with a live CTA to keep behavior consistent in chat routes.
+- Kept styling minimal and dark-theme consistent while improving visibility/responsiveness of live/offline states.
+- Files:
+  - `src/components/templates/dashboard/Dashboard.tsx`
+  - `src/components/templates/creator/CreatorProfile.tsx`
+
+60. **Livepeer proxy resilience hardening for channel creation (502 reduction)**
+- Hardened Livepeer API proxy requests with upstream timeout + retry strategy for transient network failures and retryable upstream statuses (408/425/429/5xx).
+- Applied same retry-safe behavior to stream/asset owner-verification calls used in PATCH/DELETE authorization checks.
+- Preserved passthrough of non-retryable upstream responses while reducing hard 502s from one-off transport hiccups.
+- File:
+  - `src/app/api/livepeer/[...path]/route.ts`
+
+61. **Bottom navigation channel-context pinning for subscribed-channel flows**
+- Fixed `Watch / Shop / Chat` route resolution so canonical subscribed channel routes (`/{username}`) are treated as active creator context instead of falling back to the signed-in owner channel.
+- Ensured middle-section navigation remains pinned to the currently selected sidebar channel creator while switching tabs.
+- Kept dashboard routes on dashboard-scoped navigation (no regression into viewer routes from dashboard pages).
+- Added root creator-route active-tab detection so nav highlighting remains accurate on `/{username}` pages.
+- File:
+  - `src/components/BottomNav.tsx`
+
+62. **Bottom navigation hydration-race hardening for creator route context**
+- Removed dependence on `params.creatorId` as the primary source for creator-context detection in bottom navigation.
+- Added pathname-segment parsing as primary creator route source (`/creator/{username}/...` and canonical `/{username}`), with params as fallback only.
+- Prevents intermittent fallback to owner dashboard links during route hydration, ensuring tab clicks stay on the selected subscribed channel context.
+- File:
+  - `src/components/BottomNav.tsx`
+
+63. **Channel chat admin-action authorization hardening**
+- Enforced channel chat admin role from stream source-of-truth (`playbackId -> stream.creatorId`) instead of trusting only passed route props.
+- Restricted admin-only chat operations (group provisioning, subscriber membership sync loop, and clear-history action) to resolved channel creator wallet only.
+- Added service-level authorization guard on chat group mapping persistence:
+  - `saveChannelChatGroupMapping(...)` now requires requester wallet and verifies requester + payload creator both match stream creator before write.
+- Removed subscriber-side self-membership XMTP admin attempt to keep non-admin clients from executing admin-style mutations.
+- Files:
+  - `src/components/templates/chat/ChannelChatExperience.tsx`
+  - `src/lib/supabase-service.ts`
+
+64. **Unauthenticated default routing switched from login page to main app shell**
+- Removed forced dashboard auth-gate redirect behavior so unauthenticated users can land on and explore the main dashboard shell.
+- Removed automatic redirects to `/auth/login` from dashboard flows and changed fallback behavior to remain in app context.
+- Updated dashboard empty-state UX in unauthenticated mode with a clear sign-in CTA (Privy modal trigger) while keeping restricted actions gated.
+- Changed sign-out success destination from `/` to `/dashboard` so post-logout users return to the unauthenticated app state.
+- Replaced signup/login modal actions that previously navigated to `/auth/login` with direct Privy `login()` invocation.
+- Files:
+  - `src/app/dashboard/layout.tsx`
+  - `src/components/AuthGuard.tsx`
+  - `src/components/templates/dashboard/Dashboard.tsx`
+  - `src/app/dashboard/[creatorId]/store/page.tsx`
+  - `src/components/Sidebar.tsx`
+  - `src/components/templates/creator/CreatorProfile.tsx`
+  - `src/components/SidebarUserPanel.tsx`
+  - `src/components/UserProfileMenu.tsx`
+  - `src/components/templates/dashboard/ProfileColumn.tsx`
+
+65. **Unauth dashboard neutral-state channel selection hardening**
+- Prevented stale persisted `selectedChannelId` context from hydrating a creator channel in unauthenticated `/dashboard` state.
+- Channel context is now ignored for unauthenticated users unless channel is explicitly provided via URL (`channelId`/dedicated route inputs).
+- Added cleanup to clear persisted channel context when unauthenticated dashboard loads without channel-specific URL, ensuring neutral “no channel selected” middle section.
+- File:
+  - `src/components/templates/dashboard/Dashboard.tsx`
+
+66. **Unauthenticated Chat/Shop middle-section neutrality hardening**
+- Updated bottom-nav `Shop` route behavior to avoid dashboard creator-scoped store routing when unauthenticated; keeps unauth users in neutral dashboard context.
+- Added unauthenticated cleanup in dashboard store route to clear stale selected-channel context.
+- Added explicit unauthenticated store neutral state UI to prevent channel data/store hydration in unauth middle-section flows.
+- Direct creator URLs remain the intended path for unauth users to access specific public creator channel content.
+- Files:
+  - `src/components/BottomNav.tsx`
+  - `src/app/dashboard/[creatorId]/store/page.tsx`
+
+67. **Unauthenticated chat URL stale-route fix**
+- Fixed bottom-nav `Chat` route generation so unauthenticated users no longer navigate to stale creator-scoped dashboard URLs (e.g. `/dashboard/{oldWallet}/chat`).
+- Unauthenticated chat navigation now remains in neutral dashboard route context.
+- File:
+  - `src/components/BottomNav.tsx`
+
+68. **Creator dashboard chat ownership guard for stale selected-channel context**
+- Added dashboard-level ownership correction so authenticated creator routes cannot keep a stale `selectedChannelId` from a different creator when no explicit channel/live/chat URL parameter is present.
+- Automatically resets stale non-owned selected channel to first owned channel before downstream chat/live initialization.
+- Prevents false “Subscribe to unlock chat” lockout when creator opens their own chat with stale cross-channel context.
+- File:
+  - `src/components/templates/dashboard/Dashboard.tsx`
+
+69. **Viewer-facing livestream strip state + instant live-update tightening**
+- Improved creator-profile stream/asset matching to be case-insensitive across wallet address variants to avoid missed live-state hydration.
+- Added direct playback-row realtime subscription on creator profile pages (`subscribeToStreamStatus`) so live/offline state flips are reflected immediately for viewers.
+- Added explicit viewer-only clickable live strip banner in the top profile section when active:
+  - Displays “{channel} is live now”.
+  - Pulses on fresh live transition.
+  - Click navigates to public creator livestream page (`/creator/{username}/live/{playbackId}`).
+- Added live transition toast notification for viewers on offline → live state changes.
+- File:
+  - `src/components/templates/creator/CreatorProfile.tsx`
+
+70. **Dashboard chat-header live strip consistency update**
+- Added chat-header live-state derivation in dashboard dedicated chat view (`chatHeaderChannelIsLive`) with pulse-on-transition animation.
+- Updated compact chat header control from generic “Live now” to explicit “Open live desk”.
+- Added a dedicated clickable live strip banner under the compact header card in chat view:
+  - Shows “{channel} is live now”.
+  - Pulses on fresh transition to live.
+  - Click opens the public viewer livestream page (`/creator/{username}/live/{playbackId}`).
+- File:
+  - `src/components/templates/dashboard/Dashboard.tsx`
+
+71. **Sidebar branding logo simplified to icon-only mark**
+- Added `iconOnly` support to shared `Logo` component.
+- Updated sidebar-top logo usages to render only the TV icon mark (removed “TVinBio” wordmark in sidebar headers).
+- Kept non-sidebar logo usage unchanged (landing/header branding still uses full wordmark).
+- Files:
+  - `src/components/Logo.tsx`
+  - `src/app/dashboard/layout.tsx`
+  - `src/components/MobileSidebar.tsx`
+  - `src/components/templates/creator/CreatorProfile.tsx`
+  - `src/app/streamviews/page.tsx`
+  - `src/app/creator/[creatorId]/store/page.tsx`
+
 ### Current Open Work / Next Handover Targets
 
 1. **Formal E2E validation sweep**

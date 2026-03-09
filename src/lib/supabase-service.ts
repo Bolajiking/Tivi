@@ -7,6 +7,8 @@ import type {
   SupabaseUser,
   SupabaseVideo,
   SupabaseChat,
+  SupabaseProduct,
+  SupabaseOrder,
   CreatorInviteCode,
   CreatorAccessGrant,
   ChannelChatGroup,
@@ -17,6 +19,9 @@ import type {
   VideoInsert,
   VideoUpdate,
   ChatInsert,
+  ProductInsert,
+  ProductUpdate,
+  OrderInsert,
   Subscription,
   Notification,
 } from './supabase-types';
@@ -1247,10 +1252,39 @@ export async function getChannelChatGroupMapping(
  */
 export async function saveChannelChatGroupMapping(
   payload: ChannelChatGroupMapping,
+  requesterCreatorId: string,
 ): Promise<ChannelChatGroupMapping> {
   if (!payload?.playbackId || !payload?.creatorId || !payload?.xmtpGroupId) {
     throw new Error('Invalid channel chat mapping payload.');
   }
+  if (!requesterCreatorId) {
+    throw new Error('Requester wallet is required to save chat group mapping.');
+  }
+
+  const normalizedRequesterId = normalizeWalletAddress(requesterCreatorId);
+  const normalizedPayloadCreatorId = normalizeWalletAddress(payload.creatorId);
+  if (!normalizedRequesterId || !normalizedPayloadCreatorId) {
+    throw new Error('Invalid creator wallet for chat group mapping.');
+  }
+
+  const stream = await getStreamByPlaybackId(payload.playbackId);
+  if (!stream) {
+    throw new Error(`Stream ${payload.playbackId} not found.`);
+  }
+
+  if (!sameWalletAddress(stream.creatorId, normalizedRequesterId)) {
+    throw new Error('Only the channel creator can configure chat group mapping.');
+  }
+
+  if (!sameWalletAddress(stream.creatorId, normalizedPayloadCreatorId)) {
+    throw new Error('Chat group mapping creator does not match stream creator.');
+  }
+
+  const normalizedPayload: ChannelChatGroupMapping = {
+    playbackId: payload.playbackId,
+    creatorId: normalizedPayloadCreatorId,
+    xmtpGroupId: payload.xmtpGroupId,
+  };
 
   hydrateChannelChatTableAvailability();
 
@@ -1260,9 +1294,9 @@ export async function saveChannelChatGroupMapping(
         .from('channel_chat_groups')
         .upsert(
           {
-            playback_id: payload.playbackId,
-            creator_id: payload.creatorId,
-            xmtp_group_id: payload.xmtpGroupId,
+            playback_id: normalizedPayload.playbackId,
+            creator_id: normalizedPayload.creatorId,
+            xmtp_group_id: normalizedPayload.xmtpGroupId,
             updated_at: new Date().toISOString(),
           },
           { onConflict: 'playback_id' },
@@ -1275,7 +1309,7 @@ export async function saveChannelChatGroupMapping(
           throw new Error(`Failed to save channel chat group mapping: ${error.message}`);
         }
       } else {
-        return payload;
+        return normalizedPayload;
       }
     } catch (error: any) {
       if (isMissingChannelChatTableError(error)) {
@@ -1286,7 +1320,7 @@ export async function saveChannelChatGroupMapping(
     }
   }
 
-  return await persistChannelChatGroupOnStreamMetadata(payload);
+  return await persistChannelChatGroupOnStreamMetadata(normalizedPayload);
 }
 
 /**
@@ -2007,4 +2041,365 @@ export function subscribeToCreatorStreamUpdates(
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+// ==================== PRODUCT OPERATIONS ====================
+
+let productsTableUnavailable = false;
+const PRODUCTS_UNAVAILABLE_SESSION_KEY = 'tivibio_products_table_unavailable';
+
+const syncProductsUnavailableFromSession = () => {
+  if (productsTableUnavailable) return;
+  if (typeof window === 'undefined') return;
+  try {
+    productsTableUnavailable =
+      window.sessionStorage.getItem(PRODUCTS_UNAVAILABLE_SESSION_KEY) === '1';
+  } catch {
+    // ignore
+  }
+};
+
+const markProductsUnavailable = () => {
+  productsTableUnavailable = true;
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(PRODUCTS_UNAVAILABLE_SESSION_KEY, '1');
+  } catch {
+    // ignore
+  }
+};
+
+const isMissingProductsTableError = (error: any): boolean => {
+  const message = String(error?.message || '').toLowerCase();
+  const code = String(error?.code || '').toUpperCase();
+  const status = Number(error?.status || 0);
+  return (
+    code === 'PGRST205' ||
+    status === 404 ||
+    (message.includes('relation') && message.includes('does not exist')) ||
+    message.includes('could not find the table')
+  );
+};
+
+/**
+ * Create a new product in Supabase
+ */
+export async function createProduct(productData: ProductInsert): Promise<SupabaseProduct> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) {
+    throw new Error('Products feature is not available. Run store-schema.sql in Supabase.');
+  }
+
+  if (!productData.playbackId) throw new Error('playbackId is required');
+  if (!productData.creatorId) throw new Error('creatorId is required');
+  if (!productData.name) throw new Error('Product name is required');
+
+  const { data, error } = await supabase
+    .from('products')
+    .insert(productData)
+    .select()
+    .single();
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      throw new Error('Products table not found. Run store-schema.sql in Supabase.');
+    }
+    throw new Error(`Failed to create product: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * Get all products for a channel (by playbackId)
+ */
+export async function getProductsByChannel(playbackId: string): Promise<SupabaseProduct[]> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) return [];
+  if (!playbackId) return [];
+
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('playbackId', playbackId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      return [];
+    }
+    throw new Error(`Failed to fetch products: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * Get active products for a channel (public-facing store)
+ */
+export async function getActiveProductsByChannel(playbackId: string): Promise<SupabaseProduct[]> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) return [];
+  if (!playbackId) return [];
+
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('playbackId', playbackId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      return [];
+    }
+    throw new Error(`Failed to fetch active products: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * Get all products for a creator (across all channels)
+ */
+export async function getProductsByCreator(creatorId: string): Promise<SupabaseProduct[]> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) return [];
+  if (!creatorId || !creatorId.trim()) return [];
+
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .ilike('creatorId', creatorId.trim())
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      return [];
+    }
+    throw new Error(`Failed to fetch products: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * Update a product by ID
+ */
+export async function updateProduct(
+  id: string,
+  updates: ProductUpdate,
+): Promise<SupabaseProduct> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) {
+    throw new Error('Products feature is not available. Run store-schema.sql in Supabase.');
+  }
+
+  const { data, error } = await supabase
+    .from('products')
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      throw new Error('Products table not found. Run store-schema.sql in Supabase.');
+    }
+    throw new Error(`Failed to update product: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * Delete a product by ID
+ */
+export async function deleteProduct(id: string): Promise<void> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) {
+    throw new Error('Products feature is not available. Run store-schema.sql in Supabase.');
+  }
+
+  const { error } = await supabase.from('products').delete().eq('id', id);
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      throw new Error('Products table not found. Run store-schema.sql in Supabase.');
+    }
+    throw new Error(`Failed to delete product: ${error.message}`);
+  }
+}
+
+/**
+ * Decrement product inventory by 1.
+ * Automatically sets status to 'sold_out' when inventory reaches 0.
+ */
+export async function decrementProductInventory(productId: string): Promise<SupabaseProduct> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) {
+    throw new Error('Products feature is not available.');
+  }
+
+  const { data: product, error: fetchError } = await supabase
+    .from('products')
+    .select('*')
+    .eq('id', productId)
+    .single();
+
+  if (fetchError || !product) {
+    throw new Error('Product not found');
+  }
+
+  const newInventory = Math.max(0, (product.inventory || 0) - 1);
+  const updates: ProductUpdate = {
+    inventory: newInventory,
+    ...(newInventory === 0 ? { status: 'sold_out' as const } : {}),
+  };
+
+  return updateProduct(productId, updates);
+}
+
+// ==================== ORDER OPERATIONS ====================
+
+/**
+ * Create a new order in Supabase
+ */
+export async function createOrder(orderData: OrderInsert): Promise<SupabaseOrder> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) {
+    throw new Error('Store is not available. Run store-schema.sql in Supabase.');
+  }
+
+  if (!orderData.productId) throw new Error('productId is required');
+  if (!orderData.buyerAddress) throw new Error('buyerAddress is required');
+  if (!orderData.sellerAddress) throw new Error('sellerAddress is required');
+  if (!orderData.txHash) throw new Error('txHash is required');
+
+  const { data, error } = await supabase
+    .from('orders')
+    .insert(orderData)
+    .select()
+    .single();
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      throw new Error('Orders table not found. Run store-schema.sql in Supabase.');
+    }
+    throw new Error(`Failed to create order: ${error.message}`);
+  }
+
+  return data;
+}
+
+/**
+ * Get orders by buyer wallet address
+ */
+export async function getOrdersByBuyer(buyerAddress: string): Promise<SupabaseOrder[]> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) return [];
+  if (!buyerAddress || !buyerAddress.trim()) return [];
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .ilike('buyerAddress', buyerAddress.trim())
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      return [];
+    }
+    throw new Error(`Failed to fetch orders: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * Get orders by seller wallet address
+ */
+export async function getOrdersBySeller(sellerAddress: string): Promise<SupabaseOrder[]> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) return [];
+  if (!sellerAddress || !sellerAddress.trim()) return [];
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .ilike('sellerAddress', sellerAddress.trim())
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      return [];
+    }
+    throw new Error(`Failed to fetch orders: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * Get orders for a specific product
+ */
+export async function getOrdersByProduct(productId: string): Promise<SupabaseOrder[]> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) return [];
+  if (!productId) return [];
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('productId', productId)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      return [];
+    }
+    throw new Error(`Failed to fetch orders: ${error.message}`);
+  }
+
+  return data || [];
+}
+
+/**
+ * Update order status
+ */
+export async function updateOrderStatus(
+  id: string,
+  status: SupabaseOrder['status'],
+): Promise<SupabaseOrder> {
+  syncProductsUnavailableFromSession();
+  if (productsTableUnavailable) {
+    throw new Error('Store is not available.');
+  }
+
+  const { data, error } = await supabase
+    .from('orders')
+    .update({ status })
+    .eq('id', id)
+    .select()
+    .single();
+
+  if (error) {
+    if (isMissingProductsTableError(error)) {
+      markProductsUnavailable();
+      throw new Error('Orders table not found. Run store-schema.sql in Supabase.');
+    }
+    throw new Error(`Failed to update order status: ${error.message}`);
+  }
+
+  return data;
 }

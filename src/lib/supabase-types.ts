@@ -144,3 +144,40 @@ export type VideoInsert = Omit<SupabaseVideo, 'id' | 'created_at'>;
 export type VideoUpdate = Partial<Omit<SupabaseVideo, 'id' | 'playbackId' | 'created_at'>>;
 
 export type ChatInsert = Omit<SupabaseChat, 'id' | 'created_at' | 'timestamp'>;
+
+// Product table types
+export interface SupabaseProduct {
+  id?: string; // UUID primary key (auto-generated)
+  playbackId: string; // Channel this product belongs to
+  creatorId: string; // Creator wallet address
+  name: string;
+  description: string | null;
+  price: number;
+  currency: string; // 'USDC'
+  imageUrl: string | null;
+  productType: 'physical' | 'digital' | 'merch' | 'ad';
+  digitalFileUrl: string | null; // Download URL for digital products
+  inventory: number;
+  status: 'active' | 'sold_out' | 'archived';
+  created_at?: string; // ISO timestamp
+  updated_at?: string; // ISO timestamp
+}
+
+// Order table types
+export interface SupabaseOrder {
+  id?: string; // UUID primary key (auto-generated)
+  productId: string; // FK to products.id
+  buyerAddress: string; // Buyer wallet address
+  sellerAddress: string; // Seller/creator wallet address
+  amount: number; // Amount paid in USDC
+  txHash: string; // On-chain transaction hash
+  status: 'pending' | 'completed' | 'failed' | 'refunded';
+  shippingInfo: Record<string, any> | null;
+  productSnapshot: Record<string, any> | null; // Frozen product details at purchase time
+  created_at?: string; // ISO timestamp
+}
+
+// Product helper types
+export type ProductInsert = Omit<SupabaseProduct, 'id' | 'created_at' | 'updated_at'>;
+export type ProductUpdate = Partial<Omit<SupabaseProduct, 'id' | 'created_at' | 'updated_at'>>;
+export type OrderInsert = Omit<SupabaseOrder, 'id' | 'created_at'>;

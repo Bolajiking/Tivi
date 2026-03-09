@@ -6,7 +6,6 @@ import { getAssets } from '@/features/assetsAPI';
 import { AppDispatch, RootState } from '@/store/store';
 import { Stream, Asset } from '@/interfaces';
 import { VideoCard } from '@/components/Card/Card';
-import { ChannelCardRedesign } from '@/components/Card/ChannelCardRedesign';
 import { CreatorChannelCard } from './CreatorChannelCard';
 import image1 from '@/assets/image1.png';
 import { Bars } from 'react-loader-spinner';
@@ -16,24 +15,23 @@ import {
   getUserProfile,
   getUserProfileByUsername,
   subscribeToCreatorStreamUpdates,
+  subscribeToStreamStatus,
   subscribeToCreator,
   unsubscribeFromCreator,
   getStreamsByCreator,
 } from '@/lib/supabase-service';
 import SectionCard from '@/components/Card/SectionCard';
-import { Menu, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Clapperboard, Radio, X } from 'lucide-react';
 import clsx from 'clsx';
 import Logo from '@/components/Logo';
 import { usePrivy } from '@privy-io/react-auth';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import SidebarBottomLinks from '@/components/SidebarBottomLinks';
 import BottomNav from '@/components/BottomNav';
-import { LuArrowLeftFromLine, LuArrowRightFromLine } from 'react-icons/lu';
-import { FaTwitter, FaInstagram, FaYoutube, FaLink } from 'react-icons/fa';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import Header from '@/components/Header';
+import SidebarUserPanel from '@/components/SidebarUserPanel';
 import { PlayerWithControls } from '@/components/templates/player/player/Player';
 import { useLivePlaybackInfo } from '@/app/hook/useLivePlaybackInfo';
 import { PlayerLoading } from '@/components/templates/player/player/Player';
@@ -53,6 +51,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ChannelChatExperience } from '@/components/templates/chat/ChannelChatExperience';
 import { useWalletAddress } from '@/app/hook/useWalletAddress';
+import { RiVideoAddLine } from 'react-icons/ri';
 
 interface CreatorProfileData {
   creatorId: string;
@@ -102,7 +101,7 @@ function StreamPlayerView({
 
   if (loading) {
     return (
-      <div className="w-full min-h-[560px] flex items-center justify-center rounded-xl border border-white/15 bg-[#06070a]">
+      <div className="w-full min-h-[560px] flex items-center justify-center rounded-xl border border-white/[0.07] bg-[#06070a]">
         <PlayerLoading>
           <div className="flex flex-col items-center gap-2">
             <Bars width={40} height={40} color="#facc15" />
@@ -115,11 +114,11 @@ function StreamPlayerView({
 
   if (error) {
     return (
-      <div className="w-full min-h-[560px] flex flex-col items-center justify-center rounded-xl border border-white/20 bg-black/70">
+      <div className="w-full min-h-[560px] flex flex-col items-center justify-center rounded-xl border border-white/[0.07] bg-black/70">
         <p className="text-red-300 mb-4">Failed to load stream: {error}</p>
         <button
           onClick={onBack}
-          className="px-4 py-2 rounded-lg border border-white/25 bg-white/10 hover:bg-white/20 text-white transition-colors"
+          className="px-4 py-2 rounded-lg border border-white/[0.07] bg-[#1a1a1a] hover:bg-[#242424] text-white transition-colors"
         >
           {backLabel}
         </button>
@@ -129,7 +128,7 @@ function StreamPlayerView({
 
   return (
     <div className="w-full space-y-3">
-      <div className="rounded-xl border border-white/15 bg-gradient-to-r from-white/10 to-white/5 px-4 py-3">
+      <div className="rounded-xl border border-white/[0.07] bg-[#1a1a1a] px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-[10px] uppercase tracking-[0.16em] text-gray-400">Live Broadcast</p>
@@ -137,14 +136,14 @@ function StreamPlayerView({
           </div>
           <button
             onClick={onBack}
-            className="px-4 py-2 rounded-lg border border-white/25 bg-white/10 hover:bg-white/20 text-white transition-colors text-sm font-semibold"
+            className="px-4 py-2 rounded-lg border border-white/[0.07] bg-[#1a1a1a] hover:bg-[#242424] text-white transition-colors text-sm font-semibold"
           >
             {backLabel}
           </button>
         </div>
       </div>
       <div
-        className="w-full overflow-hidden rounded-xl border border-white/20 bg-black min-h-[520px] h-[calc(100vh-150px)] md:min-h-[700px] md:h-[calc(100vh-180px)]"
+        className="w-full overflow-hidden rounded-xl border border-white/[0.07] bg-black min-h-[520px] h-[calc(100vh-150px)] md:min-h-[700px] md:h-[calc(100vh-180px)]"
       >
         <PlayerWithControls src={src || []} streamStatus={status} title={title} playbackId={playbackId} id={creatorId} />
       </div>
@@ -186,7 +185,7 @@ function VideoPlayerView({
         <div className="flex items-center gap-2">
           <button
             onClick={onBack}
-            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors text-sm font-semibold"
+            className="px-4 py-2 bg-[#1a1a1a] hover:bg-[#242424] text-white rounded-lg transition-colors text-sm font-semibold"
           >
             {isCreator ? 'Back to My Dashboard' : 'Back to Creator'}
           </button>
@@ -199,14 +198,14 @@ function VideoPlayerView({
                 toast.error('Failed to copy video link');
               }
             }}
-            className="px-4 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors text-sm font-semibold"
+            className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-teal-500 hover:from-yellow-500 hover:to-teal-600 text-black rounded-lg transition-colors text-sm font-semibold"
           >
             Copy Video Link
           </button>
         </div>
       </div>
 
-      <div className="w-full border border-white/20 rounded-lg overflow-hidden bg-black" style={{ minHeight: '600px', height: 'calc(100vh - 400px)' }}>
+      <div className="w-full border border-white/[0.07] rounded-lg overflow-hidden bg-black" style={{ minHeight: '600px', height: 'calc(100vh - 400px)' }}>
         <VideoPaymentGate
           playbackId={playbackId}
           creatorId={creatorId}
@@ -216,13 +215,13 @@ function VideoPlayerView({
         </VideoPaymentGate>
       </div>
 
-      <div className="rounded-xl border border-white/20 bg-white/10 p-4 backdrop-blur-sm">
+      <div className="rounded-xl border border-white/[0.07] bg-[#1a1a1a] p-4">
         <div className="flex items-center justify-between gap-2 mb-4">
           <h4 className="text-white text-sm uppercase tracking-[0.18em] font-semibold">More Videos</h4>
           <span className="text-xs text-gray-300">{relatedVideos.length} available</span>
         </div>
         {relatedVideos.length === 0 ? (
-          <div className="h-24 flex items-center justify-center rounded-lg border border-white/10 bg-white/5">
+          <div className="h-24 flex items-center justify-center rounded-lg border border-white/[0.07] bg-[#0f0f0f]">
             <p className="text-sm text-gray-300">No additional videos yet.</p>
           </div>
         ) : (
@@ -268,9 +267,10 @@ export function CreatorProfile({
   const dispatch = useDispatch<AppDispatch>();
   const { streams, loading: streamsLoading, error: streamsError } = useSelector((state: RootState) => state.streams);
   const { assets, loading: assetsLoading, error: assetsError } = useSelector((state: RootState) => state.assets);
-  const { authenticated, ready } = usePrivy();
+  const { authenticated, ready, login } = usePrivy();
   const { walletAddress } = useWalletAddress();
   const router = useRouter();
+  const pathname = usePathname();
   
   const [creatorProfile, setCreatorProfile] = useState<CreatorProfileData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -287,10 +287,12 @@ export function CreatorProfile({
   const [selectedVideoPlaybackId, setSelectedVideoPlaybackId] = useState<string | null>(
     initialVideoPlaybackId || null,
   );
-  const [activeTab, setActiveTab] = useState<'videos' | 'livestreams'>('videos');
   const [actualCreatorId, setActualCreatorId] = useState<string | null>(null); // The wallet address from username lookup
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstallable, setIsInstallable] = useState(false);
+  const [sidebarProfileOpen, setSidebarProfileOpen] = useState(false);
+  const [showLiveTileAlert, setShowLiveTileAlert] = useState(false);
+  const previousLiveStateRef = useRef(false);
 
   // Get current user's wallet address
   // First try to use the login method if it's a wallet, otherwise find a wallet from linked accounts
@@ -304,6 +306,16 @@ export function CreatorProfile({
 
   // Check if user is logged in
   const isLoggedIn = authenticated && ready && !!currentUserAddress;
+
+  useEffect(() => {
+    if (!isCreator) return;
+    if (!pathname?.startsWith('/creator/')) return;
+
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length !== 2 || segments[0] !== 'creator') return;
+
+    router.replace(`/dashboard/${encodeURIComponent(creatorId)}`);
+  }, [creatorId, isCreator, pathname, router]);
 
   // Check subscription status when user is logged in
   useEffect(() => {
@@ -500,7 +512,20 @@ export function CreatorProfile({
 
   useEffect(() => {
     if (!actualCreatorId) return;
-    const unsubscribe = subscribeToCreatorStreamUpdates(actualCreatorId, () => {
+    const unsubscribe = subscribeToCreatorStreamUpdates(actualCreatorId, (streamUpdate) => {
+      if (streamUpdate?.playbackId) {
+        setCreatorStreamData((prev: any) => {
+          if (!prev?.playbackId || prev.playbackId === streamUpdate.playbackId) {
+            return {
+              ...(prev || {}),
+              ...streamUpdate,
+              playbackId: streamUpdate.playbackId,
+            };
+          }
+          return prev;
+        });
+      }
+
       if (realtimeRefreshTimerRef.current) {
         clearTimeout(realtimeRefreshTimerRef.current);
       }
@@ -519,15 +544,22 @@ export function CreatorProfile({
   }, [actualCreatorId, dispatch]);
 
   // Filter streams and assets for this creator
-  const creatorStreams = streams.filter((stream: Stream) => 
-    stream.creatorId?.value === actualCreatorId && !!stream.playbackId
-  );
+  const normalizedActualCreatorId = String(actualCreatorId || '').toLowerCase();
+  const creatorStreams = streams.filter((stream: Stream) => {
+    if (!stream.playbackId || !normalizedActualCreatorId) return false;
+    const livepeerCreator = String(stream.creatorId?.value || '').toLowerCase();
+    const supabaseCreator = String((stream as any).supabaseCreatorId || '').toLowerCase();
+    return livepeerCreator === normalizedActualCreatorId || supabaseCreator === normalizedActualCreatorId;
+  });
 
 // console.log('creatorStreams', creatorStreams);
 
-  const creatorAssets = assets.filter((asset: Asset) => 
-    asset.creatorId?.value === actualCreatorId && !!asset.playbackId
-  );
+  const creatorAssets = assets.filter((asset: Asset) => {
+    if (!asset.playbackId || !normalizedActualCreatorId) return false;
+    const livepeerCreator = String(asset.creatorId?.value || '').toLowerCase();
+    const supabaseCreator = String((asset as any).supabaseCreatorId || '').toLowerCase();
+    return livepeerCreator === normalizedActualCreatorId || supabaseCreator === normalizedActualCreatorId;
+  });
   const creatorPrimaryPlaybackId = useMemo(
     () => creatorStreamData?.playbackId || creatorStreams[0]?.playbackId || null,
     [creatorStreamData?.playbackId, creatorStreams],
@@ -557,19 +589,65 @@ export function CreatorProfile({
     selectedLiveStream?.name ||
     selectedLiveStream?.streamName ||
     'Live Stream';
+  const primaryChannelStream = useMemo(() => {
+    if (creatorPrimaryPlaybackId) {
+      const fromRedux = creatorStreams.find((stream: Stream) => stream.playbackId === creatorPrimaryPlaybackId);
+      if (fromRedux) return fromRedux;
+    }
+    return creatorStreamData || creatorStreams[0] || null;
+  }, [creatorPrimaryPlaybackId, creatorStreamData, creatorStreams]);
+  const primaryChannelTitle =
+    primaryChannelStream?.title ||
+    primaryChannelStream?.name ||
+    primaryChannelStream?.streamName ||
+    creatorStreamData?.title ||
+    creatorStreamData?.streamName ||
+    creatorProfile?.displayName ||
+    'Channel';
+  const primaryChannelLogo = primaryChannelStream?.logo || creatorStreamData?.logo || creatorProfile?.avatar || null;
+  const primaryChannelBio = primaryChannelStream?.description || creatorStreamData?.description || creatorProfile?.bio || null;
+  const primaryChannelPlaybackId =
+    primaryChannelStream?.playbackId || creatorPrimaryPlaybackId || creatorStreamData?.playbackId || '';
+  const primaryChannelIsLive = Boolean(primaryChannelStream?.isActive || creatorStreamData?.isActive);
+
+  useEffect(() => {
+    if (!primaryChannelPlaybackId) {
+      previousLiveStateRef.current = false;
+      setShowLiveTileAlert(false);
+      return;
+    }
+
+    const becameLive = !previousLiveStateRef.current && primaryChannelIsLive;
+    previousLiveStateRef.current = primaryChannelIsLive;
+    if (!becameLive) return;
+
+    setShowLiveTileAlert(true);
+    if (!isCreator) {
+      toast.success(`${primaryChannelTitle} is live now`, { duration: 3200 });
+    }
+    const timer = setTimeout(() => setShowLiveTileAlert(false), 3800);
+    return () => clearTimeout(timer);
+  }, [isCreator, primaryChannelIsLive, primaryChannelPlaybackId, primaryChannelTitle]);
+
+  // Tighten live-state responsiveness for viewers: subscribe directly to the active playback row.
+  useEffect(() => {
+    if (!primaryChannelPlaybackId) return;
+    const unsubscribe = subscribeToStreamStatus(primaryChannelPlaybackId, (streamUpdate) => {
+      if (!streamUpdate?.playbackId) return;
+      setCreatorStreamData((prev: any) => ({
+        ...(prev || {}),
+        ...streamUpdate,
+        playbackId: streamUpdate.playbackId,
+      }));
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [primaryChannelPlaybackId]);
 
   useEffect(() => {
     setSelectedVideoPlaybackId(initialVideoPlaybackId || null);
-    if (initialVideoPlaybackId) {
-      setActiveTab('videos');
-    }
   }, [initialVideoPlaybackId]);
-
-  useEffect(() => {
-    if (initialStreamPlaybackId) {
-      setActiveTab('livestreams');
-    }
-  }, [initialStreamPlaybackId]);
 
   const selectedVideoAsset = useMemo(() => {
     if (!selectedVideoPlaybackId) return null;
@@ -718,9 +796,21 @@ export function CreatorProfile({
   };
 
   const toggleSidebar = () => {
-    if (!isMobile) {
-      setSidebarCollapsed((prev) => !prev);
+    if (isMobile) {
+      setMobileMenuOpen(false);
+      return;
     }
+    setSidebarCollapsed((prev) => !prev);
+  };
+
+  const toggleSidebarProfile = () => {
+    setSidebarProfileOpen((prev) => {
+      const next = !prev;
+      if (next && !isMobile && sidebarCollapsed) {
+        setSidebarCollapsed(false);
+      }
+      return next;
+    });
   };
 
   if (loading) {
@@ -730,7 +820,7 @@ export function CreatorProfile({
   if (error || !creatorProfile) {
     console.log('error', error);
     return (
-      <div className="flex items-center justify-center h-screen bg-gradient-to-br from-black via-gray-950 to-black">
+      <div className="flex items-center justify-center h-screen bg-[#080808]">
         <div className="text-center">
           <h2 className="text-2xl font-bold mb-4 text-white">Creator Not Found</h2>
           <p className="text-gray-300">This creator profile does not exist or is private.</p>
@@ -797,15 +887,19 @@ export function CreatorProfile({
   // Handle signup redirect
   const handleSignup = () => {
     setShowSignupModal(false);
-    router.push('/auth/login');
+    login();
+  };
+
+  const openCreatorDashboard = () => {
+    router.push(`/dashboard/${encodeURIComponent(creatorId)}`);
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gradient-to-br from-black via-gray-950 to-black">
+    <div className="flex h-screen overflow-hidden bg-[#080808]">
       {/* Sidebar */}
       <aside
         className={clsx(
-          'md:relative z-20 h-full md:block px-2.5 py-2 gap-y-2.5 transition-all duration-300 ease-in-out border-r border-white/20 flex flex-col bg-white/10 backdrop-blur-sm',
+          'md:relative z-20 h-full md:block px-2.5 py-2 gap-y-2.5 transition-all duration-300 ease-in-out border-r border-white/[0.07] flex flex-col bg-[#1a1a1a] overflow-hidden',
           {
             'w-[80px]': sidebarCollapsed && !isMobile,
             'w-[240px]': !sidebarCollapsed && !isMobile,
@@ -814,46 +908,49 @@ export function CreatorProfile({
           },
         )}
       >
-        <div className="flex items-start justify-between pb-2 border-b border-white/20">
-          {!sidebarCollapsed && (
-            <div className="pt-0.5">
-              <Logo size="sm" />
-            </div>
-          )}
+        <div className="flex items-center justify-between gap-2 pb-2 border-b border-white/[0.07]">
+          <div className={clsx('pt-0.5', sidebarCollapsed && 'hidden')}>
+            <Logo size="sm" iconOnly />
+          </div>
           <button
+            type="button"
             onClick={toggleSidebar}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/15 bg-white/5 text-gray-300 hover:text-white hover:bg-white/15 transition-colors"
+            className="ml-auto inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.07] bg-[#0f0f0f] text-gray-300 hover:text-white hover:bg-[#1a1a1a] transition-colors"
             aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {sidebarCollapsed ? (
-              <LuArrowRightFromLine className="h-4 w-4" />
-            ) : (
-              <LuArrowLeftFromLine className="h-4 w-4" />
-            )}
+            {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
           </button>
         </div>
-        <Sidebar 
-          sidebarCollapsed={sidebarCollapsed} 
-          isInstallable={isInstallable}
-          onInstallClick={handleInstallClick}
-        />
+        <div className="flex-1 min-h-0">
+          <Sidebar
+            sidebarCollapsed={sidebarCollapsed}
+            isInstallable={isInstallable}
+            onInstallClick={handleInstallClick}
+          />
+        </div>
         
         {/* Bottom Links Section - Fixed at bottom of screen */}
         <div className={clsx(
-          'fixed bottom-0 left-0 z-30 backdrop-blur-lg border-t border-white/20 transition-all duration-300',
+          'z-30 border-t border-white/[0.07] transition-all duration-300',
           {
-            'w-[80px]': sidebarCollapsed && !isMobile,
-            'w-[240px]': !sidebarCollapsed && !isMobile,
-            'hidden': isMobile,
+            'fixed bottom-0 left-0 w-[80px]': sidebarCollapsed && !isMobile,
+            'fixed bottom-0 left-0 w-[240px]': !sidebarCollapsed && !isMobile,
+            'mt-auto w-full': isMobile,
           }
         )}>
-          <SidebarBottomLinks sidebarCollapsed={sidebarCollapsed} />
+          <SidebarBottomLinks sidebarCollapsed={sidebarCollapsed} onProfileClick={toggleSidebarProfile} />
         </div>
+        <SidebarUserPanel
+          variant="sheet"
+          open={sidebarProfileOpen}
+          onClose={() => setSidebarProfileOpen(false)}
+        />
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col gap-4 h-screen overflow-hidden relative">
-        <div className="flex-1 flex gap-4 overflow-hidden">
+      <div className={`flex-1 flex flex-col h-screen overflow-hidden relative ${isDedicatedChatView ? 'gap-0' : 'gap-0 md:gap-4'}`}>
+        <div className={`flex-1 flex overflow-hidden ${isDedicatedChatView ? 'gap-0' : 'gap-0 md:gap-4'}`}>
           {/* Center Content Area - Gated */}
       <CreatorPaymentGate
         creatorId={actualCreatorId || creatorId}
@@ -865,9 +962,9 @@ export function CreatorProfile({
           // Payment successful - component will automatically show content
         }}
       >
-          <div className="flex-1 my-2 ml-2 flex flex-col relative">
+          <div className={`flex-1 w-full max-w-[1380px] mx-auto flex flex-col relative ${isDedicatedChatView ? 'my-0 mx-0' : 'my-0 md:my-2 mx-0 md:mx-2'}`}>
           {/* Scrollable Content Area */}
-          <div className="flex-1 overflow-y-auto pb-4">
+          <div className={`flex-1 overflow-y-auto overflow-x-hidden ${isDedicatedChatView ? 'pb-0' : 'pb-4'}`}>
           {/* Header */}
           <Header 
             toggleMenu={toggleMobileMenu} 
@@ -886,7 +983,7 @@ export function CreatorProfile({
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => setShowSignupModal(false)}>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleSignup} className="bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black">
+                <AlertDialogAction onClick={handleSignup} className="bg-gradient-to-r from-yellow-400 to-teal-500 hover:from-yellow-500 hover:to-teal-600 text-black">
                   Sign In
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -894,20 +991,13 @@ export function CreatorProfile({
           </AlertDialog>
 
 
-          {!isDedicatedLiveView && (
+          {isDedicatedChatView && (
             <>
-              {/* Channel Section - Similar to "Your Channel" in Dashboard */}
               <div
                 className={clsx(
-                  'md:px-6 px-3 w-full relative rounded-lg',
-                  isDedicatedChatView ? 'my-1.5 py-1 pb-2' : 'my-2',
-                  isCreator
-                    ? isDedicatedChatView
-                      ? 'bg-white/5 backdrop-blur-sm border border-white/15'
-                      : 'py-2 pb-4 bg-white/10 backdrop-blur-sm border border-white/20'
-                    : isDedicatedChatView
-                    ? 'py-1 pb-2'
-                    : 'py-1 pb-3',
+                  'w-full relative',
+                  'my-0 py-0 pb-0',
+                  'md:px-0 px-0 rounded-none',
                 )}
               >
                 {streamsLoading ? (
@@ -921,7 +1011,7 @@ export function CreatorProfile({
                     </div>
                   ))
                 ) : creatorStreamData || creatorProfile ? (
-                  <div className="col-span-full w-full space-y-2">
+                  <div className={clsx('col-span-full w-full', isDedicatedChatView ? 'space-y-0' : 'space-y-2')}>
                     <CreatorChannelCard
                       title={creatorStreamData?.title || creatorStreamData?.streamName || creatorProfile?.displayName || 'Channel'}
                       logo={creatorStreamData?.logo || creatorProfile?.avatar || null}
@@ -934,56 +1024,77 @@ export function CreatorProfile({
                       compact
                       chatCompact={isDedicatedChatView}
                       actionSlot={
-                        !isCreator ? (
-                          checkingSubscription ? (
-                            <div className="inline-flex h-8 items-center justify-center rounded-full border border-white/20 bg-white/10 px-3">
-                              <Bars width={12} height={12} color="#facc15" />
-                            </div>
-                          ) : isSubscribed ? (
-                            <button
-                              onClick={handleUnsubscribe}
-                              disabled={isSubscribing}
-                              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-red-300/30 bg-gradient-to-r from-red-500 to-red-600 px-3.5 text-[11px] font-semibold text-white transition-all duration-200 hover:from-red-600 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {isSubscribing ? (
-                                <>
-                                  <Bars width={12} height={12} color="#ffffff" />
-                                  <span>...</span>
-                                </>
+                        primaryChannelIsLive || !isCreator ? (
+                          <div className="inline-flex items-center gap-1.5">
+                            {primaryChannelIsLive && primaryChannelPlaybackId ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const livePath = isCreator
+                                    ? `/dashboard/${encodeURIComponent(creatorId)}/live/${encodeURIComponent(primaryChannelPlaybackId)}`
+                                    : `/creator/${encodeURIComponent(creatorId)}/live/${encodeURIComponent(primaryChannelPlaybackId)}`;
+                                  router.push(livePath);
+                                }}
+                                className={`inline-flex h-8 items-center justify-center gap-1 rounded-full border border-red-300/45 bg-red-500/10 px-3 text-[11px] font-semibold text-red-100 transition hover:bg-red-500/20 ${
+                                  showLiveTileAlert ? 'animate-pulse' : ''
+                                }`}
+                              >
+                                <Radio className="h-3.5 w-3.5" />
+                                {isCreator ? 'Live desk' : 'Watch live'}
+                              </button>
+                            ) : null}
+                            {!isCreator ? (
+                              checkingSubscription ? (
+                                <div className="inline-flex h-8 items-center justify-center rounded-full border border-white/[0.07] bg-[#1a1a1a] px-3">
+                                  <Bars width={12} height={12} color="#facc15" />
+                                </div>
+                              ) : isSubscribed ? (
+                                <button
+                                  onClick={handleUnsubscribe}
+                                  disabled={isSubscribing}
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-red-300/30 bg-gradient-to-r from-red-500 to-red-600 px-3.5 text-[11px] font-semibold text-white transition-all duration-200 hover:from-red-600 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {isSubscribing ? (
+                                    <>
+                                      <Bars width={12} height={12} color="#ffffff" />
+                                      <span>...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path
+                                          fillRule="evenodd"
+                                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                                          clipRule="evenodd"
+                                        />
+                                      </svg>
+                                      <span>Unsubscribe</span>
+                                    </>
+                                  )}
+                                </button>
                               ) : (
-                                <>
-                                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path
-                                      fillRule="evenodd"
-                                      d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                                      clipRule="evenodd"
-                                    />
-                                  </svg>
-                                  <span>Unsubscribe</span>
-                                </>
-                              )}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={handleSubscribe}
-                              disabled={isSubscribing}
-                              className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full border border-yellow-300/30 bg-gradient-to-r from-yellow-500 to-teal-500 px-3.5 text-[11px] font-semibold text-black transition-all duration-200 hover:from-yellow-600 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              {isSubscribing ? (
-                                <>
-                                  <Bars width={12} height={12} color="#000000" />
-                                  <span>...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                  </svg>
-                                  <span>Subscribe</span>
-                                </>
-                              )}
-                            </button>
-                          )
+                                <button
+                                  onClick={handleSubscribe}
+                                  disabled={isSubscribing}
+                                  className="inline-flex h-8 items-center justify-center gap-1.5 rounded-full bg-gradient-to-r from-yellow-400 to-teal-500 px-3.5 text-[11px] font-semibold text-black transition-all duration-200 hover:from-yellow-500 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  {isSubscribing ? (
+                                    <>
+                                      <Bars width={12} height={12} color="#000000" />
+                                      <span>...</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                      </svg>
+                                      <span>Subscribe</span>
+                                    </>
+                                  )}
+                                </button>
+                              )
+                            ) : null}
+                          </div>
                         ) : undefined
                       }
                     />
@@ -994,15 +1105,19 @@ export function CreatorProfile({
                   </div>
                 )}
               </div>
-
-              {!isDedicatedChatView && <hr className="border-white/20" />}
             </>
           )}
 
-          {/* Gallery Section with Tabs - Similar to Dashboard */}
           <SectionCard
             title=""
-            contentClassName={isDedicatedLiveView || isDedicatedChatView ? 'w-full' : undefined}
+            contentClassName="w-full"
+            sectionClassName={
+              isDedicatedChatView
+                ? 'md:px-0 px-0 w-full py-0 pb-0 relative my-0 bg-transparent border-0 backdrop-blur-0 rounded-none'
+                : isDedicatedLiveView
+                ? undefined
+                : 'md:px-0 px-0 w-full py-0 pb-0 relative my-0 bg-transparent border-0 backdrop-blur-0 rounded-none'
+            }
           >
             {isDedicatedLiveView && initialStreamPlaybackId ? (
               <div className="-mx-3 md:-mx-6 -mb-4 md:-mb-10">
@@ -1013,12 +1128,6 @@ export function CreatorProfile({
                   backLabel={isCreator ? 'Back to My Dashboard' : 'Back to Creator'}
                   onBack={() => {
                     if (isCreator) {
-                      if (creatorPrimaryPlaybackId) {
-                        router.push(
-                          `/dashboard/${encodeURIComponent(creatorId)}?channelId=${encodeURIComponent(creatorPrimaryPlaybackId)}`,
-                        );
-                        return;
-                      }
                       router.push(`/dashboard/${encodeURIComponent(creatorId)}`);
                       return;
                     }
@@ -1027,7 +1136,7 @@ export function CreatorProfile({
                 />
               </div>
             ) : isDedicatedChatView && activeChatPlaybackId ? (
-              <div className="-mx-3 md:-mx-6 -mb-4 md:-mb-10">
+              <div className="space-y-0">
                 <ChannelChatExperience
                   playbackId={activeChatPlaybackId}
                   creatorId={actualCreatorId || creatorId}
@@ -1042,12 +1151,6 @@ export function CreatorProfile({
                   backLabel={isCreator ? 'Back to My Dashboard' : 'Back to Creator'}
                   onBack={() => {
                     if (isCreator) {
-                      if (creatorPrimaryPlaybackId) {
-                        router.push(
-                          `/dashboard/${encodeURIComponent(creatorId)}?channelId=${encodeURIComponent(creatorPrimaryPlaybackId)}`,
-                        );
-                        return;
-                      }
                       router.push(`/dashboard/${encodeURIComponent(creatorId)}`);
                       return;
                     }
@@ -1055,83 +1158,257 @@ export function CreatorProfile({
                   }}
                 />
               </div>
+            ) : selectedVideoPlaybackId ? (
+              <VideoPlayerView
+                playbackId={selectedVideoPlaybackId}
+                title={selectedVideoAsset?.name || selectedVideoAsset?.title || 'Video'}
+                creatorId={selectedVideoAsset?.creatorId?.value || actualCreatorId || creatorId}
+                creatorIdentifier={creatorId}
+                isCreator={isCreator}
+                videos={creatorAssets}
+                onBack={() => {
+                  if (isCreator) {
+                    openCreatorDashboard();
+                    return;
+                  }
+                  router.push(`/creator/${encodeURIComponent(creatorId)}`);
+                }}
+                onPlayVideo={(playbackId) => {
+                  router.push(
+                    `/creator/${encodeURIComponent(creatorId)}/video/${encodeURIComponent(playbackId)}`,
+                  );
+                }}
+              />
             ) : (
-              <Tabs
-                value={activeTab}
-                onValueChange={(value) => setActiveTab(value as 'videos' | 'livestreams')}
-                className="w-full col-span-full"
-              >
-                <TabsList className="grid w-full grid-cols-2 bg-white/10 backdrop-blur-sm border border-white/20 p-1">
-                  <TabsTrigger
-                    value="videos"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-teal-500 data-[state=active]:text-black text-white"
-                  >
-                    Videos
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="livestreams"
-                    className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-yellow-500 data-[state=active]:to-teal-500 data-[state=active]:text-black text-white"
-                  >
-                    Livestreams
-                  </TabsTrigger>
-                </TabsList>
+              <div className="w-full pb-4 md:pb-6">
+                <div className="relative overflow-hidden border border-white/[0.08] bg-[#08090f] rounded-none md:rounded-2xl">
+                  <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(250,204,21,0.15),transparent_35%),radial-gradient(circle_at_84%_8%,rgba(20,184,166,0.14),transparent_33%),linear-gradient(180deg,rgba(255,255,255,0.03)_0%,rgba(255,255,255,0)_42%)]" />
 
-                {/* Videos Tab */}
-                <TabsContent value="videos" className="mt-4">
-                  {selectedVideoPlaybackId ? (
-                    <VideoPlayerView
-                      playbackId={selectedVideoPlaybackId}
-                      title={selectedVideoAsset?.name || selectedVideoAsset?.title || 'Video'}
-                      creatorId={selectedVideoAsset?.creatorId?.value || actualCreatorId || creatorId}
-                      creatorIdentifier={creatorId}
-                      isCreator={isCreator}
-                      videos={creatorAssets}
-                      onBack={() => {
-                        if (isCreator) {
-                          if (creatorPrimaryPlaybackId) {
-                            router.push(
-                              `/dashboard/${encodeURIComponent(creatorId)}?channelId=${encodeURIComponent(creatorPrimaryPlaybackId)}`,
-                            );
-                            return;
-                          }
-                          router.push(`/dashboard/${encodeURIComponent(creatorId)}`);
-                          return;
-                        }
-                        router.push(`/creator/${encodeURIComponent(creatorId)}`);
-                      }}
-                      onPlayVideo={(playbackId) => {
-                        router.push(
-                          `/creator/${encodeURIComponent(creatorId)}/video/${encodeURIComponent(playbackId)}`,
-                        );
-                      }}
-                    />
-                  ) : assetsLoading ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {Array.from({ length: 6 }, (_, index) => (
-                        <div key={index} className="flex flex-col space-y-3">
-                          <Skeleton className="h-[180px] w-full rounded-xl bg-black" />
-                          <div className="space-y-2">
-                            <Skeleton className="h-4 w-full rounded-md bg-black" />
-                            <Skeleton className="h-7 w-20 rounded-md bg-black" />
+                  <div className="relative px-3 pt-4 sm:px-4 sm:pt-5 md:px-6 md:pt-6">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start gap-3">
+                          <div className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 overflow-hidden rounded-xl border border-white/[0.16] bg-[#111824]">
+                            {primaryChannelLogo ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={primaryChannelLogo as string}
+                                alt={primaryChannelTitle}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-lg font-semibold text-white">
+                                {primaryChannelTitle.charAt(0).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <h2 className="truncate text-xl sm:text-2xl font-semibold text-white">
+                              {primaryChannelTitle}
+                            </h2>
+                            <p className="mt-1 line-clamp-2 max-w-3xl text-sm text-gray-300">
+                              {primaryChannelBio?.trim() || 'Creator profile and media gallery.'}
+                            </p>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <>
-                      {creatorAssets.length === 0 ? (
-                        <div className="flex justify-center items-center h-60">
-                          <p className="text-gray-300">No Videos Available.</p>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium ${
+                              primaryChannelIsLive
+                                ? 'border-red-400/45 bg-red-500/10 text-red-200'
+                                : 'border-white/[0.14] bg-white/[0.03] text-gray-300'
+                            }`}
+                          >
+                            <span
+                              className={`h-2 w-2 rounded-full ${
+                                primaryChannelIsLive ? 'bg-red-400 shadow-[0_0_10px_rgba(248,113,113,0.8)]' : 'bg-gray-500'
+                              }`}
+                            />
+                            {primaryChannelIsLive ? 'Live now' : 'Offline'}
+                          </span>
+                          {primaryChannelIsLive && primaryChannelPlaybackId ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const livePath = isCreator
+                                  ? `/dashboard/${encodeURIComponent(creatorId)}/live/${encodeURIComponent(primaryChannelPlaybackId)}`
+                                  : `/creator/${encodeURIComponent(creatorId)}/live/${encodeURIComponent(primaryChannelPlaybackId)}`;
+                                router.push(livePath);
+                              }}
+                              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition ${
+                                showLiveTileAlert
+                                  ? 'animate-pulse border-red-300/55 bg-red-500/15 text-red-100'
+                                  : 'border-red-300/40 bg-red-500/10 text-red-100 hover:bg-red-500/20'
+                              }`}
+                            >
+                              <Radio className="h-3.5 w-3.5" />
+                              {isCreator ? 'Broadcast live' : 'Watch live now'}
+                            </button>
+                          ) : null}
+                          <span className="inline-flex items-center rounded-full border border-white/[0.12] bg-black/30 px-3 py-1 text-xs text-gray-300">
+                            {creatorAssets.length} video{creatorAssets.length === 1 ? '' : 's'}
+                          </span>
+                          {primaryChannelPlaybackId ? (
+                            <span className="inline-flex max-w-full sm:max-w-[320px] items-center rounded-full border border-white/[0.12] bg-black/30 px-3 py-1 text-xs text-gray-400">
+                              <span className="truncate">ID: {primaryChannelPlaybackId}</span>
+                            </span>
+                          ) : null}
                         </div>
-                      ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {creatorAssets.map((asset) => {
-                            const videoCreatorId = asset.creatorId?.value || actualCreatorId || '';
-                            return (
+
+                        {primaryChannelIsLive && primaryChannelPlaybackId && !isCreator ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              router.push(
+                                `/creator/${encodeURIComponent(creatorId)}/live/${encodeURIComponent(primaryChannelPlaybackId)}`,
+                              )
+                            }
+                            className={`mt-3 inline-flex w-full items-center justify-between gap-3 rounded-xl border px-3 py-2 text-left text-sm font-semibold transition ${
+                              showLiveTileAlert
+                                ? 'animate-pulse border-red-300/60 bg-red-500/16 text-red-100'
+                                : 'border-red-300/45 bg-red-500/12 text-red-100 hover:bg-red-500/20'
+                            }`}
+                            aria-label="Watch active livestream"
+                          >
+                            <span className="inline-flex items-center gap-2">
+                              <span className="h-2.5 w-2.5 rounded-full bg-red-400 shadow-[0_0_12px_rgba(248,113,113,0.85)]" />
+                              {primaryChannelTitle} is live now
+                            </span>
+                            <span className="text-xs uppercase tracking-[0.12em] text-red-100/90">
+                              Watch live
+                            </span>
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <div className="grid w-full shrink-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end">
+                        {isCreator ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={openCreatorDashboard}
+                              className="inline-flex h-10 items-center justify-center rounded-full border border-white/[0.15] bg-white/[0.03] px-4 text-sm font-medium text-white transition hover:bg-white/[0.08]"
+                            >
+                              <RiVideoAddLine className="mr-1.5 h-4 w-4" />
+                              Upload video
+                            </button>
+                            <button
+                              type="button"
+                              onClick={
+                                primaryChannelPlaybackId
+                                  ? () =>
+                                      router.push(
+                                        `/dashboard/${encodeURIComponent(creatorId)}/live/${encodeURIComponent(primaryChannelPlaybackId)}`,
+                                      )
+                                  : openCreatorDashboard
+                              }
+                              className={`inline-flex h-10 items-center justify-center rounded-full px-4 text-sm font-semibold transition ${
+                                primaryChannelIsLive
+                                  ? 'bg-gradient-to-r from-red-500 to-fuchsia-500 text-white hover:opacity-90'
+                                  : 'bg-gradient-to-r from-yellow-300 via-yellow-400 to-emerald-400 text-black hover:brightness-105'
+                              }`}
+                            >
+                              {primaryChannelIsLive ? 'Open live desk' : 'Go live'}
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            {checkingSubscription ? (
+                              <div className="inline-flex h-10 items-center justify-center rounded-full border border-white/[0.1] bg-white/[0.03] px-4">
+                                <Bars width={14} height={14} color="#facc15" />
+                              </div>
+                            ) : isSubscribed ? (
+                              <button
+                                onClick={handleUnsubscribe}
+                                disabled={isSubscribing}
+                                className="inline-flex h-10 items-center justify-center rounded-full border border-red-300/30 bg-gradient-to-r from-red-500 to-red-600 px-4 text-sm font-semibold text-white transition-all duration-200 hover:from-red-600 hover:to-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {isSubscribing ? '...' : 'Unsubscribe'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={handleSubscribe}
+                                disabled={isSubscribing}
+                                className="inline-flex h-10 items-center justify-center rounded-full bg-gradient-to-r from-yellow-400 to-teal-500 px-4 text-sm font-semibold text-black transition-all duration-200 hover:from-yellow-500 hover:to-teal-600 disabled:cursor-not-allowed disabled:opacity-50"
+                              >
+                                {isSubscribing ? '...' : 'Subscribe'}
+                              </button>
+                            )}
+
+                            {primaryChannelPlaybackId && primaryChannelIsLive ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  router.push(
+                                    `/creator/${encodeURIComponent(creatorId)}/live/${encodeURIComponent(primaryChannelPlaybackId)}`,
+                                  )
+                                }
+                                className={`inline-flex h-10 items-center justify-center rounded-full border border-emerald-300/45 bg-emerald-500/10 px-4 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-500/20 ${
+                                  showLiveTileAlert ? 'animate-pulse' : ''
+                                }`}
+                              >
+                                Watch stream
+                              </button>
+                            ) : null}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative px-3 pb-6 pt-5 sm:px-4 md:px-6 md:pb-9 md:pt-6">
+                    <div className="mb-4 flex items-center justify-between">
+                      <h3 className="text-xl font-semibold text-white">Gallery</h3>
+                      <span className="text-xs text-gray-400">
+                        {creatorAssets.length} item{creatorAssets.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+
+                    {assetsLoading ? (
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {Array.from({ length: 6 }, (_, index) => (
+                          <div key={index} className="flex flex-col space-y-3">
+                            <Skeleton className="h-[190px] w-full rounded-xl bg-black" />
+                            <div className="space-y-2">
+                              <Skeleton className="h-4 w-full rounded-md bg-black" />
+                              <Skeleton className="h-7 w-20 rounded-md bg-black" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : creatorAssets.length === 0 ? (
+                      <div className="relative overflow-hidden rounded-xl border border-white/[0.07] bg-[#1a1a1a] p-8 text-center">
+                        <div className="relative z-10 flex flex-col items-center gap-3">
+                          <div className="rounded-full border border-white/[0.07] bg-[#0f0f0f] p-3 text-[#888]">
+                            <Clapperboard className="h-5 w-5" />
+                          </div>
+                          <h3 className="text-lg font-semibold text-white">No videos yet</h3>
+                          <p className="max-w-md text-sm text-gray-300">
+                            {isCreator
+                              ? 'Upload your first video from the dashboard to start building your channel gallery.'
+                              : 'This creator has not uploaded any videos yet.'}
+                          </p>
+                          {isCreator ? (
+                            <button
+                              onClick={openCreatorDashboard}
+                              className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-teal-500 hover:from-yellow-500 hover:to-teal-600 text-black font-semibold rounded-lg transition-all duration-200 flex items-center gap-2"
+                            >
+                              <RiVideoAddLine className="w-5 h-5" />
+                              Open dashboard
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {creatorAssets.map((asset) => {
+                          const videoCreatorId = asset.creatorId?.value || actualCreatorId || '';
+                          return (
                             <div key={asset.id}>
-                                <VideoPaymentGate
+                              <VideoPaymentGate
                                 playbackId={asset.playbackId}
-                                  creatorId={videoCreatorId}
+                                creatorId={videoCreatorId}
                                 onPlayClick={() => {
                                   if (asset.playbackId) {
                                     router.push(
@@ -1139,96 +1416,24 @@ export function CreatorProfile({
                                     );
                                   }
                                 }}
-                                >
-                                  <VideoCard
-                                    title={asset.name}
-                                    assetData={asset}
-                                    imageUrl={image1}
-                                    playbackId={asset.playbackId}
-                                    createdAt={new Date(asset.createdAt)}
-                                    format={asset.videoSpec?.format}
-                              />
-                                </VideoPaymentGate>
+                              >
+                                <VideoCard
+                                  title={asset.name}
+                                  assetData={asset}
+                                  imageUrl={image1}
+                                  playbackId={asset.playbackId}
+                                  createdAt={new Date(asset.createdAt)}
+                                  format={asset.videoSpec?.format}
+                                />
+                              </VideoPaymentGate>
                             </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </>
-                  )}
-                </TabsContent>
-
-                {/* Livestreams Tab */}
-                <TabsContent value="livestreams" className="mt-4 -mx-3 md:-mx-6 -mb-4 md:-mb-10">
-                  {streamsLoading ? (
-                    Array.from({ length: 1 }, (_, index) => (
-                      <div key={index} className="flex flex-col space-y-3">
-                        <Skeleton className="h-[180px] w-[318px] rounded-xl bg-black" />
-                        <div className="space-y-2">
-                          <Skeleton className="h-4 md:w-[316px] rounded-md bg-black" />
-                          <Skeleton className="h-7 w-[44px] rounded-md bg-black" />
-                        </div>
+                          );
+                        })}
                       </div>
-                    ))
-                  ) : (
-                    <>
-                      {creatorStreams.length === 0 ? (
-                        <div className="flex justify-center items-center h-60">
-                          <p className="text-gray-300">No Livestreams Available.</p>
-                        </div>
-                      ) : (
-                        <>
-                          {creatorStreams.map((stream) => {
-                            const streamCreatorId = stream.creatorId?.value || actualCreatorId || '';
-                            return (
-                            <div key={stream.id} className="mb-4">
-                                <StreamPaymentGate
-                                  playbackId={stream.playbackId}
-                                  creatorId={streamCreatorId}
-                                >
-                                  <div>
-                              <ChannelCardRedesign
-                                title={stream.title || stream.name}
-                                image={image1}
-                                logo={stream.logo}
-                                playbackId={stream.playbackId}
-                                playb={stream.playbackId}
-                                lastSeen={new Date(stream.lastSeen || 0)}
-                                status={stream.isActive}
-                                showName={false}
-                                showSocialLinks={false}
-                                useThumbnail={true}
-                              />
-                              {/* View Stream Button */}
-                              <div className="mt-4">
-                                <button
-                                  onClick={() => {
-                                    if (stream.playbackId) {
-                                      router.push(
-                                        `/creator/${encodeURIComponent(creatorId)}/live/${encodeURIComponent(stream.playbackId)}`,
-                                      );
-                                    }
-                                  }}
-                                  className="w-full bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black font-semibold py-3 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
-                                >
-                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                                    <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
-                                  </svg>
-                                  View Stream
-                                </button>
-                              </div>
-                            </div>
-                                </StreamPaymentGate>
-                              </div>
-                            );
-                          })}
-                        </>
-                      )}
-                    </>
-                  )}
-                </TabsContent>
-
-              </Tabs>
+                    )}
+                  </div>
+                </div>
+              </div>
             )}
           </SectionCard>
           </div>

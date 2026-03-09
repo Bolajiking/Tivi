@@ -106,12 +106,12 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
   return (
     <Dialog.Root open={open} onOpenChange={(open) => !open && onClose()}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100]" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[85vh] w-[90vw] flex mt-4 flex-col justify-center items-center max-w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-xl bg-gray-900/95 backdrop-blur-sm border border-white/20 px-8 py-6 shadow-2xl z-[101]">
+        <Dialog.Overlay className="fixed inset-0 bg-black/85 backdrop-blur-sm z-[100]" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 max-h-[85vh] w-[90vw] flex mt-4 flex-col justify-center items-center max-w-[28rem] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-[#0f0f0f] border border-white/[0.07] px-8 py-6 shadow-2xl z-[101]">
           <Dialog.Title className="text-white text-center text-2xl font-bold mb-2">
             Stream Session Setup
           </Dialog.Title>
-          <Dialog.Description className="text-gray-300 text-center text-sm mb-6">
+          <Dialog.Description className="text-[#888] text-center text-sm mb-6">
             Configure your stream session settings before going live
           </Dialog.Description>
 
@@ -131,7 +131,7 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
                   }
                 }}
                 placeholder="Enter session name"
-                className={`w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400 ${errors.sessionName ? 'border-red-400' : ''}`}
+                className={`w-full bg-[#1a1a1a] border border-white/[0.07] text-white placeholder:text-[#555] focus:outline-none focus:border-[#facc15]/50 ${errors.sessionName ? 'border-red-400' : ''}`}
                 maxLength={100}
               />
               {errors.sessionName && (
@@ -158,7 +158,7 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
                     }
                   }}
                   placeholder="Enter amount in USDC"
-                  className={`w-full bg-white/10 backdrop-blur-sm border border-white/20 text-white placeholder-gray-400 ${errors.streamAmount ? 'border-red-400' : ''}`}
+                  className={`w-full bg-[#1a1a1a] border border-white/[0.07] text-white placeholder:text-[#555] focus:outline-none focus:border-[#facc15]/50 ${errors.streamAmount ? 'border-red-400' : ''}`}
                 />
                 {errors.streamAmount && (
                   <p className="text-red-400 text-xs mt-1">{errors.streamAmount}</p>
@@ -177,9 +177,9 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
                   onClick={() => setRecord(true)}
                   className={clsx(
                     'flex-1 px-4 py-2 border capitalize text-sm rounded transition-colors',
-                    record === true 
-                      ? 'bg-gradient-to-r from-yellow-500 to-teal-500 text-black border-transparent' 
-                      : 'bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20'
+                    record === true
+                      ? 'bg-gradient-to-r from-yellow-400 to-teal-500 text-black border-transparent'
+                      : 'bg-[#1a1a1a] border-white/[0.07] text-[#888] hover:bg-[#242424] hover:text-white'
                   )}
                 >
                   Yes
@@ -189,9 +189,9 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
                   onClick={() => setRecord(false)}
                   className={clsx(
                     'flex-1 px-4 py-2 border capitalize text-sm rounded transition-colors',
-                    record === false 
-                      ? 'bg-gradient-to-r from-yellow-500 to-teal-500 text-black border-transparent' 
-                      : 'bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/20'
+                    record === false
+                      ? 'bg-gradient-to-r from-yellow-400 to-teal-500 text-black border-transparent'
+                      : 'bg-[#1a1a1a] border-white/[0.07] text-[#888] hover:bg-[#242424] hover:text-white'
                   )}
                 >
                   No
@@ -205,14 +205,14 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
             <button
               onClick={onClose}
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
+              className="flex-1 px-4 py-2 bg-[#1a1a1a] hover:bg-[#242424] text-[#888] hover:text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold"
             >
               Cancel
             </button>
             <button
               onClick={handleConfirm}
               disabled={loading}
-              className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-500 to-teal-500 hover:from-yellow-600 hover:to-teal-600 text-black rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-yellow-400 to-teal-500 hover:from-yellow-500 hover:to-teal-600 text-black rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>
@@ -227,7 +227,7 @@ export function StreamSetupModal({ open, onClose, onConfirm, stream }: StreamSet
 
           <Dialog.Close asChild>
             <button
-              className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-white hover:bg-white/10 focus:shadow-[0_0_0_2px] focus:shadow-yellow-500 focus:outline-none transition-colors"
+              className="absolute right-2.5 top-2.5 inline-flex size-[25px] appearance-none items-center justify-center rounded-full text-[#888] hover:text-white hover:bg-[#1a1a1a] focus:outline-none transition-colors"
               aria-label="Close"
               disabled={loading}
             >

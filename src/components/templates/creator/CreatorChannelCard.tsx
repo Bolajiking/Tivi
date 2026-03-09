@@ -182,10 +182,16 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
   return (
     <div className="w-full">
       {/* Main Card Container */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-gray-900/80 via-gray-800/60 to-gray-900/80 backdrop-blur-xl border border-white/10">
+      <div
+        className={
+          chatCompact
+            ? 'relative overflow-hidden rounded-none border border-white/[0.07] border-b-0 bg-[#0f0f0f]/95 backdrop-blur-xl md:rounded-t-[22px] md:rounded-b-none'
+            : 'relative overflow-hidden rounded-2xl bg-[#0f0f0f] border border-white/[0.07]'
+        }
+      >
         {/* Decorative gradient orbs */}
-        <div className="absolute -top-24 -right-24 w-48 h-48 bg-yellow-500/20 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -top-24 -right-24 hidden" />
+        <div className="absolute -bottom-24 -left-24 hidden" />
 
         {/* Three-dot options menu */}
         {showOptionsMenu && (
@@ -194,15 +200,15 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
             <div className="hidden md:block relative">
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                className="p-2 rounded-full bg-[#1a1a1a] hover:bg-[#242424] transition-colors"
               >
                 <HiDotsVertical className="w-5 h-5 text-white" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-white/20 rounded-lg shadow-lg overflow-hidden">
+                <div className="absolute right-0 mt-2 w-48 bg-[#0f0f0f] border border-white/[0.07] rounded-lg shadow-lg overflow-hidden">
                   <button
                     onClick={handleInstall}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-white hover:bg-white/10 transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-white hover:bg-[#1a1a1a] transition-colors text-left"
                   >
                     <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -211,7 +217,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                   </button>
                   <button
                     onClick={handleShare}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-white hover:bg-white/10 transition-colors text-left"
+                    className="w-full flex items-center gap-3 px-4 py-3 text-white hover:bg-[#1a1a1a] transition-colors text-left"
                   >
                     <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -224,7 +230,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
             {/* Mobile: Button to open bottom sheet */}
             <button
               onClick={() => setShowMobileSheet(true)}
-              className="md:hidden p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+              className="md:hidden p-2 rounded-full bg-[#1a1a1a] hover:bg-[#242424] transition-colors"
             >
               <HiDotsVertical className="w-5 h-5 text-white" />
             </button>
@@ -235,22 +241,83 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
         <div
           className={
             chatCompact
-              ? 'relative z-10 p-2.5 md:p-3'
+              ? 'relative z-10 p-2 md:p-2.5'
               : compact
               ? 'relative z-10 p-3 md:p-4'
               : 'relative z-10 p-4 md:p-6'
           }
         >
+          {chatCompact ? (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-1.5 sm:gap-2">
+                <div className="min-w-0 flex items-center gap-2.5">
+                  <div className="relative flex-shrink-0">
+                    <div className="h-11 w-11 overflow-hidden rounded-lg ring-1 ring-white/[0.16] shadow-lg shadow-black/40">
+                      {useRegularImg ? (
+                        <img
+                          src={imageSrc as string}
+                          alt={title}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Image
+                          src={imageSrc}
+                          alt={title}
+                          fill
+                          className="object-cover"
+                          sizes="44px"
+                        />
+                      )}
+                    </div>
+                    {isActive && (
+                      <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border border-[#07101b] bg-emerald-400 shadow-[0_0_0_2px_rgba(16,185,129,0.25)]" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="truncate text-[16px] font-semibold leading-[1.15] text-white">{title}</h2>
+                    <p className="truncate text-[12px] leading-[1.2] text-gray-300">
+                      {bio?.trim() || 'Channel group chat room'}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex shrink-0 items-center gap-1">
+                  <div className="hidden items-center -space-x-1.5 md:flex">
+                    <span className="h-5 w-5 rounded-full border border-white/[0.16] bg-[#252525]" />
+                    <span className="h-5 w-5 rounded-full border border-white/[0.16] bg-[#2b2b2b]" />
+                    <span className="h-5 w-5 rounded-full border border-white/[0.16] bg-[#1f1f1f]" />
+                  </div>
+                  <div className="inline-flex items-center gap-1 rounded-full border border-white/[0.12] bg-[#121212] px-1.5 py-0.5 text-[11px] leading-none text-white sm:px-2">
+                    <HiUsers className="h-3.5 w-3.5 text-[#facc15]" />
+                    <span>{loadingCount ? '...' : formatCount(subscriberCount)}</span>
+                  </div>
+                  {creatorProfileUrl ? (
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      className="inline-flex h-7 items-center rounded-full border border-white/[0.12] bg-[#161616] px-2.5 text-[11px] font-semibold leading-none text-[#facc15] transition-colors hover:bg-[#202020] sm:px-3"
+                    >
+                      Invite
+                    </button>
+                  ) : null}
+                  {actionSlot ? <div className="hidden md:block">{actionSlot}</div> : null}
+                </div>
+              </div>
+
+              {actionSlot ? <div className="md:hidden">{actionSlot}</div> : null}
+            </div>
+          ) : (
+          <>
           {/* Mobile Layout */}
           <div className="flex flex-col md:hidden">
             {/* Top Row: Avatar + Info */}
-            <div className={isCompact ? 'flex items-start gap-3 mb-2' : 'flex items-start gap-4 mb-4'}>
+            <div className={isCompact ? 'flex items-start gap-2.5 mb-1.5' : 'flex items-start gap-4 mb-4'}>
               {/* Avatar */}
               <div className="relative flex-shrink-0">
                 <div
                   className={
                     chatCompact
-                      ? 'w-12 h-12 rounded-xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10'
+                      ? 'w-11 h-11 rounded-lg overflow-hidden ring-1 ring-white/25 shadow-lg shadow-black/40'
                       : compact
                       ? 'w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10'
                       : 'w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10'
@@ -286,7 +353,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                 <h2
                   className={
                     chatCompact
-                      ? 'text-white font-bold text-sm leading-tight mb-1 truncate'
+                      ? 'text-white font-semibold text-[15px] leading-tight mb-1 truncate'
                       : compact
                       ? 'text-white font-bold text-base leading-tight mb-2 truncate'
                       : 'text-white font-bold text-lg leading-tight mb-2 truncate'
@@ -296,31 +363,31 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                 </h2>
 
                 {/* Subscriber Count */}
-                <div className={chatCompact ? 'flex items-center gap-2 mb-1' : 'flex items-center gap-2 mb-3'}>
+                <div className={chatCompact ? 'flex items-center gap-1.5 mb-1' : 'flex items-center gap-2 mb-3'}>
                   <div
                     className={
                       chatCompact
-                        ? 'flex items-center gap-1 px-2 py-1 bg-white/5 rounded-full border border-white/10'
-                        : 'flex items-center gap-1.5 px-3 py-1.5 bg-white/5 rounded-full border border-white/10'
+                        ? 'flex items-center gap-1 px-2 py-0.5 bg-black/35 rounded-full border border-white/[0.15]'
+                        : 'flex items-center gap-1.5 px-3 py-1.5 bg-[#0f0f0f] rounded-full border border-white/[0.07]'
                     }
                   >
                     <HiUsers className="w-4 h-4 text-yellow-400" />
                     <span
                       className={
                         chatCompact
-                          ? 'text-white text-[11px] font-medium'
+                          ? 'text-white text-[10px] font-medium'
                           : compact
                           ? 'text-white text-xs font-medium'
                           : 'text-white text-sm font-medium'
                       }
                     >
                       {loadingCount ? (
-                        <span className="inline-block w-8 h-4 bg-white/10 rounded animate-pulse" />
+                        <span className="inline-block w-8 h-4 bg-[#1a1a1a] rounded animate-pulse" />
                       ) : (
                         formatCount(subscriberCount)
                       )}
                     </span>
-                    <span className={compact ? 'text-gray-400 text-[11px]' : 'text-gray-400 text-xs'}>subscribers</span>
+                    <span className={compact ? 'text-gray-400 text-[10px]' : 'text-gray-400 text-xs'}>subs</span>
                   </div>
                 </div>
 
@@ -378,19 +445,19 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
 
             {/* Bio Section - Full width on mobile */}
             {bio && !chatCompact && (
-              <div className="bg-white/5 backdrop-blur-sm rounded-xl p-3 border border-white/5">
+              <div className="bg-[#0f0f0f] rounded-xl p-3 border border-white/5">
                 <p className="text-gray-300 text-sm leading-relaxed line-clamp-3">{bio}</p>
               </div>
             )}
 
             {/* One-click Share URL */}
             {creatorProfileUrl ? (
-              <div className={chatCompact ? 'mt-1.5 flex items-center gap-1.5' : 'mt-2 flex items-center gap-2'}>
+              <div className={chatCompact ? 'mt-1 flex items-center gap-1.5' : 'mt-2 flex items-center gap-2'}>
                 <div
                   className={
                     chatCompact
-                      ? 'inline-flex w-fit max-w-[210px] items-center gap-1 rounded-full border border-white/15 bg-black/35 px-1.5 py-0.5 shadow-[0_8px_22px_rgba(0,0,0,0.3)]'
-                      : 'inline-flex w-fit max-w-[230px] items-center gap-1.5 rounded-full border border-white/15 bg-black/35 px-2 py-1 shadow-[0_8px_22px_rgba(0,0,0,0.3)]'
+                      ? 'inline-flex w-fit max-w-[210px] items-center gap-1 rounded-full border border-white/[0.15] bg-black/35 px-1.5 py-0.5'
+                      : 'inline-flex w-fit max-w-[230px] items-center gap-1.5 rounded-full border border-white/[0.07] bg-black/35 px-2 py-1 shadow-[0_8px_22px_rgba(0,0,0,0.3)]'
                   }
                 >
                   <span className="text-[9px] uppercase tracking-[0.16em] text-gray-400">
@@ -404,8 +471,8 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                     onClick={handleCopyCreatorUrl}
                     className={
                       chatCompact
-                        ? 'inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-0.5 text-white hover:bg-white/20 transition-colors'
-                        : 'inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-1 text-white hover:bg-white/20 transition-colors'
+                        ? 'inline-flex items-center justify-center rounded-full border border-white/[0.07] bg-[#1a1a1a] p-0.5 text-white hover:bg-[#242424] transition-colors'
+                        : 'inline-flex items-center justify-center rounded-full border border-white/[0.07] bg-[#1a1a1a] p-1 text-white hover:bg-[#242424] transition-colors'
                     }
                     aria-label="Copy creator profile URL"
                     title="Copy URL"
@@ -427,7 +494,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                 <div
                   className={
                     chatCompact
-                      ? 'w-16 h-16 rounded-xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-xl shadow-yellow-500/10'
+                      ? 'w-14 h-14 rounded-xl overflow-hidden ring-1 ring-white/25 shadow-xl shadow-black/40'
                       : compact
                       ? 'w-24 h-24 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-3 ring-offset-gray-900 shadow-xl shadow-yellow-500/10'
                       : 'w-28 h-28 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-4 ring-offset-gray-900 shadow-xl shadow-yellow-500/10'
@@ -462,14 +529,14 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
               <div className="flex-1 min-w-0">
                 {/* Title Row */}
                 <div className={chatCompact ? 'flex items-center gap-2 mb-1.5' : compact ? 'flex items-center gap-3 mb-2.5' : 'flex items-center gap-4 mb-3'}>
-                <h2 className={chatCompact ? 'text-white font-bold text-base truncate' : compact ? 'text-white font-bold text-xl truncate' : 'text-white font-bold text-2xl truncate'}>{title}</h2>
+                <h2 className={chatCompact ? 'text-white font-semibold text-lg truncate' : compact ? 'text-white font-bold text-xl truncate' : 'text-white font-bold text-2xl truncate'}>{title}</h2>
 
                 {/* Subscriber Count Badge */}
-                <div className={chatCompact ? 'flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-yellow-500/10 to-teal-500/10 rounded-full border border-yellow-500/20' : compact ? 'flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-yellow-500/10 to-teal-500/10 rounded-full border border-yellow-500/20' : 'flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-500/10 to-teal-500/10 rounded-full border border-yellow-500/20'}>
+                <div className={chatCompact ? 'flex items-center gap-1.5 px-2 py-1 rounded-full border border-white/[0.15] bg-black/35' : compact ? 'flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-yellow-400/15 to-teal-500/15 rounded-full border border-white/[0.07]' : 'flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-yellow-400/15 to-teal-500/15 rounded-full border border-white/[0.07]'}>
                   <HiUsers className="w-5 h-5 text-yellow-400" />
                   <span className="text-white font-semibold">
                     {loadingCount ? (
-                      <span className="inline-block w-10 h-5 bg-white/10 rounded animate-pulse" />
+                      <span className="inline-block w-10 h-5 bg-[#1a1a1a] rounded animate-pulse" />
                     ) : (
                       formatCount(subscriberCount)
                     )}
@@ -491,8 +558,8 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                   <div
                     className={
                       chatCompact
-                        ? 'inline-flex w-fit max-w-[360px] items-center gap-1.5 rounded-full border border-white/15 bg-black/35 px-2 py-1 shadow-[0_10px_28px_rgba(0,0,0,0.28)]'
-                        : 'inline-flex w-fit max-w-[460px] items-center gap-2 rounded-full border border-white/15 bg-black/35 px-2.5 py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.28)]'
+                        ? 'inline-flex w-fit max-w-[360px] items-center gap-1.5 rounded-full border border-white/[0.15] bg-black/35 px-2 py-1'
+                        : 'inline-flex w-fit max-w-[460px] items-center gap-2 rounded-full border border-white/[0.07] bg-black/35 px-2.5 py-1.5 shadow-[0_10px_28px_rgba(0,0,0,0.28)]'
                     }
                   >
                     <span className="text-[9px] uppercase tracking-[0.16em] text-gray-400">
@@ -504,7 +571,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                     <button
                       type="button"
                       onClick={handleCopyCreatorUrl}
-                      className={chatCompact ? 'inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-1 text-white hover:bg-white/20 transition-colors' : 'inline-flex items-center justify-center rounded-full border border-white/20 bg-white/10 p-1.5 text-white hover:bg-white/20 transition-colors'}
+                      className={chatCompact ? 'inline-flex items-center justify-center rounded-full border border-white/[0.07] bg-[#1a1a1a] p-1 text-white hover:bg-[#242424] transition-colors' : 'inline-flex items-center justify-center rounded-full border border-white/[0.07] bg-[#1a1a1a] p-1.5 text-white hover:bg-[#242424] transition-colors'}
                       aria-label="Copy creator profile URL"
                       title="Copy URL"
                     >
@@ -581,6 +648,8 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
               )}
             </div>
           </div>
+          </>
+          )}
         </div>
       </div>
 
@@ -593,9 +662,9 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
             onClick={() => setShowMobileSheet(false)}
           />
           {/* Bottom Sheet */}
-          <div className="fixed inset-x-0 bottom-0 z-50 bg-gray-900 border-t border-white/20 rounded-t-2xl p-4 animate-slide-up md:hidden">
+          <div className="fixed inset-x-0 bottom-0 z-50 bg-[#0f0f0f] border-t border-white/[0.07] rounded-t-2xl p-4 animate-slide-up md:hidden">
             <div className="w-12 h-1 bg-gray-600 rounded-full mx-auto mb-4" />
-            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/10">
+            <div className="flex items-center gap-3 mb-4 pb-4 border-b border-white/[0.07]">
               {logo ? (
                 typeof logo === 'string' ? (
                   <img src={logo} alt={title} className="w-12 h-12 rounded-full object-cover" />
@@ -603,7 +672,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                   <Image src={logo} alt={title} width={48} height={48} className="rounded-full object-cover" />
                 )
               ) : (
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-yellow-500 to-teal-500 flex items-center justify-center text-black font-bold">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-yellow-400 to-teal-500 flex items-center justify-center text-black font-bold">
                   {title.slice(0, 2).toUpperCase()}
                 </div>
               )}
@@ -614,7 +683,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
             <div className="space-y-2">
               <button
                 onClick={handleInstall}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-[#0f0f0f] hover:bg-[#1a1a1a] transition-colors"
               >
                 <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -623,7 +692,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
               </button>
               <button
                 onClick={handleShare}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-lg bg-[#0f0f0f] hover:bg-[#1a1a1a] transition-colors"
               >
                 <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />

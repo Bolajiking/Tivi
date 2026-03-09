@@ -5,6 +5,11 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Design system tokens — "The Stream Is the Stage"
+        canvas: '#080808',    // main app background
+        surface: '#0f0f0f',   // sidebar, panels, dropdowns
+        raised: '#1a1a1a',    // list items, inputs, cards
+        // Legacy (kept for compatibility)
         'main-blue': '#3351FF',
         'orange-drop': '#FE5C2B',
         'green-drop': '#00E36E',

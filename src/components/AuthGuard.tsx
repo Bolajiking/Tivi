@@ -13,7 +13,7 @@ interface AuthGuardProps {
 export default function AuthGuard({ 
   children, 
   fallback = <Spinner />, 
-  redirectTo = '/auth/login' 
+  redirectTo = '/dashboard' 
 }: AuthGuardProps) {
   const { ready, authenticated } = usePrivy();
   const router = useRouter();

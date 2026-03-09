@@ -1,6 +1,5 @@
 'use client';
 
-import { LuArrowLeftFromLine, LuArrowRightFromLine } from 'react-icons/lu';
 import Sidebar from './Sidebar';
 import SidebarBottomLinks from './SidebarBottomLinks';
 import { useEffect, useState } from 'react';
@@ -9,6 +8,9 @@ import { SupabaseStream } from '@/lib/supabase-types';
 import { getUserProfile } from '@/lib/supabase-service';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import Logo from './Logo';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import SidebarUserPanel from './SidebarUserPanel';
 
 interface ChannelOptionsSheetState {
   channel: SupabaseStream;
@@ -31,10 +33,12 @@ export default function MobileSidebar({
 }: MobileSidebarProps) {
   const router = useRouter();
   const [mobileExpanded, setMobileExpanded] = useState(false);
+  const [sidebarProfileOpen, setSidebarProfileOpen] = useState(false);
   const [bottomSheetChannel, setBottomSheetChannel] = useState<ChannelOptionsSheetState | null>(null);
 
   const closeMenus = () => {
     setBottomSheetChannel(null);
+    setSidebarProfileOpen(false);
     setMobileMenuOpen(false);
   };
 
@@ -68,6 +72,13 @@ export default function MobileSidebar({
     setMobileExpanded(!mobileExpanded);
   };
 
+  const toggleSidebarProfile = () => {
+    if (!mobileExpanded) {
+      setMobileExpanded(true);
+    }
+    setSidebarProfileOpen((prev) => !prev);
+  };
+
   return (
     <>
       {/* Overlay */}
@@ -91,23 +102,26 @@ export default function MobileSidebar({
           },
         )}
       >
-        <div className="flex items-center justify-between p-4 border-b border-white/20 bg-white/5">
+        <div className="flex items-center justify-between gap-2 px-2.5 py-2 border-b border-white/[0.07] bg-[#0f0f0f]">
           {mobileExpanded && (
-            <div className="transition-all ease-in-out duration-500 font-bold flex justify-center items-center uppercase text-white">
-              <h1>TVinBio</h1>
+            <div className="transition-all ease-in-out duration-300">
+              <Logo size="sm" iconOnly />
             </div>
           )}
 
-          {/* Mobile toggle button */}
-          <button onClick={handleToggleMobileExpand} className="ml-auto block">
-            {!mobileExpanded ? (
-              <LuArrowRightFromLine className="h-5 w-5 text-[#fff]" />
-            ) : (
-              <LuArrowLeftFromLine className="h-5 w-5 text-[#fff]" />
-            )}
-          </button>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={handleToggleMobileExpand}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/[0.07] bg-[#0f0f0f] text-gray-300 hover:text-white hover:bg-[#1a1a1a] transition-colors"
+              aria-label={mobileExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+              title={mobileExpanded ? 'Collapse sidebar' : 'Expand sidebar'}
+            >
+              {mobileExpanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
+          </div>
         </div>
-        <div className="px-2 overflow-y-auto flex-1">
+        <div className="px-2 overflow-y-auto flex-1 min-h-0">
           <Sidebar
             sidebarCollapsed={!mobileExpanded}
             isMobileView={true}
@@ -122,8 +136,13 @@ export default function MobileSidebar({
         </div>
 
         <div className="shrink-0 border-t border-white/20 bg-white/5 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          <SidebarBottomLinks sidebarCollapsed={!mobileExpanded} />
+          <SidebarBottomLinks sidebarCollapsed={!mobileExpanded} onProfileClick={toggleSidebarProfile} />
         </div>
+        <SidebarUserPanel
+          variant="sheet"
+          open={sidebarProfileOpen}
+          onClose={() => setSidebarProfileOpen(false)}
+        />
       </aside>
 
       {/* Bottom Sheet for Channel Options (Mobile) */}

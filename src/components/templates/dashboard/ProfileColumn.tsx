@@ -21,7 +21,7 @@ export function ProfileColumn() {
   const { logout } = useLogout({
     onSuccess: () => {
       toast.success('Successfully logged out');
-      router.push('/');
+      router.push('/dashboard');
     },
   });
   const [userProfile, setUserProfile] = useState<SupabaseUser | null>(null);

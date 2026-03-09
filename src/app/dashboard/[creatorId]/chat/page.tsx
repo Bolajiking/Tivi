@@ -3,15 +3,9 @@ import Dashboard from '@/components/templates/dashboard/Dashboard';
 import Spinner from '@/components/Spinner';
 
 export default function DashboardChatPage({
-  searchParams,
 }: {
   params: { creatorId: string };
-  searchParams?: { channelId?: string };
 }) {
-  const initialChatPlaybackId = searchParams?.channelId
-    ? decodeURIComponent(searchParams.channelId)
-    : undefined;
-
   return (
     <Suspense
       fallback={
@@ -20,7 +14,7 @@ export default function DashboardChatPage({
         </div>
       }
     >
-      <Dashboard initialChatPlaybackId={initialChatPlaybackId} openChatView />
+      <Dashboard openChatView />
     </Suspense>
   );
 }

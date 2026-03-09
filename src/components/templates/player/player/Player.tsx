@@ -364,9 +364,9 @@ export function PlayerWithControls({
 
       <div className="w-full flex flex-col md:flex-row md:h-full min-h-0 gap-3 md:gap-4 overflow-hidden">
         {/* Main Player Section */}
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 rounded-xl md:h-full border border-white/15 bg-gradient-to-br from-[#0f1218] via-[#0c0f14] to-[#07080b] shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
+        <div className="flex-1 flex flex-col overflow-hidden min-w-0 min-h-0 rounded-xl md:h-full border border-white/[0.07] bg-[#000]">
           {/* Top Bar */}
-          <div className="flex items-center justify-between px-4 md:px-5 py-3 border-b border-white/10 bg-black/35 backdrop-blur-md">
+          <div className="flex items-center justify-between px-4 md:px-5 py-3 border-b border-white/[0.07] bg-[#0f0f0f]">
             <div className="flex items-center gap-3">
               <span className="inline-flex items-center gap-2 rounded-full border border-red-400/40 bg-red-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-red-200">
                 <span className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
@@ -379,7 +379,7 @@ export function PlayerWithControls({
             </div>
 
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1.5">
+              <div className="flex items-center gap-2 rounded-full border border-white/[0.07] bg-[#1a1a1a] px-3 py-1.5">
                 <svg
                   width="16"
                   height="16"
@@ -548,7 +548,7 @@ export function PlayerWithControls({
           </div>
 
           {/* Donation Rail Below Broadcast */}
-          <div className="sticky bottom-0 z-10 md:static shrink-0 border-t border-white/10 bg-gradient-to-r from-yellow-500/10 via-orange-500/10 to-teal-500/10 px-3 md:px-4 py-3 backdrop-blur-md pb-[max(env(safe-area-inset-bottom),0.75rem)] md:pb-3">
+          <div className="sticky bottom-0 z-10 md:static shrink-0 border-t border-white/[0.07] bg-[#0f0f0f] px-3 md:px-4 py-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] md:pb-3">
             <div className="flex flex-col gap-2.5">
               <div className="flex items-center justify-between">
                 <p className="text-[11px] uppercase tracking-[0.14em] text-yellow-100/80">Show some love</p>
@@ -566,7 +566,7 @@ export function PlayerWithControls({
                     type="button"
                     disabled={!connected}
                     onClick={() => setShowGiftGrid(true)}
-                    className="group inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-yellow-300/30 bg-gradient-to-r from-yellow-500/85 to-teal-500/85 px-4 text-sm font-semibold text-black shadow-[0_10px_30px_rgba(250,204,21,0.22)] transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="group inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-yellow-400 to-teal-500 px-4 text-sm font-semibold text-black transition-transform duration-200 hover:scale-[1.01] active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <GiftIcon className="h-4 w-4 transition-transform duration-200 group-hover:rotate-6" />
                     Gift
@@ -584,7 +584,7 @@ export function PlayerWithControls({
                     <button
                       type="button"
                       onClick={() => setShowGiftGrid(false)}
-                      className="rounded-full border border-white/20 bg-black/35 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-gray-200 transition-colors hover:bg-black/55"
+                      className="rounded-full border border-white/[0.07] bg-[#1a1a1a] px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] text-[#888] transition-colors hover:bg-[#242424]"
                     >
                       Close
                     </button>
@@ -610,14 +610,14 @@ export function PlayerWithControls({
 
         {/* Social Stack: Donations + Chat */}
         <div
-          className={`w-full border border-white/15 bg-gradient-to-b from-[#10141c] via-[#0c1016] to-[#090b10] backdrop-blur-sm flex flex-col rounded-xl overflow-hidden md:h-full md:max-h-full transition-[max-height,width] duration-300 ${
+          className={`w-full border border-white/[0.07] bg-[#0f0f0f] flex flex-col rounded-xl overflow-hidden md:h-full md:max-h-full transition-[max-height,width] duration-300 ${
             isMobileChatOpen ? 'max-h-[68vh]' : 'max-h-[64px]'
           } ${isDesktopChatCollapsed ? 'md:w-14 lg:w-16' : 'md:w-64 lg:w-72'} md:max-h-none`}
         >
           <button
             type="button"
             onClick={() => setIsMobileChatOpen((prev) => !prev)}
-            className="md:hidden flex h-16 w-full items-center justify-between border-b border-white/10 bg-black/30 px-4 text-left"
+            className="md:hidden flex h-16 w-full items-center justify-between border-b border-white/[0.07] bg-[#0f0f0f] px-4 text-left"
           >
             <div className="flex items-center gap-2">
               <MessageCircle className="h-4 w-4 text-cyan-200" />
@@ -637,7 +637,7 @@ export function PlayerWithControls({
           </button>
 
           <div
-            className={`hidden md:flex items-center border-b border-white/10 bg-black/25 ${
+            className={`hidden md:flex items-center border-b border-white/[0.07] bg-[#0f0f0f] ${
               isDesktopChatCollapsed ? 'justify-center px-2 py-3' : 'justify-between px-3 py-3.5'
             }`}
           >
@@ -653,7 +653,7 @@ export function PlayerWithControls({
             <button
               type="button"
               onClick={() => setIsDesktopChatCollapsed((prev) => !prev)}
-              className="relative inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/20 bg-white/5 text-gray-200 transition-colors hover:bg-white/15"
+              className="relative inline-flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.07] bg-[#1a1a1a] text-[#888] transition-colors hover:bg-[#242424]"
               aria-label={isDesktopChatCollapsed ? 'Expand chat panel' : 'Collapse chat panel'}
             >
               {mobileUnreadCount > 0 && isDesktopChatCollapsed && (
@@ -674,7 +674,7 @@ export function PlayerWithControls({
               <button
                 type="button"
                 onClick={() => setIsDesktopChatCollapsed(false)}
-                className="group flex h-full w-full flex-col items-center justify-center gap-4 border-t border-white/10 bg-black/20 text-gray-300 transition-colors hover:bg-black/35"
+                className="group flex h-full w-full flex-col items-center justify-center gap-4 border-t border-white/[0.07] bg-[#0f0f0f] text-[#888] transition-colors hover:bg-[#1a1a1a]"
                 aria-label="Expand chat panel"
               >
                 <MessageCircle className="h-4 w-4 text-cyan-200" />
@@ -715,7 +715,7 @@ export function PlayerWithControls({
                           ? 'border-yellow-500/40 bg-yellow-500/10'
                           : msg.sender === id
                           ? 'border-teal-400/30 bg-teal-500/10'
-                          : 'border-white/10 bg-white/[0.05]'
+                          : 'border-white/[0.07] bg-[#1a1a1a]'
                       }`}
                     >
                       <span
@@ -742,7 +742,7 @@ export function PlayerWithControls({
             </div>
 
             {/* Chat Input */}
-            <div className="p-2.5 md:p-3 border-t border-white/10 bg-black/35 rounded-b-xl flex-shrink-0">
+            <div className="p-2.5 md:p-3 border-t border-white/[0.07] bg-[#0f0f0f] rounded-b-xl flex-shrink-0">
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -757,12 +757,12 @@ export function PlayerWithControls({
                   onKeyPress={handleKeyPress}
                   placeholder={connected ? 'Type to join the room...' : 'Connect wallet to chat'}
                   disabled={!connected || isSendingChat}
-                  className="w-full border border-white/20 rounded-lg py-2 px-3 bg-white/[0.07] text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="w-full border border-white/[0.07] rounded-lg py-2 px-3 bg-[#1a1a1a] text-white placeholder:text-[#555] focus:outline-none focus:ring-1 focus:ring-[#facc15]/50 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 />
                 <button
                   type="submit"
                   disabled={!connected || isSendingChat || !chatInput.trim()}
-                  className="bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-300 hover:to-teal-300 text-black font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  className="bg-gradient-to-r from-yellow-400 to-teal-500 hover:from-yellow-500 hover:to-teal-600 text-black font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {isSendingChat ? 'Sending...' : 'Send'}
                 </button>

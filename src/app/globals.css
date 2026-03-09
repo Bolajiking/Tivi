@@ -2,13 +2,45 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   DESIGN SYSTEM — "The Stream Is the Stage"
+   Philosophy: UI steps back, creator content steps forward.
+   Dark canvas, single accent, weight-based hierarchy.
+   ============================================================ */
+:root {
+  /* Surfaces */
+  --canvas: #080808;
+  --surface: #0f0f0f;
+  --raised: #1a1a1a;
+  --overlay: rgba(0, 0, 0, 0.82);
+
+  /* Borders — one value, used everywhere */
+  --border-subtle: rgba(255, 255, 255, 0.07);
+
+  /* Text */
+  --text-1: #ffffff;
+  --text-2: #888888;
+  --text-3: #555555;
+
+  /* Accent — yellow for active states only */
+  --accent: #facc15;
+  --accent-teal: #14b8a6;
+
+  /* Status */
+  --live: #22c55e;
+  --error: #ef4444;
+
+  /* Gradients — primary CTAs + key badges only */
+  --gradient-cta: linear-gradient(to right, #facc15, #14b8a6);
+}
+
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 body {
-  background-color: #ffffff;
+  background-color: var(--canvas);
   font-family: 'Host Grotesk', 'Inter', sans-serif;
   max-width: 100vw;
   overflow-x: hidden;
@@ -128,15 +160,15 @@ body {
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(250, 204, 21, 0.4); /* Yellow accent on hover */
+  background: rgba(255, 255, 255, 0.20);
 }
 
 ::-webkit-scrollbar-thumb:active {
-  background: rgba(20, 184, 166, 0.5); /* Teal accent when active */
+  background: rgba(255, 255, 255, 0.28);
 }
 
 /* Firefox */
 html {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(0, 0, 0, 0.3);
+  scrollbar-color: rgba(255, 255, 255, 0.10) rgba(255, 255, 255, 0.03);
 }
