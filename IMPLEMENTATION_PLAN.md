@@ -1057,6 +1057,16 @@ Phase 5 (Polish) ← Final pass after all phases
   - `src/app/streamviews/page.tsx`
   - `src/app/creator/[creatorId]/store/page.tsx`
 
+72. **Vercel prerender fix for `useSearchParams()` on static dashboard pages**
+- Fixed Next.js prerender failures on `/dashboard/analytics` and `/dashboard/order-history` caused by `BottomNav` using `useSearchParams()` outside a suspense boundary.
+- Refactored `BottomNav` into suspense-safe structure:
+  - `BottomNavContent` contains router/search hooks.
+  - Exported `BottomNav` now wraps content in `<Suspense>`.
+  - Added lightweight `BottomNavFallback` for static prerender phase.
+- Verified with local production build (`npm run build`) passing successfully.
+- File:
+  - `src/components/BottomNav.tsx`
+
 ### Current Open Work / Next Handover Targets
 
 1. **Formal E2E validation sweep**

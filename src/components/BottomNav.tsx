@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { usePathname, useParams, useSearchParams } from 'next/navigation';
 import { usePrivy } from '@privy-io/react-auth';
-import { useEffect, useState, useMemo } from 'react';
+import { Suspense, useEffect, useState, useMemo } from 'react';
 import { FaSackDollar } from 'react-icons/fa6';
 import { FaTv } from 'react-icons/fa';
 import { IoChatbubbleEllipsesOutline } from 'react-icons/io5';
@@ -22,7 +22,7 @@ const RESERVED_ROOT_SEGMENTS = new Set([
   '_next',
 ]);
 
-const BottomNav = () => {
+const BottomNavContent = () => {
   const pathname = usePathname();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -222,5 +222,51 @@ const BottomNav = () => {
     </nav>
   );
 };
+
+const BottomNavFallback = () => {
+  const navItems = [
+    {
+      name: 'Shop',
+      href: '/dashboard',
+      icon: FaSackDollar,
+    },
+    {
+      name: 'Watch',
+      href: '/dashboard',
+      icon: FaTv,
+    },
+    {
+      name: 'Chat',
+      href: '/dashboard',
+      icon: IoChatbubbleEllipsesOutline,
+    },
+  ];
+
+  return (
+    <nav className="w-full bg-[#0f0f0f] border-t border-white/[0.07]">
+      <div className="flex items-center justify-around px-4 py-2">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Link
+              key={item.name}
+              href={item.href}
+              className="flex flex-col items-center justify-center py-2 px-4 min-w-[60px] flex-1 rounded-lg transition-all duration-150"
+            >
+              <Icon className="w-5 h-5 mb-0.5 text-[#555]" />
+              <span className="text-[11px] text-[#555] font-medium">{item.name}</span>
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
+  );
+};
+
+const BottomNav = () => (
+  <Suspense fallback={<BottomNavFallback />}>
+    <BottomNavContent />
+  </Suspense>
+);
 
 export default BottomNav;
