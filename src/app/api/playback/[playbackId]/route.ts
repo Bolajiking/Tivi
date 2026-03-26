@@ -93,15 +93,15 @@ export async function GET(
   }
 
   try {
-    const playbackInfo = await getPlaybackInfoUncached(playbackId);
-    if (!playbackInfo) {
+    const result = await getPlaybackInfoUncached(playbackId);
+    if (!result.found || !result.data) {
       return NextResponse.json(
-        { status: 'processing', sources: [], message: 'Playback info not ready yet.' },
-        { status: 202 },
+        { error: 'Playback not found', status: 'not_found', sources: [] },
+        { status: 404 },
       );
     }
 
-    const rawSources = normalizePlaybackSources((getSrc(playbackInfo) || []) as any[]);
+    const rawSources = normalizePlaybackSources((getSrc(result.data) || []) as any[]);
     if (!rawSources.length) {
       return NextResponse.json(
         { status: 'processing', sources: [], message: 'No playable sources available yet.' },

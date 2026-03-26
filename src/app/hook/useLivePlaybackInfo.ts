@@ -57,6 +57,7 @@ export function useLivePlaybackInfo(playbackId: string | null) {
     }
 
     let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
     const clearSources = () => {
       sourceSigRef.current = '';
       setSrc(null);
@@ -124,7 +125,14 @@ export function useLivePlaybackInfo(playbackId: string | null) {
           return;
         }
 
-        if (!cancelled && response.status >= 400 && response.status < 500 && response.status !== 202) {
+        if (!cancelled && response.status === 404) {
+          const payload = await response.json().catch(() => ({}));
+          setError(payload?.error || 'Stream not found.');
+          setStatus('offline');
+          clearSources();
+          // Stop polling for genuinely not-found streams
+          if (intervalId) clearInterval(intervalId);
+        } else if (!cancelled && response.status >= 400 && response.status < 500) {
           const payload = await response.json().catch(() => ({}));
           setError(payload?.error || 'Livestream playback unavailable.');
           setStatus('offline');
@@ -151,7 +159,8 @@ export function useLivePlaybackInfo(playbackId: string | null) {
     };
 
     fetchSources();
-    const interval = setInterval(fetchSources, 2000);
+    intervalId = setInterval(fetchSources, 2000);
+    const interval = intervalId;
 
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') {

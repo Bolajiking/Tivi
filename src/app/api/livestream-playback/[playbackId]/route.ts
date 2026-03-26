@@ -70,10 +70,14 @@ export async function GET(
   }
 
   try {
-    const playbackInfo = await getPlaybackInfoUncached(playbackId);
-    if (!playbackInfo) {
-      return NextResponse.json({ status: 'processing', sources: [] }, { status: 202 });
+    const result = await getPlaybackInfoUncached(playbackId);
+    if (!result.found || !result.data) {
+      return NextResponse.json(
+        { error: 'Stream not found', status: 'not_found', sources: [] },
+        { status: 404 },
+      );
     }
+    const playbackInfo = result.data;
     const isLive = Number((playbackInfo as any)?.meta?.live ?? 0) === 1;
     if (!isLive) {
       return NextResponse.json(
