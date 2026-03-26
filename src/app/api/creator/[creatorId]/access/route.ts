@@ -10,11 +10,19 @@ export async function GET(
   { params }: { params: { creatorId: string } }
 ) {
   try {
-    const creatorId = params.creatorId;
-    
+    const creatorId = params.creatorId?.trim();
+
     if (!creatorId) {
       return NextResponse.json(
         { error: 'Creator ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Basic input validation — reject obviously malicious or invalid IDs
+    if (creatorId.length > 200 || /[<>"';&|`$]/.test(creatorId)) {
+      return NextResponse.json(
+        { error: 'Invalid creator ID' },
         { status: 400 }
       );
     }

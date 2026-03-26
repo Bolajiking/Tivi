@@ -110,8 +110,8 @@ const BottomNavContent = () => {
       return `/${encodeURIComponent(routeId)}`;
     }
 
-    // Fallback when creator context is unavailable.
-    return '/dashboard';
+    // Fallback when creator context is unavailable — keep users on public pages.
+    return '/streamviews';
   }, [currentRouteCreatorId, isLoggedIn, ownCreatorRouteId, currentUserAddress, activePlaybackId]);
 
   const chatHref = useMemo(() => {
@@ -123,7 +123,7 @@ const BottomNavContent = () => {
     }
 
     if (!isLoggedIn) {
-      return '/dashboard';
+      return '/streamviews';
     }
 
     const dashboardRouteId = ownCreatorRouteId || currentUserAddress;
@@ -132,7 +132,7 @@ const BottomNavContent = () => {
       return `/dashboard/${encodeURIComponent(dashboardRouteId)}/chat`;
     }
 
-    return '/dashboard';
+    return '/streamviews';
   }, [activePlaybackId, currentRouteCreatorId, currentUserAddress, isLoggedIn, ownCreatorRouteId]);
 
   // Shop navigates to the standalone store page
@@ -157,7 +157,7 @@ const BottomNavContent = () => {
       return `/dashboard/${encodeURIComponent(routeId)}/store`;
     }
 
-    return '/dashboard';
+    return '/streamviews';
   }, [pathname, params, currentRouteCreatorId, isLoggedIn, ownCreatorRouteId, currentUserAddress, activePlaybackId]);
 
   const navItems = [
