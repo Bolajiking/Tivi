@@ -372,7 +372,9 @@ const dedicatedLiveStream = useMemo(() => {
   const fromAll = streams.find((stream) => stream.playbackId === initialLivePlaybackId);
   if (fromAll) return fromAll;
 
-  if (channelSupabaseData?.playbackId === initialLivePlaybackId) {
+  // Only use Supabase fallback if Redux streams have finished loading and didn't find a match.
+  // Supabase does not store streamKey, so using this fallback for broadcasting would silently fail.
+  if (!streamsLoading && channelSupabaseData?.playbackId === initialLivePlaybackId) {
     return {
       id: channelSupabaseData.id || initialLivePlaybackId,
       playbackId: channelSupabaseData.playbackId || initialLivePlaybackId,
@@ -388,7 +390,7 @@ const dedicatedLiveStream = useMemo(() => {
   }
 
   return null;
-}, [filteredStreams, initialLivePlaybackId, streams, channelSupabaseData, creatorAddress]);
+}, [filteredStreams, initialLivePlaybackId, streams, streamsLoading, channelSupabaseData, creatorAddress]);
 const dedicatedChatStream = useMemo(() => {
   if (!activeChatPlaybackId) return null;
   return filteredStreams.find((stream) => stream.playbackId === activeChatPlaybackId) || null;

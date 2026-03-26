@@ -152,6 +152,7 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
   };
 
   const handleStartStream = async () => {
+    console.log('[Broadcast] Start stream clicked', { streamKey: streamKey ? `${streamKey.slice(0, 8)}...` : 'MISSING', playbackId });
     setTimerStarted(true);
     try {
       await setStreamActiveStatus(playbackId, true);
@@ -240,6 +241,7 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
 
   const handleBroadcastStatusChange = useCallback(
     async (status: string) => {
+      console.log(`[Broadcast] Broadcast status: ${status}`, { playbackId });
       const isLive = status === 'live' || status === 'pending';
       if (lastLiveStateRef.current === isLive) return;
       lastLiveStateRef.current = isLive;
@@ -265,13 +267,27 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
   if (detailsError) {
     return <div className="flex items-center justify-center h-screen text-red-500">Error: {detailsError}</div>;
   }
+  if (!streamKey) {
+    return (
+      <div className="flex items-center justify-center min-h-screen text-white">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold mb-2">Stream key unavailable</h2>
+          <p className="text-gray-400 text-sm">This channel&apos;s stream key could not be loaded. Try refreshing or re-creating the channel.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Broadcast.Root
-      onError={(error) =>
-        error?.type === 'permissions'
-          ? toast.error('You must accept permissions to broadcast. Please try again.')
-          : null
-      }
+      onError={(error) => {
+        console.error('[Broadcast] Error:', error);
+        if (error?.type === 'permissions') {
+          toast.error('You must accept permissions to broadcast. Please try again.');
+        } else {
+          toast.error('Broadcast error — check your connection and try again.');
+        }
+      }}
       aspectRatio={16 / 9}
       ingestUrl={getIngest(streamKey)}
     >

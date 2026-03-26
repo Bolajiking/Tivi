@@ -116,6 +116,7 @@ export function DashboardBroadcast({
   };
 
   const handleStartStream = async () => {
+    console.log('[DashboardBroadcast] Start stream clicked', { streamKey: streamKey ? `${streamKey.slice(0, 8)}...` : 'MISSING', playbackId });
     setTimerStarted(true);
     try {
       await setStreamActiveStatus(playbackId, true);
@@ -139,6 +140,7 @@ export function DashboardBroadcast({
 
   const handleBroadcastStatusChange = useCallback(
     async (status: string) => {
+      console.log(`[DashboardBroadcast] Broadcast status: ${status}`, { playbackId });
       const isLive = status === 'live' || status === 'pending';
       if (lastLiveStateRef.current === isLive) return;
       lastLiveStateRef.current = isLive;
@@ -229,13 +231,25 @@ export function DashboardBroadcast({
     mobileUnreadCount,
   ]);
 
+  if (!streamKey) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full text-white gap-3">
+        <p className="text-lg font-semibold">Stream key unavailable</p>
+        <p className="text-sm text-gray-400">This channel&apos;s stream key could not be loaded. Try refreshing or re-creating the channel.</p>
+      </div>
+    );
+  }
+
   return (
     <Broadcast.Root
-      onError={(error) =>
-        error?.type === 'permissions'
-          ? toast.error('You must accept permissions to broadcast. Please try again.')
-          : null
-      }
+      onError={(error) => {
+        console.error('[Broadcast] Error:', error);
+        if (error?.type === 'permissions') {
+          toast.error('You must accept permissions to broadcast. Please try again.');
+        } else {
+          toast.error('Broadcast error — check your connection and try again.');
+        }
+      }}
       aspectRatio={16 / 9}
       ingestUrl={getIngest(streamKey)}
     >

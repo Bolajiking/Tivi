@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import * as Broadcast from '@livepeer/react/broadcast';
 
 interface BroadcastStatusSyncProps {
@@ -12,14 +12,23 @@ interface BroadcastStatusSyncProps {
  * Must be rendered inside <Broadcast.Root>.
  */
 export function BroadcastStatusSync({ onStatusChange }: BroadcastStatusSyncProps) {
-  const broadcastContext = (Broadcast as any).useBroadcastContext('BroadcastStatusSync', undefined as any);
-  const status = (Broadcast as any).useStore(
-    broadcastContext.store,
-    ({ status }: { status: string }) => status,
-  );
+  const prevStatusRef = useRef<string | null>(null);
+
+  let status: string | null = null;
+  try {
+    const broadcastContext = (Broadcast as any).useBroadcastContext('BroadcastStatusSync', undefined as any);
+    status = (Broadcast as any).useStore(
+      broadcastContext.store,
+      ({ status: s }: { status: string }) => s,
+    );
+  } catch (err) {
+    console.error('[BroadcastStatusSync] Failed to read broadcast context:', err);
+  }
 
   useEffect(() => {
-    if (status) {
+    if (status && status !== prevStatusRef.current) {
+      console.log(`[BroadcastStatusSync] Status: ${prevStatusRef.current} → ${status}`);
+      prevStatusRef.current = status;
       onStatusChange(status);
     }
   }, [onStatusChange, status]);
