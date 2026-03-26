@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getAllStreams, getUserProfile } from '@/lib/supabase-service';
+import { getAllStreams, getUserProfilesBatch } from '@/lib/supabase-service';
 import { SupabaseUser, SupabaseStream } from '@/lib/supabase-types';
 import { Search } from 'lucide-react';
 
@@ -59,20 +59,18 @@ export default function StreamsShowcase() {
           }
         });
 
-        const results = await Promise.all(
-          Array.from(streamsByCreator.entries()).map(async ([creatorId, channel]) => {
-            try {
-              const creator = await getUserProfile(creatorId);
-              return creator ? { creator, channel } : null;
-            } catch {
-              return null;
-            }
-          })
-        );
+        const creatorIds = Array.from(streamsByCreator.keys());
+        const profilesMap = await getUserProfilesBatch(creatorIds);
 
-        setCreatorsWithChannels(
-          results.filter((item): item is CreatorWithChannel => item !== null)
-        );
+        const results: CreatorWithChannel[] = [];
+        for (const [creatorId, channel] of streamsByCreator.entries()) {
+          const creator = profilesMap.get(creatorId.toLowerCase());
+          if (creator) {
+            results.push({ creator, channel });
+          }
+        }
+
+        setCreatorsWithChannels(results);
       } catch (error) {
         console.error('Failed to fetch channels:', error);
       } finally {

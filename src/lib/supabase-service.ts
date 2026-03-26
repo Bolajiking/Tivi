@@ -678,6 +678,31 @@ export async function getUserProfile(creatorId: string): Promise<SupabaseUser | 
 }
 
 /**
+ * Batch-fetch user profiles by creatorId list (single query instead of N+1)
+ */
+export async function getUserProfilesBatch(creatorIds: string[]): Promise<Map<string, SupabaseUser>> {
+  const cleaned = creatorIds.map((id) => id.trim()).filter(Boolean);
+  if (cleaned.length === 0) return new Map();
+
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .in('creatorId', cleaned);
+
+  if (error) {
+    throw new Error(`Failed to batch-fetch user profiles: ${error.message}`);
+  }
+
+  const map = new Map<string, SupabaseUser>();
+  (data || []).forEach((user) => {
+    if (user.creatorId) {
+      map.set(user.creatorId.toLowerCase(), user);
+    }
+  });
+  return map;
+}
+
+/**
  * Get user profile by username (displayName)
  * Uses case-insensitive matching since Next.js converts URL params to lowercase
  */
