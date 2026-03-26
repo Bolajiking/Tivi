@@ -100,6 +100,7 @@ export default function Hero() {
               alt="TVinBio Platform Preview"
               width={1200}
               height={675}
+              priority
               className="w-full object-cover"
             />
           </div>
