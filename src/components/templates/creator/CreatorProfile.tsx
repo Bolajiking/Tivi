@@ -382,20 +382,13 @@ export function CreatorProfile({
       try {
         setLoading(true);
         
-        // First, try to get user by username (displayName)
-        // The creatorId param is now the username from the URL
-        let supabaseUser = await getUserProfileByUsername(creatorId);
-        let walletAddress = null;
-        
-        // If not found by username, try as wallet address (for backward compatibility)
-        if (!supabaseUser) {
-          supabaseUser = await getUserProfile(creatorId);
-          if (supabaseUser) {
-            walletAddress = supabaseUser.creatorId;
-          }
-        } else {
-          walletAddress = supabaseUser.creatorId;
-        }
+        // Try username and wallet address lookups in parallel for faster 404s
+        const [byUsername, byWallet] = await Promise.all([
+          getUserProfileByUsername(creatorId).catch(() => null),
+          getUserProfile(creatorId).catch(() => null),
+        ]);
+        const supabaseUser = byUsername || byWallet;
+        const walletAddress = supabaseUser?.creatorId || null;
         
         if (!walletAddress) {
           setError('Profile not found');
