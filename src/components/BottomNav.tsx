@@ -227,17 +227,17 @@ const BottomNavFallback = () => {
   const navItems = [
     {
       name: 'Shop',
-      href: '/dashboard',
+      href: '/streamviews',
       icon: FaSackDollar,
     },
     {
       name: 'Watch',
-      href: '/dashboard',
+      href: '/streamviews',
       icon: FaTv,
     },
     {
       name: 'Chat',
-      href: '/dashboard',
+      href: '/streamviews',
       icon: IoChatbubbleEllipsesOutline,
     },
   ];
