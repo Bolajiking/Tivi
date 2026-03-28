@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePrivy, useWallets } from '@privy-io/react-auth';
+import { useWalletAddress } from '@/app/hook/useWalletAddress';
 import { Bars } from 'react-loader-spinner';
 import { ArrowLeft, Send, Sparkles, Shield, MessageCircleHeart, Trash2, ImagePlus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -139,6 +140,7 @@ export function ChannelChatExperience({
 }: ChannelChatExperienceProps) {
   const { ready, authenticated, login } = usePrivy();
   const { wallets } = useWallets();
+  const { walletAddress: canonicalWalletAddress } = useWalletAddress();
 
   const [chatState, setChatState] = useState<ChatState>('checking-access');
   const [statusMessage, setStatusMessage] = useState('Preparing channel room...');
@@ -183,7 +185,10 @@ export function ChannelChatExperience({
     return preferred || wallets[0] || null;
   }, [wallets]);
 
-  const walletAddress = String(wallet?.address || '').toLowerCase();
+  // Use the canonical wallet address from useWalletAddress (same as used for stream creation
+  // and Supabase identity) for admin/access checks. Fall back to the signing wallet address.
+  const signingWalletAddress = String(wallet?.address || '').toLowerCase();
+  const walletAddress = String(canonicalWalletAddress || signingWalletAddress || '').toLowerCase();
   const [resolvedCreatorId, setResolvedCreatorId] = useState(() => {
     const raw = creatorId || '';
     const extracted = typeof raw === 'object' ? String((raw as any)?.value || '') : String(raw);
@@ -511,6 +516,7 @@ export function ChannelChatExperience({
             const streamCreator = String(
               typeof rawCreatorId === 'object' ? (rawCreatorId as any)?.value || '' : rawCreatorId || '',
             ).trim().toLowerCase();
+            console.log('[ChannelChat] Stream creator from Supabase:', streamCreator, '| My wallet:', walletAddress, '| Signing wallet:', signingWalletAddress, '| Match:', walletAddress === streamCreator);
             if (streamCreator && isLikelyAddress(streamCreator)) {
               resolvedStreamCreatorId = streamCreator;
               // Update the resolved creator so subsequent renders use the correct wallet
