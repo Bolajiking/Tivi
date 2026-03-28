@@ -732,7 +732,7 @@ export async function getUserProfileByUsername(username: string): Promise<Supaba
     .from('users')
     .select('*')
     .ilike('displayName', username) // Case-insensitive match
-    .single();
+    .maybeSingle();
 
   if (error) {
     if (error.code === 'PGRST116') {
