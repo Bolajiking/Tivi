@@ -243,10 +243,11 @@ export function DashboardBroadcast({
   return (
     <Broadcast.Root
       onError={(error) => {
+        if (!error) return;
         console.error('[Broadcast] Error:', error);
         if (error?.type === 'permissions') {
           toast.error('You must accept permissions to broadcast. Please try again.');
-        } else {
+        } else if (error?.type) {
           toast.error('Broadcast error — check your connection and try again.');
         }
       }}
