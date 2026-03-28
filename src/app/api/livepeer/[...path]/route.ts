@@ -16,6 +16,14 @@ const buildUpstreamUrl = (request: Request, path: string[]) => {
   incoming.searchParams.forEach((value, key) => {
     upstream.searchParams.set(key, value);
   });
+  // When listing streams, filter to broadcast streams only (exclude child/video streams)
+  // and increase the default limit to ensure all creator channels are returned.
+  if (safePath === 'stream' && !incoming.searchParams.has('streamsonly')) {
+    upstream.searchParams.set('streamsonly', '1');
+  }
+  if (safePath === 'stream' && !incoming.searchParams.has('limit')) {
+    upstream.searchParams.set('limit', '100');
+  }
   return upstream.toString();
 };
 
