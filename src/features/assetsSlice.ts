@@ -1,6 +1,6 @@
 // assetsSlice.ts
 import { createSlice } from '@reduxjs/toolkit';
-import { getAssets, requestAssetUpload } from './assetsAPI';
+import { getAssets, requestAssetUpload, deleteAsset } from './assetsAPI';
 import { deleteStream } from './streamAPI';
 import { Asset } from '@/interfaces/index';
 
@@ -54,6 +54,18 @@ const assetsSlice = createSlice({
       .addCase(getAssets.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch assets';
+      })
+      .addCase(deleteAsset.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(deleteAsset.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
+        state.assets = state.assets.filter((asset) => asset.id !== action.payload);
+      })
+      .addCase(deleteAsset.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to delete asset';
       })
       .addCase(requestAssetUpload.pending, (state) => {
         state.loading = true;

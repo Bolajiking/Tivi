@@ -67,9 +67,12 @@ const streamsSlice = createSlice({
         state.loading = true;
       })
       .addCase(deleteStream.fulfilled, (state, action) => {
+        state.loading = false;
+        state.success = true;
         state.streams = state.streams.filter((stream) => stream.id !== action.payload);
       })
       .addCase(deleteStream.rejected, (state, action) => {
+        state.loading = false;
         state.error = action.error.message || 'Failed to delete stream';
       })
       .addCase(getStreamById.pending, (state) => {
@@ -89,13 +92,19 @@ const streamsSlice = createSlice({
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch stream';
       })
+      .addCase(terminateStream.pending, (state) => {
+        state.loading = true;
+      })
       .addCase(terminateStream.fulfilled, (state, action) => {
-        // Optionally, you can update the state to reflect the terminated session
-        // For example, you might want to set a flag on the stream to indicate it's terminated
+        state.loading = false;
         const stream = state.streams.find((stream) => stream.id === action.payload);
         if (stream) {
-          stream.isActive = false; // Assuming you have an isActive property
+          stream.isActive = false;
         }
+      })
+      .addCase(terminateStream.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to terminate stream';
       })
       .addCase(updateLivestream.pending, (state) => {
         state.loading = true;

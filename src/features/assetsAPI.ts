@@ -52,9 +52,14 @@ export const requestAssetUpload = createAsyncThunk(
   },
 );
 
-export const getAssets = createAsyncThunk('assets/getAssets', async () => {
-  const response = await api.get('/asset');
-  const assets = response.data;
+export const getAssets = createAsyncThunk('assets/getAssets', async (_, { rejectWithValue }) => {
+  let assets: any[];
+  try {
+    const response = await api.get('/asset');
+    assets = response.data;
+  } catch (error: any) {
+    return rejectWithValue(error.response?.data || error.message || 'Failed to fetch assets from Livepeer');
+  }
 
   let supabaseVideos: any[] = [];
   let supabaseVideosMap: Map<string, any> = new Map();

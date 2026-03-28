@@ -622,21 +622,10 @@ export function CreatorProfile({
     return () => clearTimeout(timer);
   }, [isCreator, primaryChannelIsLive, primaryChannelPlaybackId, primaryChannelTitle]);
 
-  // Tighten live-state responsiveness for viewers: subscribe directly to the active playback row.
-  useEffect(() => {
-    if (!primaryChannelPlaybackId) return;
-    const unsubscribe = subscribeToStreamStatus(primaryChannelPlaybackId, (streamUpdate) => {
-      if (!streamUpdate?.playbackId) return;
-      setCreatorStreamData((prev: any) => ({
-        ...(prev || {}),
-        ...streamUpdate,
-        playbackId: streamUpdate.playbackId,
-      }));
-    });
-    return () => {
-      unsubscribe();
-    };
-  }, [primaryChannelPlaybackId]);
+  // The creator-level subscription (subscribeToCreatorStreamUpdates above) already
+  // covers live-state changes for the primary channel. A second per-playbackId
+  // subscription was causing duplicate state updates and unnecessary Supabase
+  // connections. Removed to consolidate into the single creator subscription.
 
   useEffect(() => {
     setSelectedVideoPlaybackId(initialVideoPlaybackId || null);

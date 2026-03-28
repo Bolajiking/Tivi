@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { clsx } from 'clsx';
 import { RotatingLines } from 'react-loader-spinner';
 import * as tus from 'tus-js-client';
@@ -45,6 +45,18 @@ export default function UploadVideoAsset({
   } | null>(null);
 
   const dispatch = useDispatch<AppDispatch>();
+
+  // Memoize object URL to prevent memory leaks from repeated createObjectURL calls
+  const filePreviewUrl = useMemo(() => {
+    if (!file) return null;
+    return URL.createObjectURL(file);
+  }, [file]);
+
+  useEffect(() => {
+    return () => {
+      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    };
+  }, [filePreviewUrl]);
 
   const emitStatus = useCallback(
     (status: VideoUploadNotice | null) => {
@@ -360,7 +372,7 @@ export default function UploadVideoAsset({
               <p className="text-gray-700 break-all">{file.name}</p>
               {file.type.startsWith('video') && (
                 <div className="mt-4 w-full overflow-hidden">
-                  <video src={URL.createObjectURL(file)} controls className="w-full h-40 object-contain" />
+                  <video src={filePreviewUrl || undefined} controls className="w-full h-40 object-contain" />
                 </div>
               )}
             </div>
@@ -529,6 +541,17 @@ export function UploadAdsAsset({ onClose }: { onClose: () => void }) {
 
   const dispatch = useDispatch<AppDispatch>();
 
+  const filePreviewUrl = useMemo(() => {
+    if (!file) return null;
+    return URL.createObjectURL(file);
+  }, [file]);
+
+  useEffect(() => {
+    return () => {
+      if (filePreviewUrl) URL.revokeObjectURL(filePreviewUrl);
+    };
+  }, [filePreviewUrl]);
+
   const validateFile = async (file: File) => {
     // Validate file size (max 4MB)
     if (file.size > 4 * 1024 * 1024) {
@@ -689,7 +712,7 @@ export function UploadAdsAsset({ onClose }: { onClose: () => void }) {
               <p className="text-gray-700 break-all">{file.name}</p>
               {file.type.startsWith('video') && (
                 <div className="mt-4 w-full overflow-hidden">
-                  <video src={URL.createObjectURL(file)} controls className="w-full h-40 object-contain" />
+                  <video src={filePreviewUrl || undefined} controls className="w-full h-40 object-contain" />
                 </div>
               )}
             </div>

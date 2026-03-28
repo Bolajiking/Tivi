@@ -223,19 +223,24 @@ export const getAllStreams = createAsyncThunk('streams/getAllStreams', async () 
   const response = await streamApi.get('/stream');
   const streams = response.data;
 
-  // Step 2: Get all streams from Supabase in one query (much more efficient)
+  // Step 2: Get all streams from Supabase with retry
   let supabaseStreamsMap: Map<string, any> = new Map();
-  try {
-    const supabaseStreams = await getAllStreamsFromSupabase();
-    // Create a map for O(1) lookup by playbackId
-    supabaseStreams.forEach((supabaseStream) => {
-      if (supabaseStream.playbackId) {
-        supabaseStreamsMap.set(supabaseStream.playbackId, supabaseStream);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const supabaseStreams = await getAllStreamsFromSupabase();
+      supabaseStreams.forEach((supabaseStream) => {
+        if (supabaseStream.playbackId) {
+          supabaseStreamsMap.set(supabaseStream.playbackId, supabaseStream);
+        }
+      });
+      break;
+    } catch (error) {
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 800));
+      } else {
+        console.warn('Failed to fetch streams from Supabase after retry:', error);
       }
-    });
-  } catch (error) {
-    // If Supabase fetch fails, log but continue - streams will just have no metadata
-    console.warn('Failed to fetch streams from Supabase:', error);
+    }
   }
 
   // Step 3: Enrich each Livepeer stream with metadata from Supabase
@@ -395,13 +400,20 @@ export const terminateStream = createAsyncThunk(
       await streamApi.delete(`/stream/${id}/terminate`, buildCreatorHeaders(requesterCreatorId));
 
       if (playbackId) {
-        try {
-          await markStreamTerminated(playbackId);
-        } catch (supabaseError) {
-          console.warn(
-            `Livepeer stream terminated but failed to sync Supabase status for ${playbackId}:`,
-            supabaseError,
-          );
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            await markStreamTerminated(playbackId);
+            break;
+          } catch (supabaseError) {
+            if (attempt === 1) {
+              console.warn(
+                `Livepeer stream terminated but failed to sync Supabase status for ${playbackId}:`,
+                supabaseError,
+              );
+            } else {
+              await new Promise((r) => setTimeout(r, 500));
+            }
+          }
         }
       }
 

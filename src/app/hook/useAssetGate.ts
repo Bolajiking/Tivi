@@ -59,30 +59,33 @@ export function useGetAssetGate(playbackId: string) {
   
   useEffect(() => {
     if (!playbackId) return;
+    let cancelled = false;
     setLoading(true);
     setError(null);
 
     getVideoByPlaybackId(playbackId)
       .then((supabaseVideo) => {
+        if (cancelled) return;
         if (supabaseVideo) {
-          // Convert Supabase video to Video interface
           const videoData: Video = {
             playbackId: supabaseVideo.playbackId,
             viewMode: supabaseVideo.viewMode,
             amount: supabaseVideo.amount || 0,
             assetName: supabaseVideo.assetName,
-            creatorId: supabaseVideo.creatorId,
+            creatorId: typeof supabaseVideo.creatorId === 'object'
+              ? (supabaseVideo.creatorId as any).value
+              : supabaseVideo.creatorId,
             donation: supabaseVideo.donations || [],
             Users: supabaseVideo.Users || [],
             subscriptions: supabaseVideo.subscriptions || [],
           };
           setVideo(videoData);
         } else {
-          // Missing video metadata is valid for newly created or unsynced assets.
           setVideo(null);
         }
       })
       .catch((err) => {
+        if (cancelled) return;
         if (err.message && !err.message.includes('not found') && !err.message.includes('406')) {
           setError(err.message || 'Failed to fetch video');
           console.error('Error fetching video:', err);
@@ -90,7 +93,9 @@ export function useGetAssetGate(playbackId: string) {
           setVideo(null);
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
   }, [playbackId]);
 
   useEffect(() => {
@@ -110,7 +115,7 @@ export function useGetAssetGate(playbackId: string) {
     }
 
     const viewer = walletAddress.toLowerCase();
-    const isCreator = video.creatorId.toLowerCase() === viewer;
+    const isCreator = String(video.creatorId || '').toLowerCase() === viewer;
     const isInUsers = Boolean(
       video.Users?.some((addr) => String(addr).toLowerCase() === viewer),
     );
