@@ -703,6 +703,27 @@ export async function getUserProfilesBatch(creatorIds: string[]): Promise<Map<st
 }
 
 /**
+ * Get all user profiles (for explore page parallel fetch)
+ */
+export async function getAllUserProfiles(): Promise<Map<string, SupabaseUser>> {
+  const { data, error } = await supabase
+    .from('users')
+    .select('*');
+
+  if (error) {
+    throw new Error(`Failed to fetch all user profiles: ${error.message}`);
+  }
+
+  const map = new Map<string, SupabaseUser>();
+  (data || []).forEach((user) => {
+    if (user.creatorId) {
+      map.set(user.creatorId.toLowerCase(), user);
+    }
+  });
+  return map;
+}
+
+/**
  * Get user profile by username (displayName)
  * Uses case-insensitive matching since Next.js converts URL params to lowercase
  */

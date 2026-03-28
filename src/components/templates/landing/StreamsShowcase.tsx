@@ -2,7 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { getAllStreams, getUserProfilesBatch } from '@/lib/supabase-service';
+import { getAllStreams, getAllUserProfiles } from '@/lib/supabase-service';
 import { SupabaseUser, SupabaseStream } from '@/lib/supabase-types';
 import { Search } from 'lucide-react';
 
@@ -42,7 +42,12 @@ export default function StreamsShowcase() {
     const fetchChannelsWithCreators = async () => {
       setLoadingCreators(true);
       try {
-        const allStreams = await getAllStreams();
+        // Fetch streams and all user profiles in parallel (eliminates sequential wait)
+        const [allStreams, profilesMap] = await Promise.all([
+          getAllStreams(),
+          getAllUserProfiles(),
+        ]);
+
         const streamsByCreator = new Map<string, SupabaseStream>();
 
         allStreams.forEach((stream) => {
@@ -58,9 +63,6 @@ export default function StreamsShowcase() {
             }
           }
         });
-
-        const creatorIds = Array.from(streamsByCreator.keys());
-        const profilesMap = await getUserProfilesBatch(creatorIds);
 
         const results: CreatorWithChannel[] = [];
         for (const [creatorId, channel] of streamsByCreator.entries()) {
