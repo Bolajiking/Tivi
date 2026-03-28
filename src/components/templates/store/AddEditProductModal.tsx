@@ -178,6 +178,7 @@ export const AddEditProductModal = ({
             <Dialog.Title className="text-[18px] font-bold text-white font-funnel-display">
               {isEditing ? 'Edit product' : 'Add product'}
             </Dialog.Title>
+            <Dialog.Description className="sr-only">Fill in the product details</Dialog.Description>
             <Dialog.Close asChild>
               <button className="rounded-lg p-1.5 text-[#555] hover:text-white hover:bg-white/[0.05] transition-colors">
                 <X className="w-5 h-5" />

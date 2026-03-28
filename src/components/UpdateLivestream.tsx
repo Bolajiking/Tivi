@@ -109,6 +109,7 @@ export function UpdateLivestream({
         >
           <div className="flex justify-between items-center mb-4">
             <Dialog.Title className="text-lg font-semibold text-black-primary-text">Update Stream</Dialog.Title>
+            <Dialog.Description className="sr-only">Update stream name and recording settings</Dialog.Description>
             <Dialog.Close asChild>
               <button onClick={onClose} className="text-2xl">
                 <IoMdClose />

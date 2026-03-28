@@ -46,6 +46,7 @@ export const DeleteProductDialog = ({ isOpen, onOpenChange, onDeleteProduct, pro
         <Dialog.Content className="fixed left-1/2 top-1/2 mt-6 w-[90vw] max-w-[400px] -translate-x-1/2 -translate-y-1/2 rounded-lg bg-white p-6 shadow-lg">
           <div className="flex justify-between items-center mb-4">
             <Dialog.Title className="text-xl font-bold">Delete Product</Dialog.Title>
+            <Dialog.Description className="sr-only">Confirm product deletion</Dialog.Description>
             <Dialog.Close asChild>
               <button className="rounded-full p-1 hover:bg-gray-100">
                 <X className="h-5 w-5" />

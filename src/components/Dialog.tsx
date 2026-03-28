@@ -315,6 +315,9 @@ export function CustomizeChannelDialog({ playbackId, initialValues, onSave, open
         <Dialog.Overlay className="fixed inset-0 bg-black opacity-70" />
         <Dialog.Content className="fixed top-1/2 left-1/2 max-w-xl max-h-[32rem] overflow-y-auto w-full p-6 bg-white rounded-md shadow-lg -translate-x-1/2 -translate-y-1/2">
           <Dialog.Title className="text-2xl font-bold text-center mb-6">Customize Channel</Dialog.Title>
+          <Dialog.Description className="sr-only">
+            Customize your channel appearance settings
+          </Dialog.Description>
           <div className="space-y-6">
             {/* Title + Description */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

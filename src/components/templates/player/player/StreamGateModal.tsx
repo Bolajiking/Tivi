@@ -58,6 +58,7 @@ export function StreamGateModal({ open, onClose, title = 'This is a gated stream
           <div className="w-full max-h-[84vh] rounded-xl border border-white/20 bg-gradient-to-br from-gray-900 via-black to-gray-900 shadow-2xl flex flex-col overflow-hidden relative pointer-events-auto">
             <div className="border-b border-white/10 px-5 py-3">
               <Dialog.Title className="text-sm font-semibold tracking-wide text-white">{title}</Dialog.Title>
+              <Dialog.Description className="sr-only">Payment required to access this content</Dialog.Description>
             </div>
             {/* scrollable body */}
             <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>

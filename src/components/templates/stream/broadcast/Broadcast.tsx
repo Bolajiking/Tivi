@@ -566,6 +566,7 @@ export function BroadcastWithControls({ streamName, streamKey, streamId, playbac
                               <Dialog.Title className="text-black-primary-text text-center flex items-center gap-2 my-4 text-xl font-bold">
                                 <RiVideoAddLine className="text-main-blue text-l" /> Upload Video Ads
                               </Dialog.Title>
+                              <Dialog.Description className="sr-only">Upload video advertisements for your stream</Dialog.Description>
                               <UploadAdsAsset onClose={() => setIsAdsOpen(false)} />
                               <Dialog.Close asChild>
                                 <button
@@ -629,6 +630,7 @@ export function BroadcastWithControls({ streamName, streamKey, streamId, playbac
                               <Dialog.Title className="text-black-primary-text text-center flex items-center gap-2 my-4 text-xl font-bold">
                                 <RiVideoAddLine className="text-main-blue text-l" /> Upload Video Ads
                               </Dialog.Title>
+                              <Dialog.Description className="sr-only">Upload video advertisements for your stream</Dialog.Description>
                               <UploadAdsAsset onClose={() => setIsAdsOpen(false)} />
                               <Dialog.Close asChild>
                                 <button

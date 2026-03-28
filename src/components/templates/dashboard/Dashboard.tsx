@@ -1178,6 +1178,9 @@ const EmptyStatePanel = ({
               <Dialog.Title className="text-white text-center flex items-center gap-2 my-4 text-xl font-bold">
                 <RiVideoAddLine className="text-yellow-400 text-sm" /> Upload Video Asset
               </Dialog.Title>
+              <Dialog.Description className="sr-only">
+                Upload a video file to your channel
+              </Dialog.Description>
               <UploadVideoAsset
                 onClose={() => {
                   setIsDialogOpen2(false);

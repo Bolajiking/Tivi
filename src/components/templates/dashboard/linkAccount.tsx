@@ -44,6 +44,7 @@ const LinkAccount = ({ children }: LinkAccountProps) => {
         <Dialog.Content className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white rounded-xl p-6 w-[90vw] max-w-[850px] shadow-lg animate-content-show">
           <div className="space-y-6">
             <Dialog.Title className="text-2xl font-semibold border-b pb-4">Profile Details</Dialog.Title>
+            <Dialog.Description className="sr-only">View and manage your linked accounts</Dialog.Description>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* User ID Card */}

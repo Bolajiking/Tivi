@@ -114,6 +114,7 @@ export const PurchaseModal = ({ open, onClose, product, onSuccess }: PurchaseMod
             <Dialog.Title className="text-[18px] font-bold text-white font-funnel-display">
               {success ? 'Purchase complete' : 'Confirm purchase'}
             </Dialog.Title>
+            <Dialog.Description className="sr-only">Review and confirm your product purchase</Dialog.Description>
             <Dialog.Close asChild>
               <button className="rounded-lg p-1.5 text-[#555] hover:text-white hover:bg-white/[0.05] transition-colors">
                 <X className="w-5 h-5" />
