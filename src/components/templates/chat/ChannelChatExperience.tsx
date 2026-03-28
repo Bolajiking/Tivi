@@ -479,7 +479,7 @@ export function ChannelChatExperience({
 
       teardownStream();
 
-      if (!playbackId || !isLikelyAddress(channelCreatorId)) {
+      if (!playbackId) {
         setChatState('error');
         setStatusMessage('Channel chat is unavailable because the channel identity is invalid.');
         return;
@@ -500,9 +500,10 @@ export function ChannelChatExperience({
       let effectiveAdmin = isChannelAdmin;
       let resolvedStreamCreatorId = channelCreatorId;
 
-      if (!effectiveAdmin) {
-        // If channelCreatorId isn't a wallet address yet (e.g. username still resolving),
-        // fetch the stream to get the real creator wallet before making access decisions.
+      // Always resolve the stream's real creator wallet from Supabase when
+      // channelCreatorId isn't a wallet address yet (e.g. username from URL param).
+      // This is needed for both admin detection and subscription checks.
+      if (!effectiveAdmin || !isLikelyAddress(resolvedStreamCreatorId)) {
         try {
           const stream = await getStreamByPlaybackId(playbackId);
           if (stream) {
