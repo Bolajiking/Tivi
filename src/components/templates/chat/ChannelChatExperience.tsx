@@ -615,21 +615,34 @@ export function ChannelChatExperience({
 
       if (!conversation && !effectiveAdmin) {
         setStatusMessage('Finalizing your chat access...');
-        for (let attempt = 0; attempt < 5 && !conversation; attempt += 1) {
-          try {
-            await client?.conversations?.syncAll?.();
-          } catch {
-            // no-op
+        // First sync all conversations, then check for the group
+        try {
+          await client?.conversations?.syncAll?.();
+        } catch {
+          // no-op
+        }
+        // Check immediately after the first sync
+        conversation = await getConversationById(client, mapping?.xmtpGroupId || '');
+        if (isStaleRun()) return;
+
+        // If not found, retry with shorter intervals
+        if (!conversation) {
+          for (let attempt = 0; attempt < 4 && !conversation; attempt += 1) {
+            await sleep(400);
+            try {
+              await client?.conversations?.syncAll?.();
+            } catch {
+              // no-op
+            }
+            conversation = await getConversationById(client, mapping?.xmtpGroupId || '');
+            if (isStaleRun()) return;
           }
-          await sleep(500);
-          conversation = await getConversationById(client, mapping?.xmtpGroupId || '');
-          if (isStaleRun()) return;
         }
       }
 
       if (!conversation && !effectiveAdmin) {
         setChatState('connecting');
-        setStatusMessage('Syncing your chat access automatically...');
+        setStatusMessage('Waiting for the creator to sync your access. This happens automatically...');
         scheduleAccessSyncRetry();
         return;
       }
@@ -674,13 +687,16 @@ export function ChannelChatExperience({
       if (isStaleRun()) return;
 
       if (effectiveAdmin) {
-        setStatusMessage('Syncing subscribers into the room...');
-        try {
-          await syncSubscriberMemberships(resolvedStreamCreatorId || channelCreatorId, playbackId);
-        } catch (error) {
-          console.error('Failed to sync XMTP chat members:', error);
+        const adminWallet = isLikelyAddress(resolvedStreamCreatorId) ? resolvedStreamCreatorId : channelCreatorId;
+        if (isLikelyAddress(adminWallet)) {
+          setStatusMessage('Syncing subscribers into the room...');
+          try {
+            await syncSubscriberMemberships(adminWallet, playbackId);
+          } catch (error) {
+            console.error('Failed to sync XMTP chat members:', error);
+          }
+          if (isStaleRun()) return;
         }
-        if (isStaleRun()) return;
       }
 
       if (chatRefreshTimerRef.current) {
@@ -792,12 +808,20 @@ export function ChannelChatExperience({
 
   useEffect(() => {
     if (!isChannelAdmin || chatState !== 'ready' || !channelCreatorId) return;
+    // Use resolved wallet address for subscriber sync, not the username-based prop
+    const creatorWallet = isLikelyAddress(channelCreatorId) ? channelCreatorId : null;
+    if (!creatorWallet) return;
+
+    // Run an immediate sync on mount, then periodically
+    syncSubscriberMemberships(creatorWallet, playbackId).catch((error) => {
+      console.error('Initial subscriber membership sync failed:', error);
+    });
 
     const intervalId = setInterval(() => {
-      syncSubscriberMemberships(channelCreatorId, playbackId).catch((error) => {
+      syncSubscriberMemberships(creatorWallet, playbackId).catch((error) => {
         console.error('Background subscriber membership sync failed:', error);
       });
-    }, 10000);
+    }, 8000);
 
     return () => clearInterval(intervalId);
   }, [chatState, channelCreatorId, isChannelAdmin, playbackId, syncSubscriberMemberships]);
