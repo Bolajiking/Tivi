@@ -111,6 +111,7 @@ export default function StreamsShowcase() {
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
             placeholder="Search channels"
+            suppressHydrationWarning
             className={`w-full pl-10 pr-4 py-3 bg-raised rounded-xl text-[15px] text-white placeholder:text-[var(--text-3)] outline-none transition-all duration-150 border ${
               searchFocused
                 ? 'border-[var(--accent)]/40'
