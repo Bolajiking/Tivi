@@ -419,17 +419,17 @@ export function CreatorProfile({
         
         // Store the actual creatorId (wallet address) for use in other parts
         setActualCreatorId(walletAddress);
-        
-        // Fetch stream data for the channel display (bio and socialLinks are in stream table)
-        try {
-          const streams = await getStreamsByCreator(walletAddress);
-          if (streams && streams.length > 0) {
-            setCreatorStreamData(streams[0]);
-          }
-        } catch (err) {
+
+        // Kick off global streams/assets fetch early (in parallel with profile processing)
+        dispatch(getAllStreams());
+        dispatch(getAssets());
+
+        // Fetch stream data in parallel with profile processing below
+        const streamDataPromise = getStreamsByCreator(walletAddress).catch((err) => {
           console.warn('Failed to fetch stream data:', err);
-        }
-        
+          return [] as any[];
+        });
+
         if (supabaseUser) {
           // Convert socialLinks from array of JSON strings to object format
           // Input format: ["{\"twitter\":\"https://...\"}", "{\"instagram\":\"https://...\"}"]
@@ -482,6 +482,12 @@ export function CreatorProfile({
         } else {
           setError('Profile not found');
         }
+
+        // Resolve the stream data that was fetched in parallel
+        const streams = await streamDataPromise;
+        if (streams && streams.length > 0) {
+          setCreatorStreamData(streams[0]);
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to fetch creator profile');
         toast.error('Failed to load creator profile');
@@ -495,13 +501,8 @@ export function CreatorProfile({
     }
   }, [creatorId, initialChatPlaybackId, initialStreamPlaybackId, initialVideoPlaybackId, openChatView, router]);
 
-  // Fetch streams and assets for this creator
-  useEffect(() => {
-    if (actualCreatorId) {
-      dispatch(getAllStreams());
-      dispatch(getAssets());
-    }
-  }, [dispatch, actualCreatorId]);
+  // Note: getAllStreams/getAssets are now dispatched inside fetchCreatorProfile
+  // as soon as the wallet address is resolved, to avoid the sequential delay.
 
   useEffect(() => {
     if (!actualCreatorId) return;
