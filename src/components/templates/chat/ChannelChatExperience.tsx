@@ -184,14 +184,24 @@ export function ChannelChatExperience({
   }, [wallets]);
 
   const walletAddress = String(wallet?.address || '').toLowerCase();
-  const [resolvedCreatorId, setResolvedCreatorId] = useState(() =>
-    String(creatorId || '').trim().toLowerCase(),
-  );
+  const [resolvedCreatorId, setResolvedCreatorId] = useState(() => {
+    const raw = creatorId || '';
+    const extracted = typeof raw === 'object' ? String((raw as any)?.value || '') : String(raw);
+    return extracted.trim().toLowerCase();
+  });
   const channelCreatorId = useMemo(
-    () => String(resolvedCreatorId || creatorId || '').trim().toLowerCase(),
-    [creatorId, resolvedCreatorId],
+    () => String(resolvedCreatorId || '').trim().toLowerCase(),
+    [resolvedCreatorId],
   );
-  const isChannelAdmin = Boolean(walletAddress && channelCreatorId && walletAddress === channelCreatorId);
+  // Admin check: wallet matches resolved creator, OR wallet matches the raw creatorId prop
+  // (covers the case where creatorId prop is already the wallet address before async resolution)
+  const isChannelAdmin = useMemo(() => {
+    if (!walletAddress) return false;
+    if (channelCreatorId && isLikelyAddress(channelCreatorId) && walletAddress === channelCreatorId) return true;
+    const rawProp = String(typeof creatorId === 'object' ? (creatorId as any)?.value || '' : creatorId || '').trim().toLowerCase();
+    if (isLikelyAddress(rawProp) && walletAddress === rawProp) return true;
+    return false;
+  }, [walletAddress, channelCreatorId, creatorId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -201,8 +211,11 @@ export function ChannelChatExperience({
       try {
         const stream = await getStreamByPlaybackId(playbackId);
         if (cancelled) return;
-        const streamCreator = String(stream?.creatorId || '').trim().toLowerCase();
-        if (streamCreator) {
+        const rawCreatorId = stream?.creatorId;
+        const streamCreator = String(
+          typeof rawCreatorId === 'object' ? (rawCreatorId as any)?.value || '' : rawCreatorId || '',
+        ).trim().toLowerCase();
+        if (streamCreator && isLikelyAddress(streamCreator)) {
           setResolvedCreatorId(streamCreator);
         }
       } catch (error) {
@@ -482,9 +495,46 @@ export function ChannelChatExperience({
       setChatState('checking-access');
       setStatusMessage('Checking channel access...');
 
-      if (!isChannelAdmin) {
+      // Determine effective admin status: use the prop-based check first,
+      // then verify against the stream's actual creatorId from Supabase.
+      let effectiveAdmin = isChannelAdmin;
+      let resolvedStreamCreatorId = channelCreatorId;
+
+      if (!effectiveAdmin) {
+        // If channelCreatorId isn't a wallet address yet (e.g. username still resolving),
+        // fetch the stream to get the real creator wallet before making access decisions.
+        try {
+          const stream = await getStreamByPlaybackId(playbackId);
+          if (stream) {
+            const rawCreatorId = stream.creatorId;
+            const streamCreator = String(
+              typeof rawCreatorId === 'object' ? (rawCreatorId as any)?.value || '' : rawCreatorId || '',
+            ).trim().toLowerCase();
+            if (streamCreator && isLikelyAddress(streamCreator)) {
+              resolvedStreamCreatorId = streamCreator;
+              // Update the resolved creator so subsequent renders use the correct wallet
+              setResolvedCreatorId(streamCreator);
+              if (walletAddress === streamCreator) {
+                effectiveAdmin = true;
+              }
+            }
+          }
+        } catch {
+          // Fall through to subscription check
+        }
+      }
+
+      if (!effectiveAdmin) {
+        // If we still don't have a valid wallet-format creator ID, wait for resolution
+        if (!isLikelyAddress(resolvedStreamCreatorId)) {
+          setChatState('connecting');
+          setStatusMessage('Resolving channel identity...');
+          scheduleAccessSyncRetry();
+          return;
+        }
+
         const [isFollowerSubscribed, hasPaidSubscription] = await Promise.all([
-          isUserSubscribedToCreator(walletAddress, channelCreatorId),
+          isUserSubscribedToCreator(walletAddress, resolvedStreamCreatorId),
           hasActiveStreamSubscription(playbackId, walletAddress),
         ]);
         const hasSubscription = isFollowerSubscribed || hasPaidSubscription;
@@ -501,7 +551,7 @@ export function ChannelChatExperience({
 
       setStatusMessage('Finding channel room...');
       const mapping = await getChannelChatGroupMapping(playbackId);
-      if (!isChannelAdmin && !mapping?.xmtpGroupId) {
+      if (!effectiveAdmin && !mapping?.xmtpGroupId) {
         setChatState('connecting');
         setStatusMessage('Chat is provisioning. Waiting for room setup...');
         scheduleAccessSyncRetry();
@@ -523,7 +573,7 @@ export function ChannelChatExperience({
           : null;
       if (isStaleRun()) return;
 
-      if (!conversation && !isChannelAdmin) {
+      if (!conversation && !effectiveAdmin) {
         setStatusMessage('Finalizing your chat access...');
         for (let attempt = 0; attempt < 10 && !conversation; attempt += 1) {
           try {
@@ -537,21 +587,21 @@ export function ChannelChatExperience({
         }
       }
 
-      if (!conversation && !isChannelAdmin) {
+      if (!conversation && !effectiveAdmin) {
         setChatState('connecting');
         setStatusMessage('Syncing your chat access automatically...');
         scheduleAccessSyncRetry();
         return;
       }
 
-      if (!conversation && isChannelAdmin) {
+      if (!conversation && effectiveAdmin) {
         setStatusMessage('Creating your channel group chat...');
         const created = await createChannelConversation(client, streamNameRef.current || 'Channel', playbackId);
         if (isStaleRun()) return;
         conversation = created.conversation;
         await saveChannelChatGroupMapping({
           playbackId,
-          creatorId: channelCreatorId,
+          creatorId: resolvedStreamCreatorId || channelCreatorId,
           xmtpGroupId: created.conversationId,
         }, walletAddress);
         if (isStaleRun()) return;
@@ -583,10 +633,10 @@ export function ChannelChatExperience({
       }
       if (isStaleRun()) return;
 
-      if (isChannelAdmin) {
+      if (effectiveAdmin) {
         setStatusMessage('Syncing subscribers into the room...');
         try {
-          await syncSubscriberMemberships(channelCreatorId, playbackId);
+          await syncSubscriberMemberships(resolvedStreamCreatorId || channelCreatorId, playbackId);
         } catch (error) {
           console.error('Failed to sync XMTP chat members:', error);
         }
@@ -1034,7 +1084,14 @@ export function ChannelChatExperience({
                 >
                   Connect wallet
                 </button>
-              ) : null}
+              ) : (
+                <button
+                  onClick={() => initializeConversation()}
+                  className="mt-4 rounded-full border border-white/[0.14] bg-[#1a1a1a] px-4 py-2 text-sm font-semibold text-white"
+                >
+                  Retry
+                </button>
+              )}
             </div>
           ) : null}
 
