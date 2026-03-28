@@ -264,6 +264,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                           src={imageSrc}
                           alt={title}
                           fill
+                          priority
                           className="object-cover"
                           sizes="44px"
                         />
@@ -317,10 +318,10 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                 <div
                   className={
                     chatCompact
-                      ? 'w-11 h-11 rounded-lg overflow-hidden ring-1 ring-white/25 shadow-lg shadow-black/40'
+                      ? 'relative w-11 h-11 rounded-lg overflow-hidden ring-1 ring-white/25 shadow-lg shadow-black/40'
                       : compact
-                      ? 'w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10'
-                      : 'w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10'
+                      ? 'relative w-16 h-16 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10'
+                      : 'relative w-20 h-20 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-2 ring-offset-gray-900 shadow-lg shadow-yellow-500/10'
                   }
                 >
                   {useRegularImg ? (
@@ -334,6 +335,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                       src={imageSrc}
                       alt={title}
                       fill
+                      priority
                       className="object-cover"
                       sizes="80px"
                     />
@@ -494,10 +496,10 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                 <div
                   className={
                     chatCompact
-                      ? 'w-14 h-14 rounded-xl overflow-hidden ring-1 ring-white/25 shadow-xl shadow-black/40'
+                      ? 'relative w-14 h-14 rounded-xl overflow-hidden ring-1 ring-white/25 shadow-xl shadow-black/40'
                       : compact
-                      ? 'w-24 h-24 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-3 ring-offset-gray-900 shadow-xl shadow-yellow-500/10'
-                      : 'w-28 h-28 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-4 ring-offset-gray-900 shadow-xl shadow-yellow-500/10'
+                      ? 'relative w-24 h-24 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-3 ring-offset-gray-900 shadow-xl shadow-yellow-500/10'
+                      : 'relative w-28 h-28 rounded-2xl overflow-hidden ring-2 ring-yellow-400/30 ring-offset-4 ring-offset-gray-900 shadow-xl shadow-yellow-500/10'
                   }
                 >
                 {useRegularImg ? (
@@ -511,6 +513,7 @@ export const CreatorChannelCard: React.FC<CreatorChannelCardProps> = ({
                     src={imageSrc}
                     alt={title}
                     fill
+                    priority
                     className="object-cover"
                     sizes="112px"
                   />
