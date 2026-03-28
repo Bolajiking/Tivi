@@ -127,7 +127,7 @@ export default function StreamsShowcase() {
         </div>
       ) : filteredCreatorsWithChannels.length > 0 ? (
         <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-6">
-          {filteredCreatorsWithChannels.map(({ creator, channel }) => {
+          {filteredCreatorsWithChannels.map(({ creator, channel }, channelIndex) => {
             const profileIdentifier = creator.displayName?.trim();
             if (!profileIdentifier) return null;
 
@@ -149,6 +149,7 @@ export default function StreamsShowcase() {
                       src={displayLogo}
                       alt={channelTitle}
                       fill
+                      priority={channelIndex < 4}
                       className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                       sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                     />
