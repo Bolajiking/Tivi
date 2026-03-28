@@ -364,6 +364,37 @@ const isDedicatedChatView = Boolean(openChatView);
 const activeChatPlaybackId = useMemo(() => {
   return initialChatPlaybackId || selectedChannelId || filteredStreams[0]?.playbackId || null;
 }, [filteredStreams, initialChatPlaybackId, selectedChannelId]);
+// When the Supabase fallback is used, fetch the streamKey from Livepeer by scanning all streams.
+const [resolvedStreamKey, setResolvedStreamKey] = useState<string>('');
+const [resolvingStreamKey, setResolvingStreamKey] = useState(false);
+
+useEffect(() => {
+  if (!initialLivePlaybackId || streamsLoading) return;
+  // Already found in Redux — no need to resolve.
+  const inRedux = streams.find((s) => s.playbackId === initialLivePlaybackId && s.streamKey);
+  if (inRedux) {
+    setResolvedStreamKey(inRedux.streamKey);
+    return;
+  }
+  // Fetch directly from Livepeer API to find this stream's key.
+  let cancelled = false;
+  setResolvingStreamKey(true);
+  fetch('/api/livepeer/stream')
+    .then((r) => r.json())
+    .then((allStreams: any[]) => {
+      if (cancelled) return;
+      const match = allStreams.find((s: any) => s.playbackId === initialLivePlaybackId);
+      setResolvedStreamKey(match?.streamKey || '');
+    })
+    .catch(() => {
+      if (!cancelled) setResolvedStreamKey('');
+    })
+    .finally(() => {
+      if (!cancelled) setResolvingStreamKey(false);
+    });
+  return () => { cancelled = true; };
+}, [initialLivePlaybackId, streams, streamsLoading]);
+
 const dedicatedLiveStream = useMemo(() => {
   if (!initialLivePlaybackId) return null;
   const fromOwned = filteredStreams.find((stream) => stream.playbackId === initialLivePlaybackId);
@@ -372,8 +403,7 @@ const dedicatedLiveStream = useMemo(() => {
   const fromAll = streams.find((stream) => stream.playbackId === initialLivePlaybackId);
   if (fromAll) return fromAll;
 
-  // Only use Supabase fallback if Redux streams have finished loading and didn't find a match.
-  // Supabase does not store streamKey, so using this fallback for broadcasting would silently fail.
+  // Supabase fallback: use resolvedStreamKey fetched directly from Livepeer API.
   if (!streamsLoading && channelSupabaseData?.playbackId === initialLivePlaybackId) {
     return {
       id: channelSupabaseData.id || initialLivePlaybackId,
@@ -385,12 +415,12 @@ const dedicatedLiveStream = useMemo(() => {
       lastSeen: channelSupabaseData.lastSeen || null,
       creatorId: { value: channelSupabaseData.creatorId || creatorAddress || '' },
       supabaseCreatorId: channelSupabaseData.creatorId || creatorAddress || '',
-      streamKey: channelSupabaseData.streamKey || '',
+      streamKey: resolvedStreamKey,
     } as Stream;
   }
 
   return null;
-}, [filteredStreams, initialLivePlaybackId, streams, streamsLoading, channelSupabaseData, creatorAddress]);
+}, [filteredStreams, initialLivePlaybackId, streams, streamsLoading, channelSupabaseData, creatorAddress, resolvedStreamKey]);
 const dedicatedChatStream = useMemo(() => {
   if (!activeChatPlaybackId) return null;
   return filteredStreams.find((stream) => stream.playbackId === activeChatPlaybackId) || null;
@@ -410,7 +440,7 @@ const selectedChannel = useMemo(() => {
     lastSeen: channelSupabaseData.lastSeen || null,
     creatorId: { value: channelSupabaseData.creatorId || creatorAddress || '' },
     supabaseCreatorId: channelSupabaseData.creatorId || creatorAddress || '',
-    streamKey: channelSupabaseData.streamKey || '',
+    streamKey: resolvedStreamKey || channelSupabaseData.streamKey || '',
   } as Stream;
 }, [selectedChannelFromRedux, selectedChannelId, channelSupabaseData, creatorAddress]);
 
@@ -824,7 +854,7 @@ const EmptyStatePanel = ({
                       </button>
                     </div>
 
-                    {dedicatedLiveStream ? (
+                    {dedicatedLiveStream && dedicatedLiveStream.streamKey ? (
                       <div
                         className="w-full overflow-hidden rounded-xl border border-white/[0.07] bg-black min-h-[560px] h-[calc(100vh-150px)] md:min-h-[720px] md:h-[calc(100vh-190px)]"
                       >
@@ -836,7 +866,7 @@ const EmptyStatePanel = ({
                           onStreamEnd={() => navigate.push(backToDashboardPath)}
                         />
                       </div>
-                    ) : streamsLoading ? (
+                    ) : streamsLoading || resolvingStreamKey ? (
                       <div className="flex flex-col space-y-3">
                         <Skeleton className="h-[220px] w-full rounded-xl bg-black" />
                         <Skeleton className="h-[220px] w-full rounded-xl bg-black" />
