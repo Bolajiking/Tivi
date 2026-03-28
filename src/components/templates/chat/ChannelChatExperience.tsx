@@ -50,6 +50,30 @@ const CHAT_POLL_REFRESH_INTERVAL_MS = 6000;
 const XMTP_HISTORY_SYNC_INTERVAL_MS = 4000;
 const XMTP_HISTORY_SYNC_LIMIT = 300;
 const XMTP_IMAGE_PREFIX = '__image__:';
+const CHAT_ACCESS_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+
+/** Cache chat subscription access in localStorage to avoid re-fetching on every mount */
+const getChatAccessCacheKey = (playbackId: string, wallet: string) =>
+  `chat_access_${playbackId}_${wallet}`;
+
+const getCachedChatAccess = (playbackId: string, wallet: string): boolean => {
+  try {
+    const raw = localStorage.getItem(getChatAccessCacheKey(playbackId, wallet));
+    if (!raw) return false;
+    const parsed = JSON.parse(raw);
+    if (parsed?.granted && Date.now() - parsed.ts < CHAT_ACCESS_CACHE_TTL_MS) return true;
+    return false;
+  } catch { return false; }
+};
+
+const setCachedChatAccess = (playbackId: string, wallet: string) => {
+  try {
+    localStorage.setItem(
+      getChatAccessCacheKey(playbackId, wallet),
+      JSON.stringify({ granted: true, ts: Date.now() }),
+    );
+  } catch { /* storage full or unavailable */ }
+};
 
 const isLikelyAddress = (value: string) => /^0x[a-fA-F0-9]{40}$/.test(value);
 const shortWallet = (value: string) =>
@@ -459,7 +483,7 @@ export function ChannelChatExperience({
       initializeConversationRef.current?.().catch((error: any) => {
         console.error('Automatic chat access sync retry failed:', error);
       });
-    }, 5000);
+    }, 3000);
   }, []);
 
   const syncSubscriberMemberships = useCallback(
@@ -540,11 +564,20 @@ export function ChannelChatExperience({
           return;
         }
 
-        const [isFollowerSubscribed, hasPaidSubscription] = await Promise.all([
-          isUserSubscribedToCreator(walletAddress, resolvedStreamCreatorId),
-          hasActiveStreamSubscription(playbackId, walletAddress),
-        ]);
-        const hasSubscription = isFollowerSubscribed || hasPaidSubscription;
+        // Check localStorage cache first to avoid Supabase round-trip on reload
+        const cachedAccess = getCachedChatAccess(playbackId, walletAddress);
+        let hasSubscription = cachedAccess;
+
+        if (!cachedAccess) {
+          const [isFollowerSubscribed, hasPaidSubscription] = await Promise.all([
+            isUserSubscribedToCreator(walletAddress, resolvedStreamCreatorId),
+            hasActiveStreamSubscription(playbackId, walletAddress),
+          ]);
+          hasSubscription = isFollowerSubscribed || hasPaidSubscription;
+          if (hasSubscription) {
+            setCachedChatAccess(playbackId, walletAddress);
+          }
+        }
 
         if (!hasSubscription) {
           setChatState('blocked');
@@ -582,13 +615,13 @@ export function ChannelChatExperience({
 
       if (!conversation && !effectiveAdmin) {
         setStatusMessage('Finalizing your chat access...');
-        for (let attempt = 0; attempt < 10 && !conversation; attempt += 1) {
+        for (let attempt = 0; attempt < 5 && !conversation; attempt += 1) {
           try {
             await client?.conversations?.syncAll?.();
           } catch {
             // no-op
           }
-          await sleep(1000);
+          await sleep(500);
           conversation = await getConversationById(client, mapping?.xmtpGroupId || '');
           if (isStaleRun()) return;
         }
@@ -690,6 +723,10 @@ export function ChannelChatExperience({
 
       setChatState('ready');
       setStatusMessage('Room connected');
+      // Persist access so reload/relogin is instant
+      if (walletAddress && playbackId) {
+        setCachedChatAccess(playbackId, walletAddress);
+      }
       if (accessSyncTimerRef.current) {
         clearTimeout(accessSyncTimerRef.current);
         accessSyncTimerRef.current = null;
