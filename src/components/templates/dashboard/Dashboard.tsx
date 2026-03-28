@@ -309,12 +309,13 @@ const Dashboard = ({ initialLivePlaybackId, initialChatPlaybackId, openChatView 
 const filteredStreams = useMemo(() => {
   if (!creatorAddress) return [];
   const addr = creatorAddress.toLowerCase();
-  return streams.filter((stream) => {
+  const result = streams.filter((stream) => {
     if (!stream.playbackId) return false;
     const livepeerMatch = stream.creatorId?.value?.toLowerCase() === addr;
     const supabaseMatch = (stream as any).supabaseCreatorId?.toLowerCase() === addr;
     return livepeerMatch || supabaseMatch;
   });
+  return result;
 }, [streams, creatorAddress]);
 
 useEffect(() => {
@@ -442,7 +443,7 @@ const selectedChannel = useMemo(() => {
     supabaseCreatorId: channelSupabaseData.creatorId || creatorAddress || '',
     streamKey: resolvedStreamKey || channelSupabaseData.streamKey || '',
   } as Stream;
-}, [selectedChannelFromRedux, selectedChannelId, channelSupabaseData, creatorAddress]);
+}, [selectedChannelFromRedux, selectedChannelId, channelSupabaseData, creatorAddress, resolvedStreamKey]);
 
 const selectedChannelIsLive = useMemo(() => {
   if (!selectedChannel) return false;
