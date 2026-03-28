@@ -80,6 +80,7 @@ const StreamPage = () => {
       <BroadcastWithControls
         streamName={stream.name}
         streamKey={stream.streamKey}
+        streamId={stream.id}
         isActive={stream.isActive}
         createdAt={stream.createdAt}
         playbackId={stream.playbackId}

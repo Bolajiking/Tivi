@@ -143,8 +143,8 @@ export function VideoPaymentGate({
         );
       } catch (error) {
         console.error('Error checking video access:', error);
-        // On error, allow access (fail open)
-        setHasAccess(true);
+        // On error, deny access (fail closed) — user can retry
+        setHasAccess(false);
       } finally {
         setCheckingAccess(false);
       }

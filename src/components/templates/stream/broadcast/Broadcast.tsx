@@ -37,19 +37,20 @@ import { addIncomingMessage } from '@/features/chatSlice';
 import { useDispatch, useSelector } from 'react-redux';
 import type { AppDispatch, RootState } from '@/store/store';
 import { BroadcastStatusSync } from './BroadcastStatusSync';
-import { getAllStreams } from '@/features/streamAPI';
+import { getAllStreams, terminateStream } from '@/features/streamAPI';
 import { setStreamActiveStatus, subscribeToChatMessages } from '@/lib/supabase-service';
 import { useWalletAddress } from '@/app/hook/useWalletAddress';
 
 interface Streams {
   streamKey: string;
+  streamId?: string;
   playbackId: string;
   streamName: string;
   isActive?: boolean;
   createdAt?: string;
 }
 
-export function BroadcastWithControls({ streamName, streamKey, playbackId }: Streams) {
+export function BroadcastWithControls({ streamName, streamKey, streamId, playbackId }: Streams) {
   const { walletAddress } = useWalletAddress();
   const creatorId = walletAddress || '';
   const dispatch = useDispatch<AppDispatch>();
@@ -153,23 +154,20 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
 
   const handleStartStream = async () => {
     console.log('[Broadcast] Start stream clicked', { streamKey: streamKey ? `${streamKey.slice(0, 8)}...` : 'MISSING', playbackId });
-    setTimerStarted(true);
-    try {
-      await setStreamActiveStatus(playbackId, true);
-      dispatch(getAllStreams());
-    } catch (error) {
-      console.error('Failed to set stream active:', error);
-    }
+    // Timer and active status are set by handleBroadcastStatusChange when actually live
   };
   const handleEndStream = useCallback(async () => {
     setTimerStarted(false);
     try {
+      if (streamId) {
+        await dispatch(terminateStream(streamId)).unwrap();
+      }
       await setStreamActiveStatus(playbackId, false);
       dispatch(getAllStreams());
     } catch (error) {
-      console.error('Failed to set stream inactive:', error);
+      console.error('Failed to end stream:', error);
     }
-  }, [dispatch, playbackId]);
+  }, [dispatch, playbackId, streamId]);
   const toggleSidebar = () => setSidebarCollapsed((sidebar) => !sidebar);
   const toggleMobileMenu = () => setMobileMenuOpen((menu) => !menu);
   const toggleChat = () => {
@@ -245,6 +243,8 @@ export function BroadcastWithControls({ streamName, streamKey, playbackId }: Str
       const isLive = status === 'live' || status === 'pending';
       if (lastLiveStateRef.current === isLive) return;
       lastLiveStateRef.current = isLive;
+
+      setTimerStarted(isLive);
 
       try {
         await setStreamActiveStatus(playbackId, isLive);

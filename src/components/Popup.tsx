@@ -105,10 +105,10 @@ export const Popup = ({ playbackId, streamId }: PopupProps) => {
   const confirmDelete = async () => {
     setIsLoading(true);
     try {
-      // Delete stream from Supabase
-      await deleteStreamFromSupabase(playbackId);
-      // If the above request is successful, proceed to delete the stream from the Redux store (Livepeer)
+      // Delete from Livepeer first — if this fails, Supabase record stays intact
       await dispatch(deleteStream(streamId)).unwrap();
+      // Then clean up Supabase metadata
+      await deleteStreamFromSupabase(playbackId);
       toast.success('Channel deleted successfully');
       dispatch(resetStreamStatus());
       dispatch(getAllStreams());
@@ -183,15 +183,15 @@ export const AssetPopup = ({ asset }: AssetPopProps) => {
   const confirmDelete = async () => {
     setIsLoading(true);
     try {
-      // Delete video from Supabase
-      await deleteVideoFromSupabase(asset.playbackId);
-      // If the above request is successful, proceed to delete the asset from Livepeer
+      // Delete from Livepeer first — if this fails, Supabase record stays intact
       await dispatch(deleteAsset(asset.id)).unwrap();
+      // Then clean up Supabase metadata
+      await deleteVideoFromSupabase(asset.playbackId);
       toast.success('Asset deleted successfully');
       dispatch(resetAssetStatus());
       // Refresh assets list
       dispatch(getAssets());
-      setAlertOpen(false); // close the dialog after successful delete
+      setAlertOpen(false);
     } catch (err: any) {
       toast.error(err.message || error || 'Failed to delete asset');
     }

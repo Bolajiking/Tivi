@@ -862,6 +862,7 @@ const EmptyStatePanel = ({
                         <DashboardBroadcast
                           streamName={dedicatedLiveStream.title || dedicatedLiveStream.name}
                           streamKey={dedicatedLiveStream.streamKey}
+                          streamId={dedicatedLiveStream.id}
                           playbackId={dedicatedLiveStream.playbackId}
                           creatorAddress={creatorAddress || ''}
                           onStreamEnd={() => navigate.push(backToDashboardPath)}

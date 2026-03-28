@@ -18,19 +18,21 @@ import { addIncomingMessage } from '@/features/chatSlice';
 import { getUserProfile, setStreamActiveStatus, subscribeToChatMessages } from '@/lib/supabase-service';
 import { BroadcastControls } from '@/components/templates/stream/broadcast/Broadcast';
 import { BroadcastStatusSync } from '@/components/templates/stream/broadcast/BroadcastStatusSync';
-import { getAllStreams } from '@/features/streamAPI';
+import { getAllStreams, terminateStream } from '@/features/streamAPI';
 
 interface DashboardBroadcastProps {
   streamName: string;
   streamKey: string;
+  streamId: string;
   playbackId: string;
   creatorAddress: string;
   onStreamEnd?: () => void;
 }
 
-export function DashboardBroadcast({ 
-  streamName, 
-  streamKey, 
+export function DashboardBroadcast({
+  streamName,
+  streamKey,
+  streamId,
   playbackId,
   creatorAddress,
   onStreamEnd
@@ -117,21 +119,19 @@ export function DashboardBroadcast({
 
   const handleStartStream = async () => {
     console.log('[DashboardBroadcast] Start stream clicked', { streamKey: streamKey ? `${streamKey.slice(0, 8)}...` : 'MISSING', playbackId });
-    setTimerStarted(true);
-    try {
-      await setStreamActiveStatus(playbackId, true);
-      dispatch(getAllStreams());
-    } catch (error) {
-      console.error('Failed to set stream active:', error);
-    }
+    // Timer and active status are set by handleBroadcastStatusChange when actually live
   };
   const handleEndStream = async () => {
     setTimerStarted(false);
     try {
+      // Terminate the Livepeer session so it actually stops
+      if (streamId) {
+        await dispatch(terminateStream(streamId)).unwrap();
+      }
       await setStreamActiveStatus(playbackId, false);
       dispatch(getAllStreams());
     } catch (error) {
-      console.error('Failed to set stream inactive:', error);
+      console.error('Failed to end stream:', error);
     }
     if (onStreamEnd) {
       onStreamEnd();
@@ -144,6 +144,9 @@ export function DashboardBroadcast({
       const isLive = status === 'live' || status === 'pending';
       if (lastLiveStateRef.current === isLive) return;
       lastLiveStateRef.current = isLive;
+
+      // Start/stop timer based on actual broadcast status
+      setTimerStarted(isLive);
 
       try {
         await setStreamActiveStatus(playbackId, isLive);

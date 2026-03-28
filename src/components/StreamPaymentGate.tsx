@@ -101,8 +101,8 @@ export function StreamPaymentGate({
         }
       } catch (error) {
         console.error('Error checking stream access:', error);
-        // On error, allow access (fail open)
-        setHasAccess(true);
+        // On error, deny access (fail closed) — user can retry
+        setHasAccess(false);
       } finally {
         setCheckingAccess(false);
       }
