@@ -52,25 +52,40 @@ const XMTP_HISTORY_SYNC_LIMIT = 300;
 const XMTP_IMAGE_PREFIX = '__image__:';
 const CHAT_ACCESS_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
-/** Cache chat subscription access in localStorage to avoid re-fetching on every mount */
+/** Cache chat subscription access + XMTP group membership in localStorage */
 const getChatAccessCacheKey = (playbackId: string, wallet: string) =>
   `chat_access_${playbackId}_${wallet}`;
 
-const getCachedChatAccess = (playbackId: string, wallet: string): boolean => {
+interface ChatAccessCache {
+  granted: boolean;
+  ts: number;
+  /** XMTP group ID — cached so we skip Supabase mapping lookup on reload */
+  xmtpGroupId?: string;
+  /** True once the subscriber has successfully connected to the XMTP group */
+  synced?: boolean;
+}
+
+const getCachedChatAccess = (playbackId: string, wallet: string): ChatAccessCache | null => {
   try {
     const raw = localStorage.getItem(getChatAccessCacheKey(playbackId, wallet));
-    if (!raw) return false;
-    const parsed = JSON.parse(raw);
-    if (parsed?.granted && Date.now() - parsed.ts < CHAT_ACCESS_CACHE_TTL_MS) return true;
-    return false;
-  } catch { return false; }
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as ChatAccessCache;
+    if (parsed?.granted && Date.now() - parsed.ts < CHAT_ACCESS_CACHE_TTL_MS) return parsed;
+    return null;
+  } catch { return null; }
 };
 
-const setCachedChatAccess = (playbackId: string, wallet: string) => {
+const setCachedChatAccess = (playbackId: string, wallet: string, extra?: { xmtpGroupId?: string; synced?: boolean }) => {
   try {
+    const existing = getCachedChatAccess(playbackId, wallet);
     localStorage.setItem(
       getChatAccessCacheKey(playbackId, wallet),
-      JSON.stringify({ granted: true, ts: Date.now() }),
+      JSON.stringify({
+        granted: true,
+        ts: Date.now(),
+        xmtpGroupId: extra?.xmtpGroupId || existing?.xmtpGroupId,
+        synced: extra?.synced ?? existing?.synced ?? false,
+      }),
     );
   } catch { /* storage full or unavailable */ }
 };
@@ -555,6 +570,9 @@ export function ChannelChatExperience({
         }
       }
 
+      // Read cache early — used for both subscription check and XMTP group lookup
+      const cachedAccess = !effectiveAdmin ? getCachedChatAccess(playbackId, walletAddress) : null;
+
       if (!effectiveAdmin) {
         // If we still don't have a valid wallet-format creator ID, wait for resolution
         if (!isLikelyAddress(resolvedStreamCreatorId)) {
@@ -565,8 +583,7 @@ export function ChannelChatExperience({
         }
 
         // Check localStorage cache first to avoid Supabase round-trip on reload
-        const cachedAccess = getCachedChatAccess(playbackId, walletAddress);
-        let hasSubscription = cachedAccess;
+        let hasSubscription = !!cachedAccess;
 
         if (!cachedAccess) {
           const [isFollowerSubscribed, hasPaidSubscription] = await Promise.all([
@@ -589,16 +606,25 @@ export function ChannelChatExperience({
       setChatState('connecting');
       setStatusMessage('Connecting to XMTP room...');
 
-      setStatusMessage('Finding channel room...');
-      const mapping = await getChannelChatGroupMapping(playbackId);
-      if (!effectiveAdmin && !mapping?.xmtpGroupId) {
+      // Use cached XMTP group ID if available to skip Supabase round-trip
+      const previouslySynced = cachedAccess?.synced === true;
+      const cachedGroupId = cachedAccess?.xmtpGroupId;
+
+      let xmtpGroupId = cachedGroupId || null;
+      if (!xmtpGroupId) {
+        setStatusMessage('Finding channel room...');
+        const mapping = await getChannelChatGroupMapping(playbackId);
+        xmtpGroupId = mapping?.xmtpGroupId || null;
+      }
+
+      if (!effectiveAdmin && !xmtpGroupId) {
         setChatState('connecting');
         setStatusMessage('Chat is provisioning. Waiting for room setup...');
         scheduleAccessSyncRetry();
         return;
       }
 
-      setStatusMessage('Authorizing XMTP wallet session...');
+      setStatusMessage(previouslySynced ? 'Reconnecting...' : 'Authorizing XMTP wallet session...');
       const { client } = await getXmtpClient(walletForInit);
       if (isStaleRun()) return;
       xmtpClientRef.current = client;
@@ -607,23 +633,33 @@ export function ChannelChatExperience({
         inboxToWalletRef.current[selfInboxIdRef.current] = walletAddress;
       }
 
-      let conversation =
-        mapping?.xmtpGroupId
-          ? await getConversationById(client, mapping.xmtpGroupId)
-          : null;
-      if (isStaleRun()) return;
-
-      if (!conversation && !effectiveAdmin) {
-        setStatusMessage('Finalizing your chat access...');
-        // First sync all conversations, then check for the group
+      // For previously-synced subscribers: sync conversations first so the
+      // group is discoverable immediately, then do a single lookup.
+      if (previouslySynced && xmtpGroupId) {
         try {
           await client?.conversations?.syncAll?.();
         } catch {
           // no-op
         }
-        // Check immediately after the first sync
-        conversation = await getConversationById(client, mapping?.xmtpGroupId || '');
-        if (isStaleRun()) return;
+      }
+
+      let conversation = xmtpGroupId
+        ? await getConversationById(client, xmtpGroupId)
+        : null;
+      if (isStaleRun()) return;
+
+      if (!conversation && !effectiveAdmin) {
+        setStatusMessage('Finalizing your chat access...');
+        // Sync all conversations then check for the group
+        if (!previouslySynced) {
+          try {
+            await client?.conversations?.syncAll?.();
+          } catch {
+            // no-op
+          }
+          conversation = await getConversationById(client, xmtpGroupId || '');
+          if (isStaleRun()) return;
+        }
 
         // If not found, retry with shorter intervals
         if (!conversation) {
@@ -634,7 +670,7 @@ export function ChannelChatExperience({
             } catch {
               // no-op
             }
-            conversation = await getConversationById(client, mapping?.xmtpGroupId || '');
+            conversation = await getConversationById(client, xmtpGroupId || '');
             if (isStaleRun()) return;
           }
         }
@@ -739,9 +775,15 @@ export function ChannelChatExperience({
 
       setChatState('ready');
       setStatusMessage('Room connected');
-      // Persist access so reload/relogin is instant
+      // Persist access + XMTP group membership so reload is instant
       if (walletAddress && playbackId) {
-        setCachedChatAccess(playbackId, walletAddress);
+        const connectedGroupId = conversationRef.current
+          ? String((conversationRef.current as any)?.id || (conversationRef.current as any)?.topic || xmtpGroupId || '')
+          : xmtpGroupId || undefined;
+        setCachedChatAccess(playbackId, walletAddress, {
+          xmtpGroupId: connectedGroupId || undefined,
+          synced: true,
+        });
       }
       if (accessSyncTimerRef.current) {
         clearTimeout(accessSyncTimerRef.current);
